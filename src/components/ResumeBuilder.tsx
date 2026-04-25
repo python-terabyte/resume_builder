@@ -96,8 +96,11 @@ export default function ResumeBuilder() {
       setSaveState('saved')
       window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 2000)
     } catch (err) {
+      console.error('[Resume save failed]', err)
+      const code = (err as { code?: string })?.code
+      const msg = (err as Error)?.message ?? 'Save failed'
       setSaveState('error')
-      setSaveError((err as Error).message ?? 'Save failed')
+      setSaveError(code ? `${code} — ${msg}` : msg)
     }
   }
 
@@ -199,6 +202,22 @@ export default function ResumeBuilder() {
           )}
         </div>
       </header>
+
+      {saveState === 'error' && saveError && (
+        <div className="no-print flex shrink-0 items-start justify-between gap-3 border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-200">
+          <div className="min-w-0 flex-1">
+            <span className="font-semibold text-red-300">Save failed:</span>{' '}
+            <span className="break-words">{saveError}</span>
+          </div>
+          <button
+            onClick={() => { setSaveState('idle'); setSaveError(null) }}
+            className="shrink-0 rounded p-0.5 text-red-300 hover:bg-red-500/20"
+            aria-label="Dismiss"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">

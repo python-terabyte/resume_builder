@@ -23,7 +23,13 @@ export default function DocumentsPanel({ uid, currentDocId, onOpen, onClose, onC
     setError(null)
     listResumes(uid)
       .then((list) => { if (!cancelled) setDocs(list) })
-      .catch((err) => { if (!cancelled) setError((err as Error).message ?? 'Failed to load') })
+      .catch((err) => {
+        console.error('[Resume list failed]', err)
+        if (cancelled) return
+        const code = (err as { code?: string })?.code
+        const msg = (err as Error)?.message ?? 'Failed to load'
+        setError(code ? `${code} — ${msg}` : msg)
+      })
     return () => { cancelled = true }
   }, [uid])
 
