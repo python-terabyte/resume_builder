@@ -71,7 +71,7 @@ function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+        className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
       />
     </div>
   )
@@ -98,7 +98,7 @@ function Textarea({
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+        className="w-full resize-none rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
       />
     </div>
   )
@@ -192,7 +192,7 @@ function ArrangeAddBar({
     <div className="flex gap-2">
       <button
         onClick={onAdd}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-white/20 py-2 text-sm text-slate-400 transition hover:border-indigo-500 hover:text-indigo-400"
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-white/20 py-2 text-sm text-slate-400 transition hover:border-accent hover:text-accent"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -205,8 +205,8 @@ function ArrangeAddBar({
           title={arranging ? 'Done arranging' : 'Drag to reorder items'}
           className={`flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition ${
             arranging
-              ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300'
-              : 'border-white/20 text-slate-400 hover:border-indigo-500 hover:text-indigo-400'
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-white/20 text-slate-400 hover:border-accent hover:text-accent'
           }`}
         >
           {arranging ? (
@@ -280,7 +280,7 @@ function PersonalSection({ resume, updateResume }: Pick<SidebarProps, 'resume' |
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="cursor-pointer rounded-md border border-white/20 px-2.5 py-1 text-xs text-slate-300 transition hover:border-indigo-500 hover:text-white">
+          <label className="cursor-pointer rounded-md border border-white/20 px-2.5 py-1 text-xs text-slate-300 transition hover:border-accent hover:text-white">
             Upload Photo
             <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
           </label>
@@ -415,7 +415,7 @@ function ExperienceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
                         type="checkbox"
                         checked={exp.current}
                         onChange={(e) => setField(exp.id, 'current', e.target.checked)}
-                        className="accent-indigo-500"
+                        className="accent-accent"
                       />
                       Currently working here
                     </label>
@@ -520,7 +520,7 @@ function EducationSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                       {!edu.current && <Input label="End Date" value={edu.endDate} onChange={(v) => setField(edu.id, 'endDate', v)} type="month" />}
                     </div>
                     <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
-                      <input type="checkbox" checked={edu.current} onChange={(e) => setField(edu.id, 'current', e.target.checked)} className="accent-indigo-500" />
+                      <input type="checkbox" checked={edu.current} onChange={(e) => setField(edu.id, 'current', e.target.checked)} className="accent-accent" />
                       Currently attending
                     </label>
                     <div className="grid grid-cols-2 gap-2">
@@ -642,7 +642,7 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
                           value={skill.name}
                           onChange={(e) => setSkill(group.id, skill.id, 'name', e.target.value)}
                           placeholder="Skill name"
-                          className="w-28 rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1 text-xs text-white placeholder-slate-600 outline-none focus:border-indigo-500"
+                          className="w-28 rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1 text-xs text-white placeholder-slate-600 outline-none focus:border-accent"
                         />
                         <input
                           type="range"
@@ -660,7 +660,7 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
                     ))}
                     <button
                       onClick={() => addSkill(group.id)}
-                      className="mt-1 flex items-center gap-1 text-xs text-indigo-400 transition hover:text-indigo-300"
+                      className="mt-1 flex items-center gap-1 text-xs text-accent transition hover:text-accent"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       Add skill
@@ -875,12 +875,12 @@ function LanguagesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                     value={lang.language}
                     onChange={(e) => setField(lang.id, 'language', e.target.value)}
                     placeholder="Language"
-                    className="flex-1 rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none focus:border-indigo-500"
+                    className="flex-1 rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none focus:border-accent"
                   />
                   <select
                     value={lang.proficiency}
                     onChange={(e) => setField(lang.id, 'proficiency', e.target.value)}
-                    className="rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
+                    className="rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
                   >
                     {proficiencies.map((p) => <option key={p}>{p}</option>)}
                   </select>
@@ -1007,7 +1007,7 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
         <select
           value={t.fontFamily}
           onChange={(e) => updateResume((prev) => ({ ...prev, typography: { ...prev.typography, fontFamily: e.target.value } }))}
-          className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
+          className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent"
         >
           {FONT_FAMILIES.map((f) => <option key={f}>{f}</option>)}
         </select>
@@ -1092,7 +1092,7 @@ function SectionsManager({ resume, updateResume }: Pick<SidebarProps, 'resume' |
                   <span className="flex-1 text-sm text-slate-300">{sec.title}</span>
                   <button
                     onClick={() => toggleVisible(sec.id)}
-                    className={`transition ${sec.visible ? 'text-indigo-400' : 'text-slate-600'}`}
+                    className={`transition ${sec.visible ? 'text-accent' : 'text-slate-600'}`}
                   >
                     {sec.visible ? (
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -1126,8 +1126,8 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-md border border-indigo-500/30 bg-indigo-500/5 p-3 text-xs text-slate-300">
-        <p className="font-semibold text-indigo-300 mb-1">Step 1 — Pick your industry</p>
+      <div className="rounded-md border border-accent/30 bg-accent/5 p-3 text-xs text-slate-300">
+        <p className="font-semibold text-accent mb-1">Step 1 — Pick your industry</p>
         <p className="text-slate-400">
           We&apos;ll show templates tuned for that field. Switching templates never overwrites your data.
         </p>
@@ -1148,8 +1148,8 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                 title={ind.description}
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                   active
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-white/10 bg-[#0f0f1a] text-slate-300 hover:border-indigo-500 hover:text-white'
+                    ? 'bg-accent text-white'
+                    : 'border border-white/10 bg-[#0f0f1a] text-slate-300 hover:border-accent hover:text-white'
                 }`}
               >
                 {ind.label}
@@ -1179,8 +1179,8 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                   onClick={() => setTemplate(tpl.id)}
                   className={`group relative flex flex-col gap-2 rounded-lg border p-2 text-left transition ${
                     active
-                      ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500'
-                      : 'border-white/10 bg-[#0f0f1a] hover:border-indigo-500/60'
+                      ? 'border-accent bg-accent/10 ring-1 ring-accent'
+                      : 'border-white/10 bg-[#0f0f1a] hover:border-accent/60'
                   }`}
                 >
                   <TemplateThumb id={tpl.id} accentColor={resume.accentColor} />
@@ -1201,7 +1201,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                     </p>
                   </div>
                   {active && (
-                    <div className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-white">
+                    <div className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-white">
                       <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
@@ -1431,14 +1431,14 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
                   : 'flex-row items-center gap-3 px-3 py-2.5 text-sm'
               } ${
                 active
-                  ? 'bg-indigo-500/15 text-indigo-300'
+                  ? 'bg-accent/15 text-accent'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
               }`}
             >
               {active && (
                 <span
                   aria-hidden
-                  className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-indigo-400"
+                  className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-accent"
                 />
               )}
               <span className="shrink-0">{icon}</span>
@@ -1461,7 +1461,7 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-3">
             <div className="flex items-center gap-2.5">
-              <span className="text-indigo-400">{activeMeta!.icon}</span>
+              <span className="text-accent">{activeMeta!.icon}</span>
               <span className="text-base font-semibold text-white">{activeMeta!.label}</span>
             </div>
             <button

@@ -17,6 +17,7 @@ const config: Config = {
           secondary: '#1a1a2e',
           tertiary: '#252540',
         },
+        accent: 'rgb(var(--accent-rgb) / <alpha-value>)',
       },
     },
   },

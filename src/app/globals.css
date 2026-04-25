@@ -8,6 +8,7 @@
   --bg-primary: #0f0f1a;
   --bg-secondary: #1a1a2e;
   --bg-tertiary: #252540;
+  --accent-rgb: 99 102 241;
 }
 
 * {
@@ -34,7 +35,7 @@ body {
   border-radius: 3px;
 }
 .panel-scroll::-webkit-scrollbar-thumb:hover {
-  background: #6366f1;
+  background: rgb(var(--accent-rgb, 99 102 241));
 }
 
 /* Input styles */
@@ -59,7 +60,7 @@ input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   margin-top: -5px;
-  background-color: #6366f1;
+  background-color: rgb(var(--accent-rgb, 99 102 241));
   height: 14px;
   width: 14px;
   border-radius: 50%;

@@ -1,7 +1,9 @@
-import { TemplateProps, dateRange, formatDate, isSectionVisible, sectionTitle } from './shared'
+import { ResumeData, SectionType } from '@/types/resume'
+import { TemplateProps, dateRange, formatDate, sectionTitle, visibleSectionTypes } from './shared'
 
 export default function Executive({ resume }: TemplateProps) {
   const { personal, accentColor } = resume
+  const order = visibleSectionTypes(resume)
 
   return (
     <div className="px-12 py-10 text-gray-900" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
@@ -23,14 +25,26 @@ export default function Executive({ resume }: TemplateProps) {
         </div>
       </header>
 
-      {personal.summary && (
-        <div className="mt-6 italic text-center text-sm leading-relaxed text-gray-700 max-w-2xl mx-auto">
+      {order.map((type) => renderBlock(type, resume, accentColor))}
+    </div>
+  )
+}
+
+function renderBlock(type: SectionType, resume: ResumeData, accentColor: string) {
+  const { personal } = resume
+  const title = sectionTitle(resume, type)
+
+  switch (type) {
+    case 'personal':
+      return personal.summary ? (
+        <div key={type} className="mt-6 italic text-center text-sm leading-relaxed text-gray-700 max-w-2xl mx-auto">
           “{personal.summary}”
         </div>
-      )}
+      ) : null
 
-      {isSectionVisible(resume, 'experience') && resume.experience.length > 0 && (
-        <Section title={sectionTitle(resume, 'experience')} accentColor={accentColor}>
+    case 'experience':
+      return resume.experience.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
           {resume.experience.map((exp) => (
             <div key={exp.id} className="mb-4">
               <div className="flex justify-between items-baseline">
@@ -44,10 +58,11 @@ export default function Executive({ resume }: TemplateProps) {
             </div>
           ))}
         </Section>
-      )}
+      ) : null
 
-      {isSectionVisible(resume, 'education') && resume.education.length > 0 && (
-        <Section title={sectionTitle(resume, 'education')} accentColor={accentColor}>
+    case 'education':
+      return resume.education.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
           {resume.education.map((edu) => (
             <div key={edu.id} className="mb-2">
               <div className="flex justify-between items-baseline">
@@ -59,10 +74,11 @@ export default function Executive({ resume }: TemplateProps) {
             </div>
           ))}
         </Section>
-      )}
+      ) : null
 
-      {isSectionVisible(resume, 'skills') && resume.skillGroups.length > 0 && (
-        <Section title={sectionTitle(resume, 'skills')} accentColor={accentColor}>
+    case 'skills':
+      return resume.skillGroups.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
           {resume.skillGroups.map((g) => (
             <div key={g.id} className="text-sm mb-1">
               {g.category && <span className="font-bold uppercase tracking-wider text-xs" style={{ color: accentColor }}>{g.category} </span>}
@@ -70,10 +86,11 @@ export default function Executive({ resume }: TemplateProps) {
             </div>
           ))}
         </Section>
-      )}
+      ) : null
 
-      {isSectionVisible(resume, 'certifications') && resume.certifications.length > 0 && (
-        <Section title={sectionTitle(resume, 'certifications')} accentColor={accentColor}>
+    case 'certifications':
+      return resume.certifications.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm flex justify-between">
               <span><span className="font-bold">{c.name}</span>{c.issuer && <span className="italic text-gray-700"> — {c.issuer}</span>}</span>
@@ -81,10 +98,11 @@ export default function Executive({ resume }: TemplateProps) {
             </div>
           ))}
         </Section>
-      )}
+      ) : null
 
-      {isSectionVisible(resume, 'projects') && resume.projects.length > 0 && (
-        <Section title={sectionTitle(resume, 'projects')} accentColor={accentColor}>
+    case 'projects':
+      return resume.projects.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
           {resume.projects.map((p) => (
             <div key={p.id} className="mb-2">
               <div className="flex justify-between items-baseline">
@@ -95,15 +113,25 @@ export default function Executive({ resume }: TemplateProps) {
             </div>
           ))}
         </Section>
-      )}
+      ) : null
 
-      {isSectionVisible(resume, 'languages') && resume.languages.length > 0 && (
-        <Section title={sectionTitle(resume, 'languages')} accentColor={accentColor}>
+    case 'languages':
+      return resume.languages.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
           <div className="text-sm text-gray-700">{resume.languages.map((l) => `${l.language}${l.proficiency ? ` (${l.proficiency})` : ''}`).join(' · ')}</div>
         </Section>
-      )}
-    </div>
-  )
+      ) : null
+
+    case 'interests':
+      return resume.interests.length > 0 ? (
+        <Section key={type} title={title} accentColor={accentColor}>
+          <div className="text-sm text-gray-700">{resume.interests.map((i) => i.name).join(' · ')}</div>
+        </Section>
+      ) : null
+
+    default:
+      return null
+  }
 }
 
 function Section({ title, children, accentColor }: { title: string; children: React.ReactNode; accentColor: string }) {

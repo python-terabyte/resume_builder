@@ -1,4 +1,5 @@
-import { TemplateProps, dateRange, formatDate, isSectionVisible, sectionTitle, visibleSectionTypes } from './shared'
+import { ResumeData, SectionType } from '@/types/resume'
+import { TemplateProps, dateRange, formatDate, sectionTitle, visibleSectionTypes } from './shared'
 
 export default function AtsClassic({ resume }: TemplateProps) {
   const { personal } = resume
@@ -20,14 +21,26 @@ export default function AtsClassic({ resume }: TemplateProps) {
 
       <div className="mt-5 border-t border-black" />
 
-      {order.includes('personal') && personal.summary && (
-        <Block title="Professional Summary">
+      {order.map((type) => renderBlock(type, resume))}
+    </div>
+  )
+}
+
+function renderBlock(type: SectionType, resume: ResumeData) {
+  const { personal } = resume
+  const title = sectionTitle(resume, type)
+
+  switch (type) {
+    case 'personal':
+      return personal.summary ? (
+        <Block key={type} title="Professional Summary">
           <p className="text-sm leading-snug">{personal.summary}</p>
         </Block>
-      )}
+      ) : null
 
-      {order.includes('experience') && resume.experience.length > 0 && isSectionVisible(resume, 'experience') && (
-        <Block title={sectionTitle(resume, 'experience')}>
+    case 'experience':
+      return resume.experience.length > 0 ? (
+        <Block key={type} title={title}>
           {resume.experience.map((exp) => (
             <div key={exp.id} className="mb-3">
               <div className="flex justify-between text-sm">
@@ -39,10 +52,11 @@ export default function AtsClassic({ resume }: TemplateProps) {
             </div>
           ))}
         </Block>
-      )}
+      ) : null
 
-      {order.includes('education') && resume.education.length > 0 && (
-        <Block title={sectionTitle(resume, 'education')}>
+    case 'education':
+      return resume.education.length > 0 ? (
+        <Block key={type} title={title}>
           {resume.education.map((edu) => (
             <div key={edu.id} className="mb-2">
               <div className="flex justify-between text-sm">
@@ -58,10 +72,11 @@ export default function AtsClassic({ resume }: TemplateProps) {
             </div>
           ))}
         </Block>
-      )}
+      ) : null
 
-      {order.includes('skills') && resume.skillGroups.length > 0 && (
-        <Block title={sectionTitle(resume, 'skills')}>
+    case 'skills':
+      return resume.skillGroups.length > 0 ? (
+        <Block key={type} title={title}>
           {resume.skillGroups.map((g) => (
             <div key={g.id} className="text-sm">
               {g.category && <span className="font-bold">{g.category}: </span>}
@@ -69,10 +84,11 @@ export default function AtsClassic({ resume }: TemplateProps) {
             </div>
           ))}
         </Block>
-      )}
+      ) : null
 
-      {order.includes('projects') && resume.projects.length > 0 && (
-        <Block title={sectionTitle(resume, 'projects')}>
+    case 'projects':
+      return resume.projects.length > 0 ? (
+        <Block key={type} title={title}>
           {resume.projects.map((p) => (
             <div key={p.id} className="mb-2">
               <div className="flex justify-between text-sm">
@@ -84,10 +100,11 @@ export default function AtsClassic({ resume }: TemplateProps) {
             </div>
           ))}
         </Block>
-      )}
+      ) : null
 
-      {order.includes('certifications') && resume.certifications.length > 0 && (
-        <Block title={sectionTitle(resume, 'certifications')}>
+    case 'certifications':
+      return resume.certifications.length > 0 ? (
+        <Block key={type} title={title}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm">
               <span className="font-bold">{c.name}</span>
@@ -96,23 +113,27 @@ export default function AtsClassic({ resume }: TemplateProps) {
             </div>
           ))}
         </Block>
-      )}
+      ) : null
 
-      {order.includes('languages') && resume.languages.length > 0 && (
-        <Block title={sectionTitle(resume, 'languages')}>
+    case 'languages':
+      return resume.languages.length > 0 ? (
+        <Block key={type} title={title}>
           <div className="text-sm">
             {resume.languages.map((l) => `${l.language}${l.proficiency ? ` (${l.proficiency})` : ''}`).join(', ')}
           </div>
         </Block>
-      )}
+      ) : null
 
-      {order.includes('interests') && resume.interests.length > 0 && (
-        <Block title={sectionTitle(resume, 'interests')}>
+    case 'interests':
+      return resume.interests.length > 0 ? (
+        <Block key={type} title={title}>
           <div className="text-sm">{resume.interests.map((i) => i.name).join(', ')}</div>
         </Block>
-      )}
-    </div>
-  )
+      ) : null
+
+    default:
+      return null
+  }
 }
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {

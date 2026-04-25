@@ -1,0 +1,200 @@
+'use client'
+
+import { useState } from 'react'
+import { signInEmail, signInGoogle, signUpEmail } from '@/lib/auth'
+
+type Mode = 'signin' | 'signup'
+
+export default function AuthGate({ configured }: { configured: boolean }) {
+  const [mode, setMode] = useState<Mode>('signin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  if (!configured) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#0f0f1a] p-4">
+        <div className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-amber-100">
+          <h2 className="text-lg font-bold">Firebase isn&apos;t configured</h2>
+          <p className="mt-2 text-sm leading-relaxed">
+            Copy <code className="rounded bg-black/30 px-1.5 py-0.5">.env.local.example</code> to{' '}
+            <code className="rounded bg-black/30 px-1.5 py-0.5">.env.local</code> and fill in the values from
+            Firebase Console → Project settings → Your apps → Web app, then restart the dev server.
+          </p>
+          <p className="mt-3 text-xs text-amber-200/70">
+            Required vars: NEXT_PUBLIC_FIREBASE_API_KEY, AUTH_DOMAIN, PROJECT_ID, STORAGE_BUCKET, MESSAGING_SENDER_ID, APP_ID.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setBusy(true)
+    try {
+      if (mode === 'signup') {
+        await signUpEmail(email, password, name || undefined)
+      } else {
+        await signInEmail(email, password)
+      }
+    } catch (err) {
+      setError(humanizeError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function googleSignIn() {
+    setError(null)
+    setBusy(true)
+    try {
+      await signInGoogle()
+    } catch (err) {
+      setError(humanizeError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0f0f1a] p-4">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a2e] p-6 shadow-2xl">
+        <div className="mb-5 flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent">
+            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <span className="text-lg font-semibold text-white">Resume Builder</span>
+        </div>
+
+        <h1 className="text-xl font-bold text-white">
+          {mode === 'signin' ? 'Sign in' : 'Create your account'}
+        </h1>
+        <p className="mt-1 text-sm text-slate-400">
+          {mode === 'signin' ? 'Welcome back. Pick up where you left off.' : 'Save your progress and edit it from anywhere.'}
+        </p>
+
+        <button
+          onClick={googleSignIn}
+          disabled={busy}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </button>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
+          <div className="h-px flex-1 bg-white/10" />
+          or
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          {mode === 'signup' && (
+            <Field label="Name">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+              />
+            </Field>
+          )}
+          <Field label="Email">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            />
+          </Field>
+
+          {error && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+          >
+            {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+          </button>
+        </form>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
+          {mode === 'signin' ? (
+            <>
+              No account?{' '}
+              <button onClick={() => setMode('signup')} className="text-accent hover:underline">
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already have one?{' '}
+              <button onClick={() => setMode('signin')} className="text-accent hover:underline">
+                Sign in
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.6 2.4-7.2 2.4-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C41 35 44 30 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  )
+}
+
+function humanizeError(err: unknown): string {
+  const code = (err as { code?: string })?.code ?? ''
+  switch (code) {
+    case 'auth/invalid-email': return 'That email looks invalid.'
+    case 'auth/user-not-found': return 'No account with that email.'
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential': return 'Email or password is incorrect.'
+    case 'auth/email-already-in-use': return 'An account with that email already exists.'
+    case 'auth/weak-password': return 'Password must be at least 6 characters.'
+    case 'auth/popup-closed-by-user': return 'Sign-in window was closed.'
+    case 'auth/network-request-failed': return 'Network error. Check your connection.'
+    default: return (err as Error)?.message ?? 'Something went wrong.'
+  }
+}
