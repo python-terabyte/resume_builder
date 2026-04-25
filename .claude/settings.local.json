@@ -4,7 +4,8 @@
       "Bash(npx tsc *)",
       "Bash(echo \"EXIT=$?\")",
       "Bash(npx next *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
