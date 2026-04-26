@@ -36,7 +36,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
     case 'personal':
       return personal.summary ? (
         <Section key={type} title="Summary" accentColor={accentColor}>
-          <p className="text-sm leading-relaxed">{personal.summary}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{personal.summary}</p>
         </Section>
       ) : null
 
@@ -53,7 +53,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
                 {exp.company}
                 {exp.location && <span className="text-gray-500"> · {exp.location}</span>}
               </div>
-              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-line">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{exp.description}</div>}
             </div>
           ))}
         </Section>
@@ -72,7 +72,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
                 {[edu.degree, edu.field].filter(Boolean).join(', ')}
                 {edu.gpa && <span className="text-gray-500"> · GPA: {edu.gpa}</span>}
               </div>
-              {edu.description && <div className="text-xs text-gray-600">{edu.description}</div>}
+              {edu.description && <div className="text-xs text-gray-600 whitespace-pre-wrap">{edu.description}</div>}
             </div>
           ))}
         </Section>
@@ -101,7 +101,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
               </div>
               {p.url && <div className="text-xs" style={{ color: accentColor }}>{p.url}</div>}
               {p.technologies && <div className="text-xs text-gray-600">{p.technologies}</div>}
-              {p.description && <div className="text-sm text-gray-700">{p.description}</div>}
+              {p.description && <div className="text-sm text-gray-700 whitespace-pre-wrap">{p.description}</div>}
             </div>
           ))}
         </Section>
@@ -112,7 +112,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
         <Section key={type} title={title} accentColor={accentColor}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm flex justify-between">
-              <span><span className="font-semibold">{c.name}</span>{c.issuer && <span className="text-gray-700"> — {c.issuer}</span>}</span>
+              <span><span className="font-semibold">{c.name}</span>{c.issuer && <span className="text-gray-700">, {c.issuer}</span>}</span>
               {c.date && <span className="text-xs text-gray-600">{formatDate(c.date)}</span>}
             </div>
           ))}
@@ -142,7 +142,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
 
 function Section({ title, children, accentColor }: { title: string; children: React.ReactNode; accentColor: string }) {
   return (
-    <div className="mt-5">
+    <div className="mt-5" data-resume-section>
       <h2 className="text-xs font-bold uppercase tracking-widest pb-1 mb-2 border-b-2" style={{ borderColor: accentColor, color: accentColor }}>
         {title}
       </h2>

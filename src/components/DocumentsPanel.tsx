@@ -28,7 +28,7 @@ export default function DocumentsPanel({ uid, currentDocId, onOpen, onClose, onC
         if (cancelled) return
         const code = (err as { code?: string })?.code
         const msg = (err as Error)?.message ?? 'Failed to load'
-        setError(code ? `${code} — ${msg}` : msg)
+        setError(code ? `${code}, ${msg}` : msg)
       })
     return () => { cancelled = true }
   }, [uid])

@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, forwardRef, useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import { PAGE_SIZES, ResumeData } from '@/types/resume'
 import { TEMPLATE_COMPONENTS } from './templates'
 
@@ -20,32 +20,92 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
   const Template = TEMPLATE_COMPONENTS[templateId] ?? TEMPLATE_COMPONENTS['modern-gradient']
   const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
 
-  const pageWidthMm = parseFloat(pageMeta.width)
-  const pageHeightMm = parseFloat(pageMeta.height)
+  const pageWidthCss = pageMeta.width
+  const pageHeightCss = pageMeta.height
+  const pageHeightMm = parseFloat(pageHeightCss)
   const pageHeightPx = pageHeightMm * PX_PER_MM
   const headerPx = HEADER_MM * PX_PER_MM
   const footerPx = FOOTER_MM * PX_PER_MM
+  // Page 1: no header, but has footer → content area = pageHeight - footer
+  // Pages 2+: header + footer → content area = pageHeight - header - footer
+  const firstPageContentPx = pageHeightPx - footerPx
   const continuationContentPx = pageHeightPx - headerPx - footerPx
 
-  // Measure rendered template height to derive page count
+  // Measure rendered template height + section heading offsets to derive page breaks
   const measureRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
+  const [lineBottoms, setLineBottoms] = useState<number[]>([])
 
   useEffect(() => {
     const node = measureRef.current
     if (!node) return
-    const update = () => setContentHeight(node.scrollHeight)
+    const update = () => {
+      setContentHeight(node.scrollHeight)
+      const containerTop = node.getBoundingClientRect().top
+      // Collect the bottom of every rendered line box across the whole resume.
+      // Each entry is a candidate page-break offset: the page can end right
+      // after that line, with the next page starting on the line after.
+      // This is line-aware pagination, no glyph ever gets bisected, and each
+      // page is filled with as much content as fits.
+      const bottoms: number[] = []
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) =>
+          n.nodeValue && n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+      })
+      let n: Node | null = walker.nextNode()
+      while (n) {
+        const range = document.createRange()
+        range.selectNodeContents(n)
+        const rects = range.getClientRects()
+        for (let i = 0; i < rects.length; i++) {
+          const b = rects[i].bottom - containerTop
+          if (b > 0) bottoms.push(b)
+        }
+        n = walker.nextNode()
+      }
+      bottoms.sort((a, b) => a - b)
+      setLineBottoms(bottoms)
+    }
     update()
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(update).catch(() => {})
+    }
     const observer = new ResizeObserver(update)
     observer.observe(node)
     return () => observer.disconnect()
   }, [resume])
 
-  // Page 1 holds a full page of content; pages 2+ each hold (pageHeight - header - footer)
-  let pageCount = 1
-  if (contentHeight > pageHeightPx) {
-    pageCount = 1 + Math.ceil((contentHeight - pageHeightPx) / continuationContentPx)
-  }
+  // Each page ends right after the latest line whose bottom fits in its
+  // natural capacity. Falls back to a hard cut at naturalEnd only when no
+  // line-bottom is available in the range (extremely rare, only with empty
+  // pages).
+  const pageStarts: number[] = (() => {
+    if (contentHeight === 0) return [0]
+    const starts = [0]
+    let pageStart = 0
+    let capacity = firstPageContentPx
+    const candidates = lineBottoms
+
+    while (true) {
+      const naturalEnd = pageStart + capacity
+      if (naturalEnd >= contentHeight) break
+
+      let snapAt = -1
+      for (const t of candidates) {
+        if (t > pageStart && t <= naturalEnd) snapAt = t
+        else if (t > naturalEnd) break
+      }
+
+      const nextStart = snapAt > 0 ? snapAt : naturalEnd
+      if (nextStart <= pageStart) break
+      starts.push(nextStart)
+      pageStart = nextStart
+      capacity = continuationContentPx
+    }
+    return starts
+  })()
+
+  const pageCount = pageStarts.length
 
   const fontStyle = {
     fontFamily: `'${typography.fontFamily}', sans-serif`,
@@ -54,21 +114,24 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
     letterSpacing: `${typography.letterSpacing}em`,
   }
 
-  const personalName =
-    `${resume.personal.firstName} ${resume.personal.lastName}`.trim() || 'Resume'
-
-  // Compute marginTop applied to the duplicated template inside each page frame.
-  // For page 0 → 0. For page i > 0 → place the content "cursor" so that the
-  // content-y immediately after page-1 lands at headerPx inside the frame.
+  // For each page i: the content cursor is pageStarts[i]. We position the
+  // duplicated template with marginTop so that content_y = pageStarts[i] lands
+  // at frame_y = (page-1 → 0 because no header on page 1; page 2+ → headerPx).
   function contentOffsetForPage(i: number): number {
-    if (i === 0) return 0
-    const cursor = pageHeightPx + (i - 1) * continuationContentPx
-    return cursor - headerPx
+    const frameTop = i === 0 ? 0 : headerPx
+    return pageStarts[i] - frameTop
+  }
+
+  // How many pixels of actual content this page shows.
+  function visibleContentForPage(i: number): number {
+    const start = pageStarts[i]
+    const end = i + 1 < pageStarts.length ? pageStarts[i + 1] : contentHeight
+    return Math.max(0, end - start)
   }
 
   return (
     <>
-      {/* Off-screen measurement copy — renders the template once at full
+      {/* Off-screen measurement copy, renders the template once at full
           height so we can determine how many pages it spans. */}
       <div
         ref={measureRef}
@@ -78,7 +141,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
           position: 'fixed',
           top: 0,
           left: -99999,
-          width: pageMeta.width,
+          width: pageWidthCss,
           pointerEvents: 'none',
           ...fontStyle,
         }}
@@ -86,23 +149,24 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
         <Template resume={resume} />
       </div>
 
-      {/* Visible paginated stack — also what react-to-print clones */}
+      {/* Visible paginated stack, also what react-to-print clones */}
       <div ref={ref} id="resume-preview" className="flex flex-col items-center gap-6 print:gap-0">
         {Array.from({ length: pageCount }, (_, i) => {
           const isLast = i === pageCount - 1
           const offset = contentOffsetForPage(i)
+          const frameTop = i === 0 ? 0 : headerPx
+          const visible = visibleContentForPage(i)
+          // Cover from end-of-content down to footer top, hiding any overflow
+          // that would otherwise leak into the empty space (and the footer band).
+          const coverTop = frameTop + visible
+          const coverBottom = footerPx
           return (
-            <Fragment key={i}>
-              {i > 0 && (
-                <div className="text-[11px] font-medium uppercase tracking-widest text-slate-500 print:hidden">
-                  Page {i + 1} of {pageCount}
-                </div>
-              )}
               <div
+                key={i}
                 className="resume-page text-gray-800"
                 style={{
-                  width: pageMeta.width,
-                  height: pageMeta.height,
+                  width: pageWidthCss,
+                  height: pageHeightCss,
                   background: '#ffffff',
                   boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
                   position: 'relative',
@@ -111,18 +175,31 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
                   pageBreakAfter: isLast ? 'auto' : 'always',
                 }}
               >
-                <div style={{ marginTop: -offset, ...fontStyle }}>
+                <div style={{ 
+                  transform: `translateY(-${offset}px)`,
+                  willChange: 'transform',
+                  ...fontStyle,
+                  }}>
                   <Template resume={resume} />
                 </div>
 
-                {i > 0 && (
-                  <>
-                    <PageHeader name={personalName} pageNum={i + 1} totalPages={pageCount} />
-                    <PageFooter pageNum={i + 1} totalPages={pageCount} />
-                  </>
-                )}
+                {/* Opaque underflow cover: hides anything below this page's
+                    visible content (template overflow, sidebar fills, etc.) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: coverTop,
+                    left: 0,
+                    right: 0,
+                    bottom: coverBottom,
+                    background: '#ffffff',
+                    pointerEvents: 'none',
+                  }}
+                />
+
+                {i > 0 && <PageHeader />}
+                <PageFooter />
               </div>
-            </Fragment>
           )
         })}
       </div>
@@ -133,7 +210,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
 ResumePreview.displayName = 'ResumePreview'
 export default ResumePreview
 
-function PageHeader({ name, pageNum, totalPages }: { name: string; pageNum: number; totalPages: number }) {
+function PageHeader() {
   return (
     <div
       style={{
@@ -142,26 +219,13 @@ function PageHeader({ name, pageNum, totalPages }: { name: string; pageNum: numb
         left: 0,
         right: 0,
         height: `${HEADER_MM}mm`,
-        padding: '4mm 14mm',
         background: '#ffffff',
-        borderBottom: '1px solid #e5e7eb',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: '10px',
-        color: '#6b7280',
-        letterSpacing: '0.02em',
       }}
-    >
-      <span className="truncate">{name}</span>
-      <span>
-        Page {pageNum} of {totalPages}
-      </span>
-    </div>
+    />
   )
 }
 
-function PageFooter({ pageNum, totalPages }: { pageNum: number; totalPages: number }) {
+function PageFooter() {
   return (
     <div
       style={{
@@ -170,18 +234,8 @@ function PageFooter({ pageNum, totalPages }: { pageNum: number; totalPages: numb
         left: 0,
         right: 0,
         height: `${FOOTER_MM}mm`,
-        padding: '3mm 14mm',
         background: '#ffffff',
-        borderTop: '1px solid #e5e7eb',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '9px',
-        color: '#9ca3af',
-        letterSpacing: '0.02em',
       }}
-    >
-      Page {pageNum} of {totalPages}
-    </div>
+    />
   )
 }

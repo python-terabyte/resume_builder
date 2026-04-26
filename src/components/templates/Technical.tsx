@@ -36,7 +36,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
     case 'personal':
       return personal.summary ? (
         <Section key={type} title="summary" accentColor={accentColor}>
-          <p className="text-sm leading-relaxed text-gray-700">{personal.summary}</p>
+          <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{personal.summary}</p>
         </Section>
       ) : null
 
@@ -64,7 +64,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
                 <span className="text-xs text-gray-600">{dateRange(exp.startDate, exp.endDate, exp.current)}</span>
               </div>
               {exp.location && <div className="text-xs text-gray-500">{exp.location}</div>}
-              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-line">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{exp.description}</div>}
             </div>
           ))}
         </Section>
@@ -81,7 +81,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
               </div>
               {p.url && <div className="text-xs" style={{ color: accentColor }}>↗ {p.url}</div>}
               {p.technologies && <div className="text-xs text-gray-500">stack: {p.technologies}</div>}
-              {p.description && <div className="text-sm text-gray-700 mt-0.5">{p.description}</div>}
+              {p.description && <div className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap">{p.description}</div>}
             </div>
           ))}
         </Section>
@@ -93,7 +93,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
           {resume.education.map((edu) => (
             <div key={edu.id} className="mb-1.5">
               <div className="flex justify-between items-baseline text-sm">
-                <span><span className="font-bold">{edu.institution}</span><span className="text-gray-700"> — {[edu.degree, edu.field].filter(Boolean).join(', ')}</span></span>
+                <span><span className="font-bold">{edu.institution}</span><span className="text-gray-700">, {[edu.degree, edu.field].filter(Boolean).join(', ')}</span></span>
                 <span className="text-xs text-gray-600">{dateRange(edu.startDate, edu.endDate, edu.current)}</span>
               </div>
               {edu.gpa && <div className="text-xs text-gray-500">GPA: {edu.gpa}</div>}
@@ -107,7 +107,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
         <Section key={type} title={title} accentColor={accentColor}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm flex justify-between">
-              <span>• <span className="font-semibold">{c.name}</span>{c.issuer && <span className="text-gray-600"> — {c.issuer}</span>}</span>
+              <span>• <span className="font-semibold">{c.name}</span>{c.issuer && <span className="text-gray-600">, {c.issuer}</span>}</span>
               {c.date && <span className="text-xs text-gray-600">{formatDate(c.date)}</span>}
             </div>
           ))}
@@ -135,7 +135,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
 
 function Section({ title, children, accentColor }: { title: string; children: React.ReactNode; accentColor: string }) {
   return (
-    <div className="mt-5">
+    <div className="mt-5" data-resume-section>
       <h2 className="text-xs font-bold mb-2" style={{ color: accentColor }}>
         # {title}
       </h2>

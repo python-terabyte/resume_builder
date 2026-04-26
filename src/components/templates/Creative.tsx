@@ -106,7 +106,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
     case 'personal':
       return personal.summary ? (
         <MainBlock key={type} title="About" accentColor={accentColor}>
-          <p className="text-sm leading-relaxed text-gray-700">{personal.summary}</p>
+          <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{personal.summary}</p>
         </MainBlock>
       ) : null
 
@@ -122,7 +122,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
               <div className="text-sm" style={{ color: accentColor }}>
                 {exp.company}{exp.location && <span className="text-gray-500"> · {exp.location}</span>}
               </div>
-              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-line">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{exp.description}</div>}
             </div>
           ))}
         </MainBlock>
@@ -139,7 +139,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
               </div>
               {p.url && <div className="text-xs" style={{ color: accentColor }}>{p.url}</div>}
               {p.technologies && <div className="text-xs text-gray-500">{p.technologies}</div>}
-              {p.description && <div className="text-sm text-gray-700">{p.description}</div>}
+              {p.description && <div className="text-sm text-gray-700 whitespace-pre-wrap">{p.description}</div>}
             </div>
           ))}
         </MainBlock>
@@ -168,7 +168,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
         <MainBlock key={type} title={title} accentColor={accentColor}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm flex justify-between mb-0.5">
-              <span><span className="font-semibold">{c.name}</span>{c.issuer && <span className="text-gray-600"> — {c.issuer}</span>}</span>
+              <span><span className="font-semibold">{c.name}</span>{c.issuer && <span className="text-gray-600">, {c.issuer}</span>}</span>
               {c.date && <span className="text-xs text-gray-500">{formatDate(c.date)}</span>}
             </div>
           ))}
@@ -186,7 +186,7 @@ function SideHeader({ children }: { children: React.ReactNode }) {
 
 function MainBlock({ title, accentColor, children }: { title: string; accentColor: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div data-resume-section>
       <h2 className="text-sm font-extrabold uppercase tracking-[0.2em] mb-2" style={{ color: accentColor }}>{title}</h2>
       {children}
     </div>

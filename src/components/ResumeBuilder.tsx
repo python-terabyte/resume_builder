@@ -65,7 +65,7 @@ export default function ResumeBuilder() {
     documentTitle: `${resume.personal.firstName}_${resume.personal.lastName}_Resume`,
     pageStyle: `
       /* Pagination is baked into the preview as discrete page frames with
-         page-break-after, so @page margins must be 0 — otherwise each frame
+         page-break-after, so @page margins must be 0, otherwise each frame
          would be inset and overflow to an extra blank printed page. */
       @page {
         size: ${pageMeta.cssSize};
@@ -161,7 +161,7 @@ export default function ResumeBuilder() {
       const code = (err as { code?: string })?.code
       const msg = (err as Error)?.message ?? 'Save failed'
       setSaveState('error')
-      setSaveError(code ? `${code} — ${msg}` : msg)
+      setSaveError(code ? `${code}, ${msg}` : msg)
     }
   }
 
@@ -175,7 +175,11 @@ export default function ResumeBuilder() {
 
   function handleOpenDoc(d: ResumeDoc) {
     // Backfill any newer optional fields so older saved docs still render.
-    setResume({ ...DEFAULT_RESUME, ...d.resume, pageSize: d.resume.pageSize ?? 'A4' })
+    setResume({
+      ...DEFAULT_RESUME,
+      ...d.resume,
+      pageSize: d.resume.pageSize ?? 'A4',
+    })
     setCurrentDocId(d.id)
     setCurrentDocName(d.name || 'Untitled Resume')
     setShowDocs(false)

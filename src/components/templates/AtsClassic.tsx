@@ -34,7 +34,7 @@ function renderBlock(type: SectionType, resume: ResumeData) {
     case 'personal':
       return personal.summary ? (
         <Block key={type} title="Professional Summary">
-          <p className="text-sm leading-snug">{personal.summary}</p>
+          <p className="text-sm leading-snug whitespace-pre-wrap">{personal.summary}</p>
         </Block>
       ) : null
 
@@ -48,7 +48,7 @@ function renderBlock(type: SectionType, resume: ResumeData) {
                 <span>{dateRange(exp.startDate, exp.endDate, exp.current)}</span>
               </div>
               {exp.location && <div className="text-xs italic">{exp.location}</div>}
-              {exp.description && <div className="mt-1 text-sm whitespace-pre-line">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm whitespace-pre-wrap">{exp.description}</div>}
             </div>
           ))}
         </Block>
@@ -65,10 +65,10 @@ function renderBlock(type: SectionType, resume: ResumeData) {
               </div>
               <div className="text-sm">
                 {[edu.degree, edu.field].filter(Boolean).join(', ')}
-                {edu.location && <span> — {edu.location}</span>}
+                {edu.location && <span>, {edu.location}</span>}
                 {edu.gpa && <span> · GPA: {edu.gpa}</span>}
               </div>
-              {edu.description && <div className="text-xs italic">{edu.description}</div>}
+              {edu.description && <div className="text-xs italic whitespace-pre-wrap">{edu.description}</div>}
             </div>
           ))}
         </Block>
@@ -96,7 +96,7 @@ function renderBlock(type: SectionType, resume: ResumeData) {
                 <span>{dateRange(p.startDate, p.endDate, false)}</span>
               </div>
               {p.technologies && <div className="text-xs italic">{p.technologies}</div>}
-              {p.description && <div className="text-sm">{p.description}</div>}
+              {p.description && <div className="text-sm whitespace-pre-wrap">{p.description}</div>}
             </div>
           ))}
         </Block>
@@ -108,7 +108,7 @@ function renderBlock(type: SectionType, resume: ResumeData) {
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm">
               <span className="font-bold">{c.name}</span>
-              {c.issuer && <span> — {c.issuer}</span>}
+              {c.issuer && <span>, {c.issuer}</span>}
               {c.date && <span> ({formatDate(c.date)})</span>}
             </div>
           ))}
@@ -138,7 +138,7 @@ function renderBlock(type: SectionType, resume: ResumeData) {
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-4">
+    <div className="mt-4" data-resume-section>
       <h2 className="text-sm font-bold uppercase tracking-wider border-b border-black pb-0.5 mb-2">{title}</h2>
       {children}
     </div>

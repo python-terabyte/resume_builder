@@ -34,7 +34,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
     case 'personal':
       return personal.summary ? (
         <Section key={type} title="Research Profile" accentColor={accentColor}>
-          <p className="text-sm leading-relaxed text-gray-800 text-justify">{personal.summary}</p>
+          <p className="text-sm leading-relaxed text-gray-800 text-justify whitespace-pre-wrap">{personal.summary}</p>
         </Section>
       ) : null
 
@@ -49,7 +49,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
               </div>
               <div className="text-sm italic">{edu.institution}{edu.location && <span className="not-italic text-gray-600"> · {edu.location}</span>}</div>
               {edu.gpa && <div className="text-xs text-gray-600">GPA: {edu.gpa}</div>}
-              {edu.description && <div className="text-xs text-gray-700 italic mt-0.5">{edu.description}</div>}
+              {edu.description && <div className="text-xs text-gray-700 italic mt-0.5 whitespace-pre-wrap">{edu.description}</div>}
             </div>
           ))}
         </Section>
@@ -65,7 +65,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
                 <span className="text-xs text-gray-600">{dateRange(exp.startDate, exp.endDate, exp.current)}</span>
               </div>
               <div className="text-sm italic">{exp.company}{exp.location && <span className="not-italic text-gray-600"> · {exp.location}</span>}</div>
-              {exp.description && <div className="mt-1 text-sm text-gray-800 whitespace-pre-line leading-relaxed text-justify">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed text-justify">{exp.description}</div>}
             </div>
           ))}
         </Section>
@@ -93,7 +93,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
         <Section key={type} title="Honors & Certifications" accentColor={accentColor}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm flex justify-between">
-              <span><span className="font-semibold">{c.name}</span>{c.issuer && <span className="italic text-gray-700"> — {c.issuer}</span>}</span>
+              <span><span className="font-semibold">{c.name}</span>{c.issuer && <span className="italic text-gray-700">, {c.issuer}</span>}</span>
               {c.date && <span className="text-xs text-gray-600">{formatDate(c.date)}</span>}
             </div>
           ))}
@@ -133,7 +133,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
 
 function Section({ title, children, accentColor }: { title: string; children: React.ReactNode; accentColor: string }) {
   return (
-    <div className="mt-5">
+    <div className="mt-5" data-resume-section>
       <h2 className="text-sm font-bold uppercase tracking-wider pb-1 mb-2 border-b" style={{ color: accentColor, borderColor: `${accentColor}66` }}>
         {title}
       </h2>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, ChangeEvent } from 'react'
+import { useRef, useState, ChangeEvent } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import {
   DndContext,
@@ -90,15 +90,91 @@ function Textarea({
   rows?: number
   placeholder?: string
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const BULLET = '• '
+
+  function insertBullet() {
+    const ta = ref.current
+    if (!ta) return
+    const start = ta.selectionStart ?? value.length
+    const end = ta.selectionEnd ?? value.length
+    // Find the start of the current line
+    const before = value.slice(0, start)
+    const lineStart = before.lastIndexOf('\n') + 1
+    const lineHead = value.slice(lineStart, start)
+    // If we're not at the start of a line, prepend a newline
+    const insertion = (lineHead.length > 0 ? '\n' : '') + BULLET
+    const next = value.slice(0, start) + insertion + value.slice(end)
+    onChange(next)
+    // restore caret after the inserted bullet
+    requestAnimationFrame(() => {
+      const pos = start + insertion.length
+      ta.focus()
+      ta.setSelectionRange(pos, pos)
+    })
+  }
+
+  // Auto-continue bullet lines on Enter; on Enter at the start of an empty
+  // bulleted line, exit the bullet (clear it) so a double-Enter ends the list.
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return
+    const ta = e.currentTarget
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    if (start !== end) return // selection: let default replace
+    const before = value.slice(0, start)
+    const lineStart = before.lastIndexOf('\n') + 1
+    const currentLine = value.slice(lineStart, start)
+    const match = currentLine.match(/^(\s*)([•\-\*])\s+(.*)$/)
+    if (!match) return
+
+    const [, indent, marker, rest] = match
+    e.preventDefault()
+    if (rest.length === 0) {
+      // Empty bullet line, clear the marker and stay on this line
+      const next = value.slice(0, lineStart) + value.slice(start)
+      onChange(next)
+      requestAnimationFrame(() => {
+        ta.focus()
+        ta.setSelectionRange(lineStart, lineStart)
+      })
+    } else {
+      // Continue the list on a new line
+      const insertion = `\n${indent}${marker} `
+      const next = value.slice(0, start) + insertion + value.slice(end)
+      onChange(next)
+      requestAnimationFrame(() => {
+        const pos = start + insertion.length
+        ta.focus()
+        ta.setSelectionRange(pos, pos)
+      })
+    }
+  }
+
   return (
     <div className="flex flex-col gap-1">
-      {label && <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</label>}
+      {label && (
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</label>
+          <button
+            type="button"
+            onClick={insertBullet}
+            title="Insert bullet (•), Enter on a bullet line continues; double Enter ends the list"
+            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 transition hover:bg-white/5 hover:text-accent"
+          >
+            • Bullet
+          </button>
+        </div>
+      )}
       <textarea
+        ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
         rows={rows}
         placeholder={placeholder}
         className="w-full resize-none rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+        style={{ whiteSpace: 'pre-wrap' }}
       />
     </div>
   )
@@ -1127,7 +1203,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-md border border-accent/30 bg-accent/5 p-3 text-xs text-slate-300">
-        <p className="font-semibold text-accent mb-1">Step 1 — Pick your industry</p>
+        <p className="font-semibold text-accent mb-1">Step 1, Pick your industry</p>
         <p className="text-slate-400">
           We&apos;ll show templates tuned for that field. Switching templates never overwrites your data.
         </p>
@@ -1165,7 +1241,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
           <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
             Templates ({filtered.length})
           </label>
-          <span className="text-[10px] text-slate-500">Step 2 — Pick a layout</span>
+          <span className="text-[10px] text-slate-500">Step 2, Pick a layout</span>
         </div>
         {filtered.length === 0 ? (
           <p className="text-xs text-slate-500">No templates match this industry yet.</p>
@@ -1215,7 +1291,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
       </div>
 
       <p className="rounded-md border border-white/5 bg-white/5 p-2 text-[10px] leading-snug text-slate-400">
-        💡 Your content (experience, skills, etc.) stays the same when you switch templates — only the
+        💡 Your content (experience, skills, etc.) stays the same when you switch templates, only the
         layout changes.
       </p>
     </div>
@@ -1456,7 +1532,7 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
         })}
       </nav>
 
-      {/* Content panel — only when a section is selected */}
+      {/* Content panel, only when a section is selected */}
       {hasPanel && (
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-3">

@@ -103,7 +103,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
     case 'personal':
       return personal.summary ? (
         <MainBlock key={type} title="Profile" accentColor={accentColor}>
-          <p className="text-sm leading-relaxed text-gray-700">{personal.summary}</p>
+          <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{personal.summary}</p>
         </MainBlock>
       ) : null
 
@@ -119,7 +119,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
               <div className="text-sm italic" style={{ color: accentColor }}>
                 {exp.company}{exp.location && <span className="text-gray-500 not-italic"> · {exp.location}</span>}
               </div>
-              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-line">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{exp.description}</div>}
             </div>
           ))}
         </MainBlock>
@@ -153,7 +153,7 @@ function renderMainBlock(type: SectionType, resume: ResumeData, accentColor: str
                 <span className="text-xs text-gray-600">{dateRange(p.startDate, p.endDate, false)}</span>
               </div>
               {p.technologies && <div className="text-xs text-gray-600">{p.technologies}</div>}
-              {p.description && <div className="text-sm text-gray-700">{p.description}</div>}
+              {p.description && <div className="text-sm text-gray-700 whitespace-pre-wrap">{p.description}</div>}
             </div>
           ))}
         </MainBlock>
@@ -175,7 +175,7 @@ function SideBlock({ title, accentColor, children }: { title: string; accentColo
 
 function MainBlock({ title, accentColor, children }: { title: string; accentColor: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div data-resume-section>
       <h2 className="text-sm font-bold uppercase tracking-widest pb-1 mb-2 border-b" style={{ color: accentColor, borderColor: `${accentColor}66` }}>{title}</h2>
       {children}
     </div>

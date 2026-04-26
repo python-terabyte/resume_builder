@@ -15,7 +15,7 @@ export default function ModernGradient({ resume }: TemplateProps) {
             </h1>
             {personal.jobTitle && <p className="mt-1 text-lg font-light opacity-90">{personal.jobTitle}</p>}
             {personal.summary && (
-              <p className="mt-3 text-sm leading-relaxed opacity-85" style={{ maxWidth: '520px' }}>
+              <p className="mt-3 text-sm leading-relaxed opacity-85 whitespace-pre-wrap" style={{ maxWidth: '520px' }}>
                 {personal.summary}
               </p>
             )}
@@ -51,7 +51,7 @@ function Section({ type, resume }: { type: SectionType; resume: ResumeData }) {
   const accentColor = resume.accentColor
 
   const wrap = (children: React.ReactNode) => (
-    <div className="mb-6">
+    <div className="mb-6" data-resume-section>
       <div className="mb-2 flex items-center gap-3">
         <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: accentColor }}>{title}</h2>
         <div className="flex-1 border-t" style={{ borderColor: `${accentColor}40` }} />
@@ -70,12 +70,12 @@ function Section({ type, resume }: { type: SectionType; resume: ResumeData }) {
             <div className="flex items-baseline justify-between">
               <div>
                 <span className="font-semibold text-gray-900">{exp.position}</span>
-                {exp.company && <span className="text-gray-600"> — {exp.company}</span>}
+                {exp.company && <span className="text-gray-600">, {exp.company}</span>}
                 {exp.location && <span className="text-gray-400 text-xs"> · {exp.location}</span>}
               </div>
               <span className="shrink-0 text-xs text-gray-400 ml-4">{dateRange(exp.startDate, exp.endDate, exp.current)}</span>
             </div>
-            {exp.description && <div className="mt-1 text-gray-600 whitespace-pre-line leading-relaxed">{exp.description}</div>}
+            {exp.description && <div className="mt-1 text-gray-600 whitespace-pre-wrap leading-relaxed">{exp.description}</div>}
           </div>
         ))
       ) : null
@@ -96,7 +96,7 @@ function Section({ type, resume }: { type: SectionType; resume: ResumeData }) {
                 {edu.gpa && <span className="text-gray-400"> · GPA: {edu.gpa}</span>}
               </div>
             )}
-            {edu.description && <div className="mt-0.5 text-gray-500 text-xs">{edu.description}</div>}
+            {edu.description && <div className="mt-0.5 text-gray-500 text-xs whitespace-pre-wrap">{edu.description}</div>}
           </div>
         ))
       ) : null
@@ -137,7 +137,7 @@ function Section({ type, resume }: { type: SectionType; resume: ResumeData }) {
               )}
             </div>
             {p.technologies && <div className="text-xs text-gray-500 mt-0.5">{p.technologies}</div>}
-            {p.description && <div className="mt-0.5 text-gray-600">{p.description}</div>}
+            {p.description && <div className="mt-0.5 text-gray-600 whitespace-pre-wrap">{p.description}</div>}
           </div>
         ))
       ) : null
@@ -151,7 +151,7 @@ function Section({ type, resume }: { type: SectionType; resume: ResumeData }) {
               style={{ backgroundColor: `${accentColor}14`, color: accentColor, border: `1px solid ${accentColor}30` }}
             >
               {c.name}
-              {c.issuer && <span className="opacity-80"> — {c.issuer}</span>}
+              {c.issuer && <span className="opacity-80">, {c.issuer}</span>}
               {c.date && <span className="opacity-60"> · {formatDate(c.date)}</span>}
             </span>
           ))}

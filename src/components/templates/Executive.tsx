@@ -54,7 +54,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
               <div className="text-sm italic" style={{ color: accentColor }}>
                 {exp.company}{exp.location && <span className="text-gray-600 not-italic"> · {exp.location}</span>}
               </div>
-              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-line leading-relaxed">{exp.description}</div>}
+              {exp.description && <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{exp.description}</div>}
             </div>
           ))}
         </Section>
@@ -93,7 +93,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
         <Section key={type} title={title} accentColor={accentColor}>
           {resume.certifications.map((c) => (
             <div key={c.id} className="text-sm flex justify-between">
-              <span><span className="font-bold">{c.name}</span>{c.issuer && <span className="italic text-gray-700"> — {c.issuer}</span>}</span>
+              <span><span className="font-bold">{c.name}</span>{c.issuer && <span className="italic text-gray-700">, {c.issuer}</span>}</span>
               {c.date && <span className="text-xs text-gray-600">{formatDate(c.date)}</span>}
             </div>
           ))}
@@ -109,7 +109,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
                 <span className="font-bold text-sm">{p.name}</span>
                 <span className="text-xs text-gray-600 italic">{dateRange(p.startDate, p.endDate, false)}</span>
               </div>
-              {p.description && <div className="text-sm text-gray-700">{p.description}</div>}
+              {p.description && <div className="text-sm text-gray-700 whitespace-pre-wrap">{p.description}</div>}
             </div>
           ))}
         </Section>
@@ -136,7 +136,7 @@ function renderBlock(type: SectionType, resume: ResumeData, accentColor: string)
 
 function Section({ title, children, accentColor }: { title: string; children: React.ReactNode; accentColor: string }) {
   return (
-    <div className="mt-6">
+    <div className="mt-6" data-resume-section>
       <h2 className="text-center text-xs font-bold uppercase tracking-[0.4em] pb-2 mb-3 border-b" style={{ color: accentColor, borderColor: `${accentColor}55` }}>
         {title}
       </h2>
