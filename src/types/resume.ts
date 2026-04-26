@@ -130,6 +130,24 @@ export interface TemplateMeta {
   industries: Industry[]
 }
 
+export type PageSize = 'A4' | 'Letter' | 'Legal' | 'A3' | 'A5'
+
+export interface PageSizeMeta {
+  id: PageSize
+  label: string
+  width: string   // CSS dimension for screen preview
+  height: string
+  cssSize: string // CSS @page size value (e.g. "A4", "letter")
+}
+
+export const PAGE_SIZES: PageSizeMeta[] = [
+  { id: 'A4',     label: 'A4',          width: '210mm',   height: '297mm',   cssSize: 'A4' },
+  { id: 'Letter', label: 'Letter (US)', width: '215.9mm', height: '279.4mm', cssSize: 'letter' },
+  { id: 'Legal',  label: 'Legal (US)',  width: '215.9mm', height: '355.6mm', cssSize: 'legal' },
+  { id: 'A3',     label: 'A3',          width: '297mm',   height: '420mm',   cssSize: 'A3' },
+  { id: 'A5',     label: 'A5',          width: '148mm',   height: '210mm',   cssSize: 'A5' },
+]
+
 export interface ResumeData {
   personal: PersonalInfo
   experience: ExperienceItem[]
@@ -144,6 +162,7 @@ export interface ResumeData {
   typography: TypographySettings
   templateId: TemplateId
   selectedIndustry: Industry
+  pageSize: PageSize
 }
 
 export const COLOR_THEMES = [
@@ -364,4 +383,5 @@ export const DEFAULT_RESUME: ResumeData = {
   },
   templateId: 'modern-gradient',
   selectedIndustry: 'all',
+  pageSize: 'A4',
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useReactToPrint } from 'react-to-print'
-import { COLOR_THEMES, DEFAULT_RESUME, ResumeData } from '@/types/resume'
+import { COLOR_THEMES, DEFAULT_RESUME, PAGE_SIZES, type PageSize, ResumeData } from '@/types/resume'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
 import { createResume, saveResume, type ResumeDoc } from '@/lib/resumes'
@@ -58,13 +58,74 @@ export default function ResumeBuilder() {
     }
   }, [hydrated, resume.accentColor])
 
+  const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
+
   const handlePrint = useReactToPrint({
     contentRef: previewRef,
     documentTitle: `${resume.personal.firstName}_${resume.personal.lastName}_Resume`,
     pageStyle: `
-      @page { size: A4; margin: 0; }
+      /* Pagination is baked into the preview as discrete page frames with
+         page-break-after, so @page margins must be 0 — otherwise each frame
+         would be inset and overflow to an extra blank printed page. */
+      @page {
+        size: ${pageMeta.cssSize};
+        margin: 0;
+      }
+
       @media print {
-        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        /* Force the print iframe to a clean white canvas so dark UI bg can't bleed in */
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          color: #000000;
+          color-scheme: light !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        #resume-preview {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          box-shadow: none !important;
+          overflow: visible !important;
+          gap: 0 !important;
+        }
+
+        /* Each page frame already sits at full page size; strip preview-only chrome */
+        #resume-preview .resume-page {
+          box-shadow: none !important;
+          margin: 0 !important;
+        }
+
+        /* Hide the off-screen measurement copy in case it sneaks into print */
+        .resume-measure {
+          display: none !important;
+        }
+
+        /* Don't orphan section headings at the bottom of a page */
+        #resume-preview h1,
+        #resume-preview h2,
+        #resume-preview h3 {
+          break-after: avoid-page;
+          page-break-after: avoid;
+        }
+
+        /* Keep individual entries together when a section spans pages */
+        #resume-preview .mb-2,
+        #resume-preview .mb-3,
+        #resume-preview .mb-4 {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        /* Avoid widow/orphan single lines */
+        #resume-preview p,
+        #resume-preview li {
+          orphans: 3;
+          widows: 3;
+        }
       }
     `,
   })
@@ -113,7 +174,8 @@ export default function ResumeBuilder() {
   }
 
   function handleOpenDoc(d: ResumeDoc) {
-    setResume(d.resume)
+    // Backfill any newer optional fields so older saved docs still render.
+    setResume({ ...DEFAULT_RESUME, ...d.resume, pageSize: d.resume.pageSize ?? 'A4' })
     setCurrentDocId(d.id)
     setCurrentDocName(d.name || 'Untitled Resume')
     setShowDocs(false)
@@ -158,6 +220,18 @@ export default function ResumeBuilder() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          <select
+            value={resume.pageSize}
+            onChange={(e) =>
+              updateResume((prev) => ({ ...prev, pageSize: e.target.value as PageSize }))
+            }
+            title="Page size"
+            className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
+          >
+            {PAGE_SIZES.map((s) => (
+              <option key={s.id} value={s.id} className="bg-[#1a1a2e]">{s.label}</option>
+            ))}
+          </select>
           <button
             onClick={handleSave}
             disabled={!user || saveState === 'saving'}
@@ -250,15 +324,7 @@ export default function ResumeBuilder() {
 
         {/* Preview area */}
         <div className="flex min-w-0 flex-1 flex-col items-center overflow-auto bg-[#0f0f1a] p-3 sm:p-6 panel-scroll">
-          <div className="mb-4 hidden items-center gap-3 text-xs text-slate-500 sm:flex">
-            <span>A4 Preview</span>
-            <span>·</span>
-            <span>210mm × 297mm</span>
-          </div>
-          <div
-            className="origin-top scale-[0.45] sm:scale-[0.6] md:scale-[0.75] lg:scale-[0.85]"
-            style={{ transformOrigin: 'top center', marginBottom: '-80px' }}
-          >
+          <div className="preview-zoom">
             <ResumePreview ref={previewRef} resume={resume} />
           </div>
         </div>
