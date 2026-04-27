@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Resume Builder',
+  title: 'Privacy Policy — BrandFox',
 }
 
 export default function PrivacyPolicy() {
@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Resume Builder
+          Back to BrandFox
         </Link>
 
         {/* Header */}
@@ -38,7 +38,7 @@ export default function PrivacyPolicy() {
 
           <Section title="Overview">
             <p>
-              Resume Builder is a tool that lets you create, edit, and export professional resumes.
+              BrandFox is a tool that lets you create, edit, and export professional resumes.
               We take your privacy seriously. This policy explains what information we collect, why
               we collect it, and how we protect it.
             </p>
@@ -152,7 +152,7 @@ export default function PrivacyPolicy() {
 
         {/* Footer */}
         <div className="mt-12 border-t border-white/10 pt-6 text-center text-xs text-slate-600">
-          &copy; {new Date().getFullYear()} Resume Builder. All rights reserved.
+          &copy; {new Date().getFullYear()} BrandFox. All rights reserved.
         </div>
       </div>
     </div>

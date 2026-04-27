@@ -19,3 +19,17 @@ export const TEMPLATE_COMPONENTS: Record<TemplateId, (props: TemplateProps) => J
   executive: Executive,
   academic: Academic,
 }
+
+export interface TemplateSidebarMeta {
+  /** Which side the colored sidebar is on */
+  side: 'left'
+  /** Fraction of total page width (e.g. 1/3 for col-span-1 of grid-cols-3) */
+  widthFraction: number
+  /** 'accentColor' means use resume.accentColor at runtime */
+  colorSource: 'accentColor'
+}
+
+/** Templates whose sidebar column has a solid background that must extend full-page-height. */
+export const TEMPLATE_SIDEBAR_META: Partial<Record<TemplateId, TemplateSidebarMeta>> = {
+  creative: { side: 'left', widthFraction: 1 / 3, colorSource: 'accentColor' },
+}

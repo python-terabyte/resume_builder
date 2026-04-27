@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signInEmail, signInGoogle, signUpEmail } from '@/lib/auth'
 
 type Mode = 'signin' | 'signup'
 
 export default function AuthGate() {
+  const router = useRouter()
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,9 +26,9 @@ export default function AuthGate() {
       } else {
         await signInEmail(email, password)
       }
+      router.push('/')
     } catch (err) {
       setError((err as Error).message ?? 'Something went wrong.')
-    } finally {
       setBusy(false)
     }
   }
@@ -51,7 +53,7 @@ export default function AuthGate() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <span className="text-lg font-semibold text-white">Resume Builder</span>
+          <span className="text-lg font-semibold text-white">BrandFox</span>
         </div>
 
         <h1 className="text-xl font-bold text-white">

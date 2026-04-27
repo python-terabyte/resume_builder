@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { PAGE_SIZES, ResumeData } from '@/types/resume'
-import { TEMPLATE_COMPONENTS } from './templates'
+import { TEMPLATE_COMPONENTS, TEMPLATE_SIDEBAR_META } from './templates'
 
 interface ResumePreviewProps {
   resume: ResumeData
@@ -18,6 +18,8 @@ const FOOTER_MM = 10
 const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }, ref) => {
   const { typography, templateId } = resume
   const Template = TEMPLATE_COMPONENTS[templateId] ?? TEMPLATE_COMPONENTS['modern-gradient']
+  const sidebarMeta = TEMPLATE_SIDEBAR_META[templateId]
+  const sidebarColor = resume.accentColor
   const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
 
   const pageWidthCss = pageMeta.width
@@ -184,9 +186,33 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
                 </div>
 
                 {/* Opaque underflow cover: hides anything below this page's
-                    visible content (template overflow, sidebar fills, etc.) */}
-                <div
-                  style={{
+                    visible content. For sidebar templates the cover is split —
+                    the sidebar column keeps its accent color while the main
+                    column gets a white cover, so the sidebar fill extends to
+                    the footer on every page. */}
+                {sidebarMeta ? (
+                  <>
+                    <div style={{
+                      position: 'absolute',
+                      top: coverTop,
+                      left: 0,
+                      width: `${sidebarMeta.widthFraction * 100}%`,
+                      bottom: coverBottom,
+                      background: sidebarColor,
+                      pointerEvents: 'none',
+                    }} />
+                    <div style={{
+                      position: 'absolute',
+                      top: coverTop,
+                      left: `${sidebarMeta.widthFraction * 100}%`,
+                      right: 0,
+                      bottom: coverBottom,
+                      background: '#ffffff',
+                      pointerEvents: 'none',
+                    }} />
+                  </>
+                ) : (
+                  <div style={{
                     position: 'absolute',
                     top: coverTop,
                     left: 0,
@@ -194,11 +220,17 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
                     bottom: coverBottom,
                     background: '#ffffff',
                     pointerEvents: 'none',
-                  }}
-                />
+                  }} />
+                )}
 
-                {i > 0 && <PageHeader />}
-                <PageFooter />
+                {i > 0 && (
+                  <PageHeader
+                    sidebar={sidebarMeta ? { widthFraction: sidebarMeta.widthFraction, color: sidebarColor } : undefined}
+                  />
+                )}
+                <PageFooter
+                  sidebar={sidebarMeta ? { widthFraction: sidebarMeta.widthFraction, color: sidebarColor } : undefined}
+                />
               </div>
           )
         })}
@@ -210,32 +242,30 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
 ResumePreview.displayName = 'ResumePreview'
 export default ResumePreview
 
-function PageHeader() {
+function PageHeader({ sidebar }: { sidebar?: { widthFraction: number; color: string } }) {
+  if (!sidebar) {
+    return (
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${HEADER_MM}mm`, background: '#ffffff' }} />
+    )
+  }
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: `${HEADER_MM}mm`,
-        background: '#ffffff',
-      }}
-    />
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${HEADER_MM}mm` }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${sidebar.widthFraction * 100}%`, background: sidebar.color }} />
+      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: `${(1 - sidebar.widthFraction) * 100}%`, background: '#ffffff' }} />
+    </div>
   )
 }
 
-function PageFooter() {
+function PageFooter({ sidebar }: { sidebar?: { widthFraction: number; color: string } }) {
+  if (!sidebar) {
+    return (
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${FOOTER_MM}mm`, background: '#ffffff' }} />
+    )
+  }
   return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: `${FOOTER_MM}mm`,
-        background: '#ffffff',
-      }}
-    />
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${FOOTER_MM}mm` }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${sidebar.widthFraction * 100}%`, background: sidebar.color }} />
+      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: `${(1 - sidebar.widthFraction) * 100}%`, background: '#ffffff' }} />
+    </div>
   )
 }
