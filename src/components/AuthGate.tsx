@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { signInEmail, signInGoogle, signUpEmail } from '@/lib/auth'
 
 type Mode = 'signin' | 'signup'
@@ -139,6 +140,14 @@ export default function AuthGate() {
               </button>
             </>
           )}
+        </p>
+
+        <p className="mt-5 text-center text-xs text-slate-600">
+          By continuing, you agree to our{' '}
+          <Link href="/privacy" className="text-slate-500 underline hover:text-slate-300 transition">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
     </div>
