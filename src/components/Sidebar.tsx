@@ -1203,7 +1203,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-md border border-accent/30 bg-accent/5 p-3 text-xs text-slate-300">
-        <p className="font-semibold text-accent mb-1">Step 1, Pick your industry</p>
+        <p className="font-semibold text-accent mb-1">Step 1: Pick your industry</p>
         <p className="text-slate-400">
           We&apos;ll show templates tuned for that field. Switching templates never overwrites your data.
         </p>

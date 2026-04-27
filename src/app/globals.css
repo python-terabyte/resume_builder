@@ -111,7 +111,7 @@ input[type='range']:focus {
   overflow: visible;
 }
 
-/* Multi-page preview sizing — `zoom` (unlike `transform: scale`) actually
+/* Multi-page preview sizing: `zoom` (unlike `transform: scale`) actually
    shrinks layout dimensions so a 3-page resume occupies the right scroll
    height instead of overshooting by 30%+. */
 .preview-zoom { zoom: 0.45; }
