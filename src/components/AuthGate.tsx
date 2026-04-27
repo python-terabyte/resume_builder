@@ -5,31 +5,13 @@ import { signInEmail, signInGoogle, signUpEmail } from '@/lib/auth'
 
 type Mode = 'signin' | 'signup'
 
-export default function AuthGate({ configured }: { configured: boolean }) {
+export default function AuthGate() {
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  if (!configured) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#0f0f1a] p-4">
-        <div className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-amber-100">
-          <h2 className="text-lg font-bold">Firebase isn&apos;t configured</h2>
-          <p className="mt-2 text-sm leading-relaxed">
-            Copy <code className="rounded bg-black/30 px-1.5 py-0.5">.env.local.example</code> to{' '}
-            <code className="rounded bg-black/30 px-1.5 py-0.5">.env.local</code> and fill in the values from
-            Firebase Console → Project settings → Your apps → Web app, then restart the dev server.
-          </p>
-          <p className="mt-3 text-xs text-amber-200/70">
-            Required vars: NEXT_PUBLIC_FIREBASE_API_KEY, AUTH_DOMAIN, PROJECT_ID, STORAGE_BUCKET, MESSAGING_SENDER_ID, APP_ID.
-          </p>
-        </div>
-      </div>
-    )
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -42,7 +24,7 @@ export default function AuthGate({ configured }: { configured: boolean }) {
         await signInEmail(email, password)
       }
     } catch (err) {
-      setError(humanizeError(err))
+      setError((err as Error).message ?? 'Something went wrong.')
     } finally {
       setBusy(false)
     }
@@ -54,8 +36,7 @@ export default function AuthGate({ configured }: { configured: boolean }) {
     try {
       await signInGoogle()
     } catch (err) {
-      setError(humanizeError(err))
-    } finally {
+      setError((err as Error).message ?? 'Google sign-in failed.')
       setBusy(false)
     }
   }
@@ -138,7 +119,7 @@ export default function AuthGate({ configured }: { configured: boolean }) {
             disabled={busy}
             className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
           >
-            {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+            {busy ? 'Please wait...' : mode === 'signin' ? 'Sign in' : 'Create account'}
           </button>
         </form>
 
@@ -182,19 +163,4 @@ function GoogleIcon() {
       <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C41 35 44 30 44 24c0-1.3-.1-2.4-.4-3.5z" />
     </svg>
   )
-}
-
-function humanizeError(err: unknown): string {
-  const code = (err as { code?: string })?.code ?? ''
-  switch (code) {
-    case 'auth/invalid-email': return 'That email looks invalid.'
-    case 'auth/user-not-found': return 'No account with that email.'
-    case 'auth/wrong-password':
-    case 'auth/invalid-credential': return 'Email or password is incorrect.'
-    case 'auth/email-already-in-use': return 'An account with that email already exists.'
-    case 'auth/weak-password': return 'Password must be at least 6 characters.'
-    case 'auth/popup-closed-by-user': return 'Sign-in window was closed.'
-    case 'auth/network-request-failed': return 'Network error. Check your connection.'
-    default: return (err as Error)?.message ?? 'Something went wrong.'
-  }
 }

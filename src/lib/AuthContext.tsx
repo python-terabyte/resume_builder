@@ -1,40 +1,31 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { User } from 'firebase/auth'
-import { isFirebaseConfigured } from './firebase'
-import { subscribeToAuth } from './auth'
+import { createContext, useContext, type ReactNode } from 'react'
+import { useSession } from 'next-auth/react'
 
-interface AuthContextValue {
-  user: User | null
-  loading: boolean
-  configured: boolean
+export interface AuthUser {
+  id: string
+  email?: string | null
+  name?: string | null
+  image?: string | null
 }
 
-const AuthContext = createContext<AuthContextValue>({
-  user: null,
-  loading: true,
-  configured: false,
-})
+interface AuthContextValue {
+  user: AuthUser | null
+  loading: boolean
+}
+
+const AuthContext = createContext<AuthContextValue>({ user: null, loading: true })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: session, status } = useSession()
 
-  useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setLoading(false)
-      return
-    }
-    const unsub = subscribeToAuth((u) => {
-      setUser(u)
-      setLoading(false)
-    })
-    return unsub
-  }, [])
+  const user: AuthUser | null = session?.user
+    ? { id: session.user.id, email: session.user.email, name: session.user.name, image: session.user.image }
+    : null
 
   return (
-    <AuthContext.Provider value={{ user, loading, configured: isFirebaseConfigured }}>
+    <AuthContext.Provider value={{ user, loading: status === 'loading' }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,18 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { ResumeData } from '@/types/resume'
 import { deleteResume, listResumes, renameResume, type ResumeDoc } from '@/lib/resumes'
 
 interface Props {
-  uid: string
   currentDocId: string | null
   onOpen: (doc: ResumeDoc) => void
   onClose: () => void
   onCreateNew: () => void
 }
 
-export default function DocumentsPanel({ uid, currentDocId, onOpen, onClose, onCreateNew }: Props) {
+export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreateNew }: Props) {
   const [docs, setDocs] = useState<ResumeDoc[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -21,39 +19,33 @@ export default function DocumentsPanel({ uid, currentDocId, onOpen, onClose, onC
   useEffect(() => {
     let cancelled = false
     setError(null)
-    listResumes(uid)
+    listResumes()
       .then((list) => { if (!cancelled) setDocs(list) })
       .catch((err) => {
-        console.error('[Resume list failed]', err)
         if (cancelled) return
-        const code = (err as { code?: string })?.code
-        const msg = (err as Error)?.message ?? 'Failed to load'
-        setError(code ? `${code}, ${msg}` : msg)
+        setError((err as Error).message ?? 'Failed to load.')
       })
     return () => { cancelled = true }
-  }, [uid])
+  }, [])
 
   async function handleDelete(docId: string) {
     if (!confirm('Delete this resume? This cannot be undone.')) return
     try {
-      await deleteResume(uid, docId)
+      await deleteResume(docId)
       setDocs((prev) => (prev ? prev.filter((d) => d.id !== docId) : prev))
     } catch (err) {
-      setError((err as Error).message ?? 'Delete failed')
+      setError((err as Error).message ?? 'Delete failed.')
     }
   }
 
   async function commitRename(docId: string) {
     const trimmed = renameText.trim()
-    if (!trimmed) {
-      setRenamingId(null)
-      return
-    }
+    if (!trimmed) { setRenamingId(null); return }
     try {
-      await renameResume(uid, docId, trimmed)
+      await renameResume(docId, trimmed)
       setDocs((prev) => (prev ? prev.map((d) => (d.id === docId ? { ...d, name: trimmed } : d)) : prev))
     } catch (err) {
-      setError((err as Error).message ?? 'Rename failed')
+      setError((err as Error).message ?? 'Rename failed.')
     } finally {
       setRenamingId(null)
     }
@@ -91,7 +83,7 @@ export default function DocumentsPanel({ uid, currentDocId, onOpen, onClose, onC
             </div>
           )}
 
-          {!docs && <p className="text-sm text-slate-500">Loading…</p>}
+          {!docs && <p className="text-sm text-slate-500">Loading...</p>}
 
           {docs && docs.length === 0 && !error && (
             <p className="text-sm text-slate-500">No saved resumes yet. Click <span className="text-white">New Resume</span> above to start.</p>
@@ -167,8 +159,8 @@ export default function DocumentsPanel({ uid, currentDocId, onOpen, onClose, onC
   )
 }
 
-function formatTimestamp(ts: ResumeDoc['updatedAt']): string {
+function formatTimestamp(ts: string | null): string {
   if (!ts) return ''
-  const d = ts.toDate()
+  const d = new Date(ts)
   return `Updated ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }

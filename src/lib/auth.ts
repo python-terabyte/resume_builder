@@ -1,47 +1,27 @@
-'use client'
-
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut as fbSignOut,
-  updateProfile,
-  type User,
-} from 'firebase/auth'
-import { getFirebaseAuth } from './firebase'
-
-export type AuthUser = User
-
-export function subscribeToAuth(cb: (user: User | null) => void) {
-  const auth = getFirebaseAuth()
-  return onAuthStateChanged(auth, cb)
-}
+import { signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react'
 
 export async function signInEmail(email: string, password: string) {
-  const auth = getFirebaseAuth()
-  const cred = await signInWithEmailAndPassword(auth, email, password)
-  return cred.user
+  const result = await nextAuthSignIn('credentials', { email, password, redirect: false })
+  if (result?.error) throw new Error('Invalid email or password.')
 }
 
-export async function signUpEmail(email: string, password: string, displayName?: string) {
-  const auth = getFirebaseAuth()
-  const cred = await createUserWithEmailAndPassword(auth, email, password)
-  if (displayName) {
-    await updateProfile(cred.user, { displayName })
+export async function signUpEmail(email: string, password: string, name?: string) {
+  const res = await fetch('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  })
+  if (!res.ok) {
+    const data = await res.json() as { error?: string }
+    throw new Error(data.error ?? 'Sign up failed.')
   }
-  return cred.user
+  await signInEmail(email, password)
 }
 
 export async function signInGoogle() {
-  const auth = getFirebaseAuth()
-  const provider = new GoogleAuthProvider()
-  const cred = await signInWithPopup(auth, provider)
-  return cred.user
+  await nextAuthSignIn('google', { callbackUrl: '/' })
 }
 
 export async function signOut() {
-  const auth = getFirebaseAuth()
-  await fbSignOut(auth)
+  await nextAuthSignOut({ redirect: false })
 }

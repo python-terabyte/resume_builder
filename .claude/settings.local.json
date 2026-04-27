@@ -6,7 +6,8 @@
       "Bash(npx next *)",
       "Bash(npm install *)",
       "Bash(git check-ignore *)",
-      "Bash(xargs sed *)"
+      "Bash(xargs sed *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }

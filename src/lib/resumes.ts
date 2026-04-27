@@ -1,76 +1,49 @@
-'use client'
-
-import {
-  Timestamp,
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore'
-import { getDb } from './firebase'
-import { ResumeData } from '@/types/resume'
+import type { ResumeData } from '@/types/resume'
 
 export interface ResumeDoc {
   id: string
   name: string
   resume: ResumeData
-  createdAt: Timestamp | null
-  updatedAt: Timestamp | null
+  createdAt: string | null
+  updatedAt: string | null
 }
 
-function userResumesRef(uid: string) {
-  return collection(getDb(), 'users', uid, 'resumes')
+export async function listResumes(): Promise<ResumeDoc[]> {
+  const res = await fetch('/api/resumes')
+  if (!res.ok) throw new Error('Failed to load resumes.')
+  return res.json() as Promise<ResumeDoc[]>
 }
 
-function userResumeRef(uid: string, docId: string) {
-  return doc(getDb(), 'users', uid, 'resumes', docId)
-}
-
-export async function listResumes(uid: string): Promise<ResumeDoc[]> {
-  const q = query(userResumesRef(uid), orderBy('updatedAt', 'desc'))
-  const snap = await getDocs(q)
-  return snap.docs.map((d) => {
-    const data = d.data() as Omit<ResumeDoc, 'id'>
-    return { id: d.id, ...data }
+export async function createResume(name: string, resume: ResumeData): Promise<string> {
+  const res = await fetch('/api/resumes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, resume }),
   })
+  if (!res.ok) throw new Error('Failed to create resume.')
+  const data = await res.json() as { id: string }
+  return data.id
 }
 
-export async function getResume(uid: string, docId: string): Promise<ResumeDoc | null> {
-  const snap = await getDoc(userResumeRef(uid, docId))
-  if (!snap.exists()) return null
-  const data = snap.data() as Omit<ResumeDoc, 'id'>
-  return { id: snap.id, ...data }
-}
-
-export async function createResume(uid: string, name: string, resume: ResumeData): Promise<string> {
-  const ref = await addDoc(userResumesRef(uid), {
-    name,
-    resume,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+export async function saveResume(docId: string, name: string, resume: ResumeData): Promise<void> {
+  const res = await fetch(`/api/resumes/${docId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, resume }),
   })
-  return ref.id
+  if (!res.ok) throw new Error('Failed to save resume.')
 }
 
-export async function saveResume(uid: string, docId: string, name: string, resume: ResumeData): Promise<void> {
-  await setDoc(
-    userResumeRef(uid, docId),
-    { name, resume, updatedAt: serverTimestamp() },
-    { merge: true },
-  )
+export async function renameResume(docId: string, name: string): Promise<void> {
+  const res = await fetch(`/api/resumes/${docId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error('Failed to rename resume.')
 }
 
-export async function renameResume(uid: string, docId: string, name: string): Promise<void> {
-  await updateDoc(userResumeRef(uid, docId), { name, updatedAt: serverTimestamp() })
-}
-
-export async function deleteResume(uid: string, docId: string): Promise<void> {
-  await deleteDoc(userResumeRef(uid, docId))
+export async function deleteResume(docId: string): Promise<void> {
+  const res = await fetch(`/api/resumes/${docId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete resume.')
 }

@@ -5,7 +5,7 @@ import { useReactToPrint } from 'react-to-print'
 import { COLOR_THEMES, DEFAULT_RESUME, PAGE_SIZES, type PageSize, ResumeData } from '@/types/resume'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
-import { createResume, saveResume, type ResumeDoc } from '@/lib/resumes'
+import { createResume, listResumes, saveResume, type ResumeDoc } from '@/lib/resumes'
 import Sidebar from './Sidebar'
 import ResumePreview from './ResumePreview'
 import DocumentsPanel from './DocumentsPanel'
@@ -16,7 +16,7 @@ function hexToRgbTriplet(hex: string): string {
   const cleaned = hex.replace('#', '')
   const full = cleaned.length === 3 ? cleaned.split('').map((c) => c + c).join('') : cleaned
   const num = parseInt(full, 16)
-  if (Number.isNaN(num)) return '99 102 241' // fallback indigo
+  if (Number.isNaN(num)) return '99 102 241'
   const r = (num >> 16) & 255
   const g = (num >> 8) & 255
   const b = num & 255
@@ -24,6 +24,7 @@ function hexToRgbTriplet(hex: string): string {
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+type PickerState = 'loading' | 'show' | 'hide'
 
 export default function ResumeBuilder() {
   const { user } = useAuth()
@@ -38,15 +39,16 @@ export default function ResumeBuilder() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const [pickerState, setPickerState] = useState<PickerState>('loading')
+  const [pickerDocs, setPickerDocs] = useState<ResumeDoc[]>([])
   const previewRef = useRef<HTMLDivElement>(null)
 
-  // Hydrate accent color from localStorage on first mount; otherwise prompt user.
+  // Hydrate accent color from localStorage on first mount.
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
     if (saved) {
       setResume((prev) => ({ ...prev, accentColor: saved }))
-    } else {
-      setShowWelcome(true)
     }
     setHydrated(true)
   }, [])
@@ -58,22 +60,50 @@ export default function ResumeBuilder() {
     }
   }, [hydrated, resume.accentColor])
 
+  // On mount: fetch saved docs. If the user has any, show the picker.
+  // New users (no docs) go straight to the editor.
+  useEffect(() => {
+    listResumes()
+      .then((docs) => {
+        if (docs.length > 0) {
+          setPickerDocs(docs)
+          setPickerState('show')
+        } else {
+          setPickerState('hide')
+          // First-time user with no accent color yet — show the color picker welcome.
+          const saved = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
+          if (!saved) setShowWelcome(true)
+        }
+      })
+      .catch(() => {
+        setPickerState('hide')
+      })
+  }, [])
+
+  // Warn before browser refresh/close when there are unsaved changes.
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
+
   const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
 
   const handlePrint = useReactToPrint({
     contentRef: previewRef,
     documentTitle: `${resume.personal.firstName}_${resume.personal.lastName}_Resume`,
     pageStyle: `
-      /* Pagination is baked into the preview as discrete page frames with
-         page-break-after, so @page margins must be 0, otherwise each frame
-         would be inset and overflow to an extra blank printed page. */
       @page {
         size: ${pageMeta.cssSize};
         margin: 0;
       }
 
       @media print {
-        /* Force the print iframe to a clean white canvas so dark UI bg can't bleed in */
         html, body {
           margin: 0 !important;
           padding: 0 !important;
@@ -93,18 +123,15 @@ export default function ResumeBuilder() {
           gap: 0 !important;
         }
 
-        /* Each page frame already sits at full page size; strip preview-only chrome */
         #resume-preview .resume-page {
           box-shadow: none !important;
           margin: 0 !important;
         }
 
-        /* Hide the off-screen measurement copy in case it sneaks into print */
         .resume-measure {
           display: none !important;
         }
 
-        /* Don't orphan section headings at the bottom of a page */
         #resume-preview h1,
         #resume-preview h2,
         #resume-preview h3 {
@@ -112,7 +139,6 @@ export default function ResumeBuilder() {
           page-break-after: avoid;
         }
 
-        /* Keep individual entries together when a section spans pages */
         #resume-preview .mb-2,
         #resume-preview .mb-3,
         #resume-preview .mb-4 {
@@ -120,7 +146,6 @@ export default function ResumeBuilder() {
           page-break-inside: avoid;
         }
 
-        /* Avoid widow/orphan single lines */
         #resume-preview p,
         #resume-preview li {
           orphans: 3;
@@ -132,7 +157,8 @@ export default function ResumeBuilder() {
 
   const updateResume = useCallback((updater: (prev: ResumeData) => ResumeData) => {
     setResume(updater)
-    setSaveState('idle') // mark as dirty
+    setIsDirty(true)
+    setSaveState('idle')
   }, [])
 
   function pickAccent(color: string) {
@@ -149,12 +175,13 @@ export default function ResumeBuilder() {
     setSaveState('saving')
     try {
       if (currentDocId) {
-        await saveResume(user.uid, currentDocId, currentDocName, resume)
+        await saveResume(currentDocId, currentDocName, resume)
       } else {
-        const id = await createResume(user.uid, currentDocName, resume)
+        const id = await createResume(currentDocName, resume)
         setCurrentDocId(id)
       }
       setSaveState('saved')
+      setIsDirty(false)
       window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 2000)
     } catch (err) {
       console.error('[Resume save failed]', err)
@@ -171,10 +198,11 @@ export default function ResumeBuilder() {
     setCurrentDocName('Untitled Resume')
     setShowDocs(false)
     setSaveState('idle')
+    setIsDirty(false)
+    setPickerState('hide')
   }
 
   function handleOpenDoc(d: ResumeDoc) {
-    // Backfill any newer optional fields so older saved docs still render.
     setResume({
       ...DEFAULT_RESUME,
       ...d.resume,
@@ -185,13 +213,43 @@ export default function ResumeBuilder() {
     setShowDocs(false)
     setActiveSection('')
     setSaveState('saved')
+    setIsDirty(false)
+    setPickerState('hide')
     window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+  }
+
+  const accentStyle = { '--accent-rgb': hexToRgbTriplet(resume.accentColor) } as React.CSSProperties
+
+  // Loading state while checking for saved docs.
+  if (pickerState === 'loading') {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0f0f1a]" style={accentStyle}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="animate-pulse text-slate-400">Loading your resumes...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Resume picker for returning users.
+  if (pickerState === 'show') {
+    return (
+      <div style={accentStyle}>
+        <ResumePicker
+          docs={pickerDocs}
+          userName={user?.name}
+          onOpen={handleOpenDoc}
+          onNew={handleNew}
+        />
+      </div>
+    )
   }
 
   return (
     <div
       className="flex h-screen flex-col bg-[#0f0f1a] font-sans"
-      style={{ '--accent-rgb': hexToRgbTriplet(resume.accentColor) } as React.CSSProperties}
+      style={accentStyle}
     >
       {/* Top Nav */}
       <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#1a1a2e] px-3 sm:px-4">
@@ -210,13 +268,18 @@ export default function ResumeBuilder() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <input
-            value={currentDocName}
-            onChange={(e) => { setCurrentDocName(e.target.value); setSaveState('idle') }}
-            className="min-w-0 max-w-[180px] rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none transition focus:bg-white/5 sm:max-w-[260px]"
-            placeholder="Untitled Resume"
-          />
-          {saveState === 'saving' && <span className="hidden text-xs text-slate-500 sm:inline">Saving…</span>}
+          <div className="flex min-w-0 items-center gap-1.5">
+            <input
+              value={currentDocName}
+              onChange={(e) => { setCurrentDocName(e.target.value); setIsDirty(true); setSaveState('idle') }}
+              className="min-w-0 max-w-[160px] rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none transition focus:bg-white/5 sm:max-w-[240px]"
+              placeholder="Untitled Resume"
+            />
+            {isDirty && (
+              <span title="Unsaved changes" className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+            )}
+          </div>
+          {saveState === 'saving' && <span className="hidden text-xs text-slate-500 sm:inline">Saving...</span>}
           {saveState === 'saved' && <span className="hidden text-xs text-emerald-400 sm:inline">Saved</span>}
           {saveState === 'error' && (
             <span className="hidden text-xs text-red-400 sm:inline" title={saveError ?? ''}>Save failed</span>
@@ -297,9 +360,21 @@ export default function ResumeBuilder() {
         </div>
       )}
 
+      {isDirty && (
+        <div className="no-print flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-xs text-amber-200">
+          <span>You have unsaved changes. Save your progress before refreshing or they will be lost.</span>
+          <button
+            onClick={handleSave}
+            disabled={saveState === 'saving'}
+            className="shrink-0 rounded-md bg-amber-500/20 px-2.5 py-1 font-medium text-amber-200 transition hover:bg-amber-500/30 disabled:opacity-50"
+          >
+            Save now
+          </button>
+        </div>
+      )}
+
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar (overlay on mobile, push on md+) */}
         <div
           className={`no-print fixed inset-y-0 left-0 z-30 md:relative md:z-auto transition-all duration-300 overflow-hidden shadow-2xl md:shadow-none ${
             !isSidebarOpen
@@ -317,7 +392,6 @@ export default function ResumeBuilder() {
           />
         </div>
 
-        {/* Mobile backdrop when sidebar is open */}
         {isSidebarOpen && activeSection && (
           <div
             onClick={() => setActiveSection('')}
@@ -326,7 +400,6 @@ export default function ResumeBuilder() {
           />
         )}
 
-        {/* Preview area */}
         <div className="flex min-w-0 flex-1 flex-col items-center overflow-auto bg-[#0f0f1a] p-3 sm:p-6 panel-scroll">
           <div className="preview-zoom">
             <ResumePreview ref={previewRef} resume={resume} />
@@ -344,7 +417,6 @@ export default function ResumeBuilder() {
 
       {showDocs && user && (
         <DocumentsPanel
-          uid={user.uid}
           currentDocId={currentDocId}
           onOpen={handleOpenDoc}
           onClose={() => setShowDocs(false)}
@@ -355,6 +427,81 @@ export default function ResumeBuilder() {
   )
 }
 
+function ResumePicker({
+  docs,
+  userName,
+  onOpen,
+  onNew,
+}: {
+  docs: ResumeDoc[]
+  userName?: string | null
+  onOpen: (doc: ResumeDoc) => void
+  onNew: () => void
+}) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0f0f1a] p-6 font-sans">
+      <div className="w-full max-w-2xl">
+        {/* Header */}
+        <div className="mb-8 flex items-center gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent">
+            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}!
+            </h1>
+            <p className="mt-0.5 text-sm text-slate-400">
+              Pick a resume to continue editing, or start a new one.
+            </p>
+          </div>
+        </div>
+
+        {/* Doc list */}
+        <div className="flex flex-col gap-2">
+          {docs.map((doc) => (
+            <button
+              key={doc.id}
+              onClick={() => onOpen(doc)}
+              className="flex items-center justify-between rounded-xl border border-white/10 bg-[#1a1a2e] px-5 py-4 text-left transition hover:border-accent/50 hover:bg-accent/5"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{doc.name || 'Untitled'}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{formatPickerDate(doc.updatedAt)}</p>
+              </div>
+              <span className="ml-4 shrink-0 text-xs font-medium text-accent">Open →</span>
+            </button>
+          ))}
+        </div>
+
+        {/* New resume */}
+        <button
+          onClick={onNew}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-4 text-sm font-medium text-slate-400 transition hover:border-accent hover:text-accent"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          New Resume
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function formatPickerDate(ts: string | null): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Last edited today'
+  if (diffDays === 1) return 'Last edited yesterday'
+  if (diffDays < 7) return `Last edited ${diffDays} days ago`
+  return `Last edited ${d.toLocaleDateString()}`
+}
+
 function UserMenu({
   user,
   open,
@@ -363,14 +510,14 @@ function UserMenu({
   onNew,
   onDocs,
 }: {
-  user: { displayName: string | null; email: string | null; photoURL: string | null }
+  user: { name?: string | null; email?: string | null; image?: string | null }
   open: boolean
   onToggle: () => void
   onClose: () => void
   onNew: () => void
   onDocs: () => void
 }) {
-  const initials = (user.displayName || user.email || '?').slice(0, 1).toUpperCase()
+  const initials = (user.name || user.email || '?').slice(0, 1).toUpperCase()
   return (
     <div className="relative">
       <button
@@ -378,8 +525,8 @@ function UserMenu({
         className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white transition hover:bg-white/10"
         title={user.email ?? 'Account'}
       >
-        {user.photoURL ? (
-          <img src={user.photoURL} alt="" className="h-full w-full object-cover" />
+        {user.image ? (
+          <img src={user.image} alt="" className="h-full w-full object-cover" />
         ) : (
           initials
         )}
@@ -390,7 +537,7 @@ function UserMenu({
           <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#1a1a2e] py-1 shadow-2xl">
             <div className="px-3 py-2 border-b border-white/10">
               <div className="truncate text-sm font-semibold text-white">
-                {user.displayName || user.email?.split('@')[0]}
+                {user.name || user.email?.split('@')[0]}
               </div>
               {user.email && <div className="truncate text-xs text-slate-400">{user.email}</div>}
             </div>
@@ -438,9 +585,7 @@ function WelcomeModal({
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a2e] shadow-2xl">
         <div className="px-6 pt-6 pb-3">
-          <div
-            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white"
-          >
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
             </svg>
