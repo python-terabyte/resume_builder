@@ -374,7 +374,7 @@ export const DEFAULT_RESUME: ResumeData = {
     { id: 'sec-languages', type: 'languages', title: 'Languages', visible: true },
     { id: 'sec-interests', type: 'interests', title: 'Interests', visible: true },
   ],
-  accentColor: '#6366f1',
+  accentColor: '#326E21',
   typography: {
     fontSize: 10,
     lineHeight: 1.5,

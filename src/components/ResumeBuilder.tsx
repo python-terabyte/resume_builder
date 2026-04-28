@@ -110,7 +110,7 @@ export default function ResumeBuilder() {
           padding: 0 !important;
           background: #ffffff !important;
           background-color: #ffffff !important;
-          color: #000000;
+          color: #120B07;
           color-scheme: light !important;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -221,10 +221,11 @@ export default function ResumeBuilder() {
 
   const accentStyle = { '--accent-rgb': hexToRgbTriplet(resume.accentColor) } as React.CSSProperties
 
+
   // Loading state while checking for saved docs.
   if (pickerState === 'loading') {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#0f0f1a]" style={accentStyle}>
+      <div className="flex h-screen w-full items-center justify-center bg-[#120B07]" style={accentStyle}>
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           <p className="animate-pulse text-slate-400">Loading your resumes...</p>
@@ -249,11 +250,11 @@ export default function ResumeBuilder() {
 
   return (
     <div
-      className="flex h-screen flex-col bg-[#0f0f1a] font-sans"
+      className="flex h-screen flex-col bg-[#120B07] font-sans"
       style={accentStyle}
     >
       {/* Top Nav */}
-      <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#1a1a2e] px-3 sm:px-4">
+      <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#2D1B11] px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -297,7 +298,7 @@ export default function ResumeBuilder() {
             className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
           >
             {PAGE_SIZES.map((s) => (
-              <option key={s.id} value={s.id} className="bg-[#1a1a2e]">{s.label}</option>
+              <option key={s.id} value={s.id} className="bg-[#2D1B11]">{s.label}</option>
             ))}
           </select>
           <button
@@ -401,7 +402,7 @@ export default function ResumeBuilder() {
           />
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col items-center overflow-auto bg-[#0f0f1a] p-3 sm:p-6 panel-scroll">
+        <div className="flex min-w-0 flex-1 flex-col items-center overflow-auto bg-[#120B07] p-3 sm:p-6 panel-scroll">
           <div className="preview-zoom">
             <ResumePreview ref={previewRef} resume={resume} />
           </div>
@@ -440,7 +441,7 @@ function ResumePicker({
   onNew: () => void
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0f0f1a] p-6 font-sans">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">
@@ -465,7 +466,7 @@ function ResumePicker({
             <button
               key={doc.id}
               onClick={() => onOpen(doc)}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-[#1a1a2e] px-5 py-4 text-left transition hover:border-accent/50 hover:bg-accent/5"
+              className="flex items-center justify-between rounded-xl border border-white/10 bg-[#2D1B11] px-5 py-4 text-left transition hover:border-accent/50 hover:bg-accent/5"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">{doc.name || 'Untitled'}</p>
@@ -535,7 +536,7 @@ function UserMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
-          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#1a1a2e] py-1 shadow-2xl">
+          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#2D1B11] py-1 shadow-2xl">
             <div className="px-3 py-2 border-b border-white/10">
               <div className="truncate text-sm font-semibold text-white">
                 {user.name || user.email?.split('@')[0]}
@@ -593,7 +594,7 @@ function WelcomeModal({
 }) {
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a2e] shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl">
         <div className="px-6 pt-6 pb-3">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -620,7 +621,7 @@ function WelcomeModal({
                   title={theme.name}
                   style={{ backgroundColor: theme.value }}
                   className={`h-9 w-9 rounded-full transition hover:scale-110 ${
-                    active ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1a2e]' : ''
+                    active ? 'ring-2 ring-white ring-offset-2 ring-offset-[#2D1B11]' : ''
                   }`}
                 />
               )

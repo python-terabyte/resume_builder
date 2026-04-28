@@ -45,8 +45,8 @@ export default function AuthGate() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0f0f1a] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a2e] p-6 shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-[#120B07] p-4">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] p-6 shadow-2xl">
         <div className="mb-5 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent">
             <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,7 +85,7 @@ export default function AuthGate() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name (optional)"
-                className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="w-full rounded-md border border-white/10 bg-[#120B07] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               />
             </Field>
           )}
@@ -96,7 +96,7 @@ export default function AuthGate() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+              className="w-full rounded-md border border-white/10 bg-[#120B07] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </Field>
           <Field label="Password">
@@ -107,7 +107,7 @@ export default function AuthGate() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+              className="w-full rounded-md border border-white/10 bg-[#120B07] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </Field>
 

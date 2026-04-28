@@ -5,11 +5,10 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-tertiary: #252540;
-  --accent-rgb: 99 102 241;
-}
+  --bg-primary: #312d1b;
+  --bg-secondary: #492d28;
+  --bg-tertiary: #4025255e;
+--accent-rgb: 212 175 55;}
 
 * {
   box-sizing: border-box;
@@ -31,7 +30,7 @@ body {
   background: transparent;
 }
 .panel-scroll::-webkit-scrollbar-thumb {
-  background: #3f3f6e;
+  background: #D4AF37;
   border-radius: 3px;
 }
 .panel-scroll::-webkit-scrollbar-thumb:hover {
@@ -52,7 +51,7 @@ input[type='range'] {
   cursor: pointer;
 }
 input[type='range']::-webkit-slider-runnable-track {
-  background: #3f3f6e;
+  background: #D4AF37;
   height: 4px;
   border-radius: 2px;
 }
@@ -64,7 +63,7 @@ input[type='range']::-webkit-slider-thumb {
   height: 14px;
   width: 14px;
   border-radius: 50%;
-  border: 2px solid #1a1a2e;
+  border: 2px solid #D4AF37;
 }
 input[type='range']:focus {
   outline: none;
@@ -110,6 +109,55 @@ input[type='range']:focus {
   opacity: 1;
   overflow: visible;
 }
+
+/* ── Landing page animations ─────────────────────────────────────────── */
+@keyframes orbDrift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(40px,-30px) scale(1.08); }
+  66%      { transform: translate(-30px,40px) scale(0.94); }
+}
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(28px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes floatY {
+  0%,100% { transform:translateY(0); }
+  50%     { transform:translateY(-7px); }
+}
+@keyframes shimmerText {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 18px rgba(201,168,76,.35), 0 0 40px rgba(201,168,76,.12); }
+  50%     { box-shadow: 0 0 32px rgba(201,168,76,.60), 0 0 70px rgba(201,168,76,.25); }
+}
+@keyframes borderShimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes cardReveal {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.anim-orb       { animation: orbDrift 14s ease-in-out infinite; }
+.anim-orb-slow  { animation: orbDrift 20s ease-in-out infinite reverse; }
+.anim-badge     { animation: floatY 4s ease-in-out infinite; }
+.anim-hero      { animation: fadeInUp .8s ease both; }
+.anim-hero-delay{ animation: fadeInUp .8s .2s ease both; }
+.anim-hero-d2   { animation: fadeInUp .8s .4s ease both; }
+.anim-glow      { animation: glowPulse 2.8s ease-in-out infinite; }
+.anim-shimmer   {
+  background: linear-gradient(90deg,#C9A84C,#E8C96A,#120B07,#C9A84C);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmerText 4s linear infinite;
+}
+.card-reveal    { animation: cardReveal .7s ease both; }
 
 /* Multi-page preview sizing: `zoom` (unlike `transform: scale`) actually
    shrinks layout dimensions so a 3-page resume occupies the right scroll

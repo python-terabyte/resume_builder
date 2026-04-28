@@ -71,7 +71,7 @@ function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+        className="w-full rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
       />
     </div>
   )
@@ -173,7 +173,7 @@ function Textarea({
         onKeyDown={handleKeyDown}
         rows={rows}
         placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+        className="w-full resize-none rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
         style={{ whiteSpace: 'pre-wrap' }}
       />
     </div>
@@ -309,7 +309,7 @@ function ArrangeRow({
   label: string
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#1a1a2e] px-3 py-2.5">
+    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#2D1B11] px-3 py-2.5">
       <span
         {...dragProps}
         className="drag-handle cursor-grab text-slate-500 hover:text-slate-300"
@@ -453,7 +453,7 @@ function ExperienceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={exp.position || exp.company || 'New Experience'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#1a1a2e]">
+                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
                   <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
@@ -573,7 +573,7 @@ function EducationSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={edu.institution || 'New Education'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#1a1a2e]">
+                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
                   <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
@@ -696,7 +696,7 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={group.category || 'Untitled Group'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#1a1a2e]">
+                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
                   <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
                     <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
@@ -718,7 +718,7 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
                           value={skill.name}
                           onChange={(e) => setSkill(group.id, skill.id, 'name', e.target.value)}
                           placeholder="Skill name"
-                          className="w-28 rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1 text-xs text-white placeholder-slate-600 outline-none focus:border-accent"
+                          className="w-28 rounded-md border border-white/10 bg-[#120B07] px-2 py-1 text-xs text-white placeholder-slate-600 outline-none focus:border-accent"
                         />
                         <input
                           type="range"
@@ -800,7 +800,7 @@ function ProjectsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' |
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={proj.name || 'New Project'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#1a1a2e]">
+                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
                   <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
@@ -874,7 +874,7 @@ function CertificationsSection({ resume, updateResume }: Pick<SidebarProps, 'res
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={cert.name || 'New Certification'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#1a1a2e] p-3">
+                <div className="rounded-lg border border-white/10 bg-[#2D1B11] p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
@@ -951,12 +951,12 @@ function LanguagesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                     value={lang.language}
                     onChange={(e) => setField(lang.id, 'language', e.target.value)}
                     placeholder="Language"
-                    className="flex-1 rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none focus:border-accent"
+                    className="flex-1 rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none focus:border-accent"
                   />
                   <select
                     value={lang.proficiency}
                     onChange={(e) => setField(lang.id, 'proficiency', e.target.value)}
-                    className="rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
+                    className="rounded-md border border-white/10 bg-[#120B07] px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
                   >
                     {proficiencies.map((p) => <option key={p}>{p}</option>)}
                   </select>
@@ -1022,7 +1022,7 @@ function InterestsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
       ) : (
         <div className="flex flex-wrap gap-2">
           {resume.interests.map((int) => (
-            <div key={int.id} className="flex items-center gap-1 rounded-full border border-white/10 bg-[#1a1a2e] pl-2.5 pr-1 py-1">
+            <div key={int.id} className="flex items-center gap-1 rounded-full border border-white/10 bg-[#2D1B11] pl-2.5 pr-1 py-1">
               <input
                 value={int.name}
                 onChange={(e) => setName(int.id, e.target.value)}
@@ -1058,7 +1058,7 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
               onClick={() => updateResume((prev) => ({ ...prev, accentColor: theme.value }))}
               style={{ backgroundColor: theme.value }}
               className={`h-7 w-7 rounded-full transition hover:scale-110 ${
-                resume.accentColor === theme.value ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1a2e]' : ''
+                resume.accentColor === theme.value ? 'ring-2 ring-white ring-offset-2 ring-offset-[#2D1B11]' : ''
               }`}
             />
           ))}
@@ -1083,7 +1083,7 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
         <select
           value={t.fontFamily}
           onChange={(e) => updateResume((prev) => ({ ...prev, typography: { ...prev.typography, fontFamily: e.target.value } }))}
-          className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent"
+          className="w-full rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent"
         >
           {FONT_FAMILIES.map((f) => <option key={f}>{f}</option>)}
         </select>
@@ -1161,7 +1161,7 @@ function SectionsManager({ resume, updateResume }: Pick<SidebarProps, 'resume' |
           {resume.sections.map((sec) => (
             <SortableItem key={sec.id} id={sec.id}>
               {(dragProps) => (
-                <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#1a1a2e] px-3 py-2">
+                <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#2D1B11] px-3 py-2">
                   <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
                   </span>
@@ -1225,7 +1225,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                   active
                     ? 'bg-accent text-white'
-                    : 'border border-white/10 bg-[#0f0f1a] text-slate-300 hover:border-accent hover:text-white'
+                    : 'border border-white/10 bg-[#120B07] text-slate-300 hover:border-accent hover:text-white'
                 }`}
               >
                 {ind.label}
@@ -1256,7 +1256,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                   className={`group relative flex flex-col gap-2 rounded-lg border p-2 text-left transition ${
                     active
                       ? 'border-accent bg-accent/10 ring-1 ring-accent'
-                      : 'border-white/10 bg-[#0f0f1a] hover:border-accent/60'
+                      : 'border-white/10 bg-[#120B07] hover:border-accent/60'
                   }`}
                 >
                   <TemplateThumb id={tpl.id} accentColor={resume.accentColor} />
@@ -1485,11 +1485,11 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
   const compact = hasPanel
 
   return (
-    <div className="flex h-full border-r border-white/10 bg-[#1a1a2e]">
+    <div className="flex h-full border-r border-white/10 bg-[#2D1B11]">
       {/* Vertical rail */}
       <nav
         aria-label="Sections"
-        className={`flex shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-white/10 bg-[#0f0f1a] panel-scroll transition-all duration-300 ${
+        className={`flex shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-white/10 bg-[#120B07] panel-scroll transition-all duration-300 ${
           compact ? 'w-[100px] px-2 py-3' : 'w-[200px] px-3 py-4'
         }`}
       >

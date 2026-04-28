@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
   const lastUpdated = 'April 27, 2026'
 
   return (
-    <div className="min-h-screen bg-[#0f0f1a] px-4 py-12 font-sans text-slate-300">
+    <div className="min-h-screen bg-[#120B07] px-4 py-12 font-sans text-slate-300">
       <div className="mx-auto max-w-2xl">
 
         {/* Back link */}

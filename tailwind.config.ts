@@ -13,9 +13,9 @@ const config: Config = {
       },
       colors: {
         bg: {
-          primary: '#0f0f1a',
-          secondary: '#1a1a2e',
-          tertiary: '#252540',
+          primary: '#120B07',
+          secondary: '#2D1B11', //2D1B110
+          tertiary: '#2F2F',
         },
         accent: 'rgb(var(--accent-rgb) / <alpha-value>)',
       },

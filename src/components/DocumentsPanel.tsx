@@ -53,7 +53,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
 
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-2xl border border-white/10 bg-[#1a1a2e] shadow-2xl" style={{ maxHeight: '80vh' }}>
+      <div className="flex w-full max-w-2xl flex-col rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" style={{ maxHeight: '80vh' }}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <h2 className="text-lg font-bold text-white">My Resumes</h2>
           <button
@@ -100,7 +100,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                     className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition ${
                       isCurrent
                         ? 'border-accent bg-accent/10'
-                        : 'border-white/10 bg-[#0f0f1a] hover:border-white/20'
+                        : 'border-white/10 bg-[#120B07] hover:border-white/20'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
@@ -114,7 +114,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                             if (e.key === 'Enter') commitRename(d.id)
                             if (e.key === 'Escape') setRenamingId(null)
                           }}
-                          className="w-full rounded-md border border-white/10 bg-[#0f0f1a] px-2 py-1 text-sm text-white outline-none focus:border-accent"
+                          className="w-full rounded-md border border-white/10 bg-[#120B07] px-2 py-1 text-sm text-white outline-none focus:border-accent"
                         />
                       ) : (
                         <button
