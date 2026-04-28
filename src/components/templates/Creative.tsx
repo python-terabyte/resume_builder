@@ -11,10 +11,10 @@ export default function Creative({ resume }: TemplateProps) {
   const mainOrder = order.filter((t) => MAIN_TYPES.includes(t))
 
   return (
-    <div className="grid grid-cols-3 text-gray-900" style={{ minHeight: '297mm' }}>
+    <div className="grid grid-cols-3 text-gray-900">
       <aside
         className="col-span-1 px-6 py-8 text-white"
-        style={{ backgroundColor: accentColor, minHeight: '297mm' }}
+        style={{ backgroundColor: accentColor}}
       >
         {personal.photo && (
           <div className="mx-auto mb-4 h-28 w-28 overflow-hidden rounded-full border-4 border-white/30">
