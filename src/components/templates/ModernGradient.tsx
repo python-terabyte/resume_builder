@@ -21,7 +21,7 @@ export default function ModernGradient({ resume }: TemplateProps) {
             )}
           </div>
           {personal.photo && (
-            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-[3px]" style={{ borderColor: 'rgba(255,255,255,0.4)' }}>
+            <div className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-[3px]" style={{ borderColor: 'rgba(255,255,255,0.4)' }}>
               <img src={personal.photo} alt="" className="h-full w-full object-cover" />
             </div>
           )}

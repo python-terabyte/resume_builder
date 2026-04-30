@@ -6,7 +6,7 @@ export default function Executive({ resume }: TemplateProps) {
   const order = visibleSectionTypes(resume)
 
   return (
-    <div className="px-12 py-10 text-gray-900" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+    <div className="px-12 py-10 text-gray-900">
       <header className="text-center">
         <h1 className="text-4xl font-bold tracking-wide" style={{ letterSpacing: '0.08em' }}>
           {personal.firstName.toUpperCase()} {personal.lastName.toUpperCase()}

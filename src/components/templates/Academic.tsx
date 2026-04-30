@@ -6,7 +6,7 @@ export default function Academic({ resume }: TemplateProps) {
   const order = visibleSectionTypes(resume)
 
   return (
-    <div className="px-12 py-10 text-gray-900" style={{ fontFamily: "'Georgia', 'Cambria', serif" }}>
+    <div className="px-12 py-10 text-gray-900">
       <header className="text-center pb-3 border-b-2" style={{ borderColor: accentColor }}>
         <h1 className="text-3xl font-bold tracking-tight">
           {personal.firstName} {personal.lastName}

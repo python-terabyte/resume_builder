@@ -6,7 +6,7 @@ export default function Technical({ resume }: TemplateProps) {
   const order = visibleSectionTypes(resume)
 
   return (
-    <div className="px-10 py-8 text-gray-900" style={{ fontFamily: "'JetBrains Mono', 'Menlo', 'Consolas', monospace" }}>
+    <div className="px-10 py-8 text-gray-900">
       <header className="flex items-baseline justify-between border-b-2 pb-2" style={{ borderColor: accentColor }}>
         <div>
           <h1 className="text-2xl font-bold">

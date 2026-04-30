@@ -109,9 +109,13 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
 
   const pageCount = pageStarts.length
 
+  // Tailwind text-* classes use rem (relative to html root = 16px).
+  // Multiplying by 1.6 maps the slider's default value of 10 to 16px,
+  // so at the default setting em-based overrides produce the same sizes
+  // as the original rem-based classes (backward compatible).
   const fontStyle = {
     fontFamily: `'${typography.fontFamily}', sans-serif`,
-    fontSize: `${typography.fontSize}px`,
+    fontSize: `${typography.fontSize * 1.6}px`,
     lineHeight: typography.lineHeight,
     letterSpacing: `${typography.letterSpacing}em`,
   }
@@ -138,7 +142,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
       <div
         ref={measureRef}
         aria-hidden
-        className="resume-measure print:hidden"
+        className="resume-measure resume-scale-text print:hidden"
         style={{
           position: 'fixed',
           top: 0,
@@ -177,11 +181,14 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
                   pageBreakAfter: isLast ? 'auto' : 'always',
                 }}
               >
-                <div style={{ 
-                  transform: `translateY(-${offset}px)`,
-                  willChange: 'transform',
-                  ...fontStyle,
-                  }}>
+                <div
+                  className="resume-scale-text"
+                  style={{
+                    transform: `translateY(-${offset}px)`,
+                    willChange: 'transform',
+                    ...fontStyle,
+                  }}
+                >
                   <Template resume={resume} />
                 </div>
 

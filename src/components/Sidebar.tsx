@@ -323,70 +323,249 @@ function ArrangeRow({
   )
 }
 
+// ─── Photo Editor Modal ───────────────────────────────────────────────────────
+
+const PHOTO_PREVIEW = 200
+
+function PhotoEditor({
+  src,
+  onApply,
+  onCancel,
+}: {
+  src: string
+  onApply: (dataUrl: string) => void
+  onCancel: () => void
+}) {
+  const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const [dragOrigin, setDragOrigin] = useState({ x: 0, y: 0 })
+  const [nat, setNat] = useState({ w: 0, h: 0 })
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Scale image to cover the PHOTO_PREVIEW circle at zoom=1
+  const coverScale = nat.w > 0 ? Math.max(PHOTO_PREVIEW / nat.w, PHOTO_PREVIEW / nat.h) : 1
+  const baseW = nat.w * coverScale
+  const baseH = nat.h * coverScale
+  const effectiveW = baseW * scale
+  const effectiveH = baseH * scale
+  const imgLeft = (PHOTO_PREVIEW - effectiveW) / 2 + offset.x
+  const imgTop = (PHOTO_PREVIEW - effectiveH) / 2 + offset.y
+
+  function startDrag(clientX: number, clientY: number) {
+    setDragging(true)
+    setDragOrigin({ x: clientX - offset.x, y: clientY - offset.y })
+  }
+  function moveDrag(clientX: number, clientY: number) {
+    if (!dragging) return
+    setOffset({ x: clientX - dragOrigin.x, y: clientY - dragOrigin.y })
+  }
+  function endDrag() { setDragging(false) }
+
+  function apply() {
+    const canvas = canvasRef.current
+    if (!canvas || nat.w === 0) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    // Render at 300×300 for higher output quality
+    const OUT = 300
+    canvas.width = OUT
+    canvas.height = OUT
+    ctx.clearRect(0, 0, OUT, OUT)
+    ctx.beginPath()
+    ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2)
+    ctx.clip()
+    const ratio = OUT / PHOTO_PREVIEW
+    const img = new Image()
+    img.onload = () => {
+      ctx.drawImage(img, imgLeft * ratio, imgTop * ratio, effectiveW * ratio, effectiveH * ratio)
+      onApply(canvas.toDataURL('image/jpeg', 0.92))
+    }
+    img.src = src
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onMouseMove={(e) => moveDrag(e.clientX, e.clientY)}
+      onMouseUp={endDrag}
+    >
+      <div
+        className="w-full max-w-xs rounded-xl border border-[rgba(201,168,76,.2)] bg-[#150F23] p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-0.5 text-sm font-semibold text-white">Adjust Photo</h3>
+        <p className="mb-4 text-[11px] text-slate-500">Drag to reposition · Slider to zoom</p>
+
+        {/* Circular preview / drag area */}
+        <div
+          className="relative mx-auto select-none overflow-hidden"
+          style={{
+            width: PHOTO_PREVIEW,
+            height: PHOTO_PREVIEW,
+            borderRadius: '50%',
+            border: '2px solid rgba(201,168,76,.4)',
+            cursor: dragging ? 'grabbing' : 'grab',
+          }}
+          onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }}
+          onMouseMove={(e) => moveDrag(e.clientX, e.clientY)}
+          onTouchStart={(e) => { const t = e.touches[0]; startDrag(t.clientX, t.clientY) }}
+          onTouchMove={(e) => { e.preventDefault(); const t = e.touches[0]; moveDrag(t.clientX, t.clientY) }}
+          onTouchEnd={endDrag}
+        >
+          <img
+            src={src}
+            alt=""
+            draggable={false}
+            onLoad={(e) => {
+              const i = e.currentTarget
+              setNat({ w: i.naturalWidth, h: i.naturalHeight })
+            }}
+            style={{
+              position: 'absolute',
+              left: imgLeft,
+              top: imgTop,
+              width: effectiveW,
+              height: effectiveH,
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+
+        {/* Zoom controls */}
+        <div className="mt-4">
+          <div className="mb-1.5 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Zoom</span>
+            <span>{Math.round(scale * 100)}%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setScale((s) => Math.max(0.5, Math.round((s - 0.1) * 100) / 100))}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-white/10 text-sm text-slate-300 transition hover:border-accent hover:text-white"
+            >−</button>
+            <input
+              type="range" min={0.5} max={3} step={0.05}
+              value={scale}
+              onChange={(e) => setScale(Number(e.target.value))}
+              className="flex-1"
+            />
+            <button
+              onClick={() => setScale((s) => Math.min(3, Math.round((s + 0.1) * 100) / 100))}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-white/10 text-sm text-slate-300 transition hover:border-accent hover:text-white"
+            >+</button>
+          </div>
+        </div>
+
+        <button
+          onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }) }}
+          className="mt-2 text-[11px] text-slate-600 transition hover:text-slate-400"
+        >
+          Reset position
+        </button>
+
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-md border border-white/10 py-2 text-sm text-slate-300 transition hover:bg-white/5"
+          >Cancel</button>
+          <button
+            onClick={apply}
+            disabled={nat.w === 0}
+            className="flex-1 rounded-md bg-accent py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+          >Apply</button>
+        </div>
+
+        <canvas ref={canvasRef} className="hidden" />
+      </div>
+    </div>
+  )
+}
+
 // ─── Personal ─────────────────────────────────────────────────────────────────
 
 function PersonalSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | 'updateResume'>) {
   const p = resume.personal
+  const [editSrc, setEditSrc] = useState<string | null>(null)
   const set = (key: keyof typeof p) => (v: string) =>
     updateResume((prev) => ({ ...prev, personal: { ...prev.personal, [key]: v } }))
 
   function handlePhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      updateResume((prev) => ({ ...prev, personal: { ...prev.personal, photo: ev.target?.result as string } }))
+    if (!file.type.startsWith('image/')) {
+      alert('Only image files are allowed (JPG, PNG, WebP, etc.)')
+      return
     }
+    if (file.size > 500 * 1024) {
+      alert('Image must be 500 KB or smaller. Please resize your photo and try again.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => setEditSrc(ev.target?.result as string)
     reader.readAsDataURL(file)
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Photo */}
-      <div className="flex items-center gap-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-[#252540]">
-          {p.photo ? (
-            <img src={p.photo} alt="Photo" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-slate-500">
-              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-          )}
+    <>
+      {editSrc && (
+        <PhotoEditor
+          src={editSrc}
+          onApply={(dataUrl) => {
+            updateResume((prev) => ({ ...prev, personal: { ...prev.personal, photo: dataUrl } }))
+            setEditSrc(null)
+          }}
+          onCancel={() => setEditSrc(null)}
+        />
+      )}
+      <div className="flex flex-col gap-3">
+        {/* Photo */}
+        <div className="flex items-center gap-3">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-[#252540]">
+            {p.photo ? (
+              <img src={p.photo} alt="Photo" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-slate-500">
+                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="cursor-pointer rounded-md border border-white/20 px-2.5 py-1 text-xs text-slate-300 transition hover:border-accent hover:text-white">
+              {p.photo ? 'Replace Photo' : 'Upload Photo'}
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+            </label>
+            <p className="text-[10px] text-slate-600">JPG · PNG · WebP · max 500 KB</p>
+            {p.photo && (
+              <button
+                onClick={() => updateResume((prev) => ({ ...prev, personal: { ...prev.personal, photo: null } }))}
+                className="text-left text-xs text-red-400 transition hover:text-red-300"
+              >
+                Remove
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="cursor-pointer rounded-md border border-white/20 px-2.5 py-1 text-xs text-slate-300 transition hover:border-accent hover:text-white">
-            Upload Photo
-            <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-          </label>
-          {p.photo && (
-            <button
-              onClick={() => updateResume((prev) => ({ ...prev, personal: { ...prev.personal, photo: null } }))}
-              className="text-left text-xs text-red-400 transition hover:text-red-300"
-            >
-              Remove
-            </button>
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Input label="First Name" value={p.firstName} onChange={set('firstName')} />
-        <Input label="Last Name" value={p.lastName} onChange={set('lastName')} />
+        <div className="grid grid-cols-2 gap-2">
+          <Input label="First Name" value={p.firstName} onChange={set('firstName')} />
+          <Input label="Last Name" value={p.lastName} onChange={set('lastName')} />
+        </div>
+        <Input label="Job Title" value={p.jobTitle} onChange={set('jobTitle')} />
+        <div className="grid grid-cols-2 gap-2">
+          <Input label="Email" value={p.email} onChange={set('email')} type="email" />
+          <Input label="Phone" value={p.phone} onChange={set('phone')} />
+        </div>
+        <Input label="Location" value={p.location} onChange={set('location')} placeholder="City, State" />
+        <div className="grid grid-cols-2 gap-2">
+          <Input label="Website" value={p.website} onChange={set('website')} />
+          <Input label="LinkedIn" value={p.linkedin} onChange={set('linkedin')} />
+        </div>
+        <Textarea label="Summary" value={p.summary} onChange={set('summary')} rows={4} />
       </div>
-      <Input label="Job Title" value={p.jobTitle} onChange={set('jobTitle')} />
-      <div className="grid grid-cols-2 gap-2">
-        <Input label="Email" value={p.email} onChange={set('email')} type="email" />
-        <Input label="Phone" value={p.phone} onChange={set('phone')} />
-      </div>
-      <Input label="Location" value={p.location} onChange={set('location')} placeholder="City, State" />
-      <div className="grid grid-cols-2 gap-2">
-        <Input label="Website" value={p.website} onChange={set('website')} />
-        <Input label="LinkedIn" value={p.linkedin} onChange={set('linkedin')} />
-      </div>
-      <Textarea label="Summary" value={p.summary} onChange={set('summary')} rows={4} />
-    </div>
+    </>
   )
 }
 
@@ -1196,8 +1375,23 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
     updateResume((prev) => ({ ...prev, selectedIndustry: id }))
   }
 
+  const TEMPLATE_FONTS: Partial<Record<TemplateId, string>> = {
+    'ats-classic': 'Times New Roman',
+    'executive':   'Georgia',
+    'academic':    'Georgia',
+    'technical':   'Roboto',
+  }
+
   function setTemplate(id: TemplateId) {
-    updateResume((prev) => ({ ...prev, templateId: id }))
+    const recommendedFont = TEMPLATE_FONTS[id]
+    updateResume((prev) => ({
+      ...prev,
+      templateId: id,
+      typography: {
+        ...prev.typography,
+        ...(recommendedFont ? { fontFamily: recommendedFont } : {}),
+      },
+    }))
   }
 
   return (
@@ -1456,11 +1650,11 @@ const SECTION_MAP: Record<string, { label: string; icon: React.ReactNode }> = {
     icon: <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>,
   },
   appearance: {
-    label: 'Appearance',
+    label: 'Settings',
     icon: <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>,
   },
   sections: {
-    label: 'Sections',
+    label: 'Arrange',
     icon: <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
   },
 }

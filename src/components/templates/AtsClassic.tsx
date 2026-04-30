@@ -6,7 +6,7 @@ export default function AtsClassic({ resume }: TemplateProps) {
   const order = visibleSectionTypes(resume)
 
   return (
-    <div className="px-12 py-10 text-black" style={{ fontFamily: "'Times New Roman', Georgia, serif" }}>
+    <div className="px-12 py-10 text-black">
       <div className="text-center">
         <h1 className="text-2xl font-bold uppercase tracking-wide">
           {personal.firstName} {personal.lastName}

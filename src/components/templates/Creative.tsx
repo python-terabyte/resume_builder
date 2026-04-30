@@ -17,7 +17,7 @@ export default function Creative({ resume }: TemplateProps) {
         style={{ backgroundColor: accentColor}}
       >
         {personal.photo && (
-          <div className="mx-auto mb-4 h-28 w-28 overflow-hidden rounded-full border-4 border-white/30">
+          <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full border-4 border-white/30">
             <img src={personal.photo} alt="" className="h-full w-full object-cover" />
           </div>
         )}

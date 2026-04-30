@@ -169,3 +169,32 @@ input[type='range']:focus {
 @media print {
   .preview-zoom { zoom: 1 !important; }
 }
+
+/* ── Resume typography scaling ───────────────────────────────────────────────
+   Tailwind's text-* classes use rem units (relative to html root, 16px).
+   They ignore the container's font-size, so the Appearance font-size slider
+   had no effect on templates that hardcode text-sm / text-xs / etc.
+   By re-expressing those classes in em units inside .resume-scale-text,
+   the container's font-size becomes the base and every template scales
+   uniformly when the user moves the slider.
+   Two-class specificity (0,0,2,0) beats Tailwind's single-class (0,0,1,0)
+   so no !important is needed.
+   ── */
+.resume-scale-text .text-xs   { font-size: 0.75em; }
+.resume-scale-text .text-sm   { font-size: 0.875em; }
+.resume-scale-text .text-base { font-size: 1em; }
+.resume-scale-text .text-lg   { font-size: 1.125em; }
+.resume-scale-text .text-xl   { font-size: 1.25em; }
+.resume-scale-text .text-2xl  { font-size: 1.5em; }
+.resume-scale-text .text-3xl  { font-size: 1.875em; }
+.resume-scale-text .text-4xl  { font-size: 2.25em; }
+.resume-scale-text .text-5xl  { font-size: 3em; }
+
+/* Make leading-* classes inherit from the container so the line-height
+   slider works on all templates, not just elements without an explicit class. */
+.resume-scale-text .leading-none    { line-height: inherit; }
+.resume-scale-text .leading-tight   { line-height: inherit; }
+.resume-scale-text .leading-snug    { line-height: inherit; }
+.resume-scale-text .leading-normal  { line-height: inherit; }
+.resume-scale-text .leading-relaxed { line-height: inherit; }
+.resume-scale-text .leading-loose   { line-height: inherit; }
