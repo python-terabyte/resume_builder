@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import { signInEmail, signInGoogle, signUpEmail } from '@/lib/auth'
 
@@ -47,13 +48,8 @@ export default function AuthGate() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#120B07] p-4">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] p-6 shadow-2xl">
-        <div className="mb-5 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent">
-            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <span className="text-lg font-semibold text-white">BrandFox</span>
+        <div className="mb-5">
+          <Image src="/logoface.png" alt="BrandFox" width={140} height={40} className="h-9 w-auto object-contain" />
         </div>
 
         <h1 className="text-xl font-bold text-white">

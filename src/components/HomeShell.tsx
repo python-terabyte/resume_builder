@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import Link from 'next/link'
 import { SessionProvider } from 'next-auth/react'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
@@ -14,8 +15,11 @@ const ResumeBuilder = dynamic(() => import('@/components/ResumeBuilder'), {
 function AppLoading() {
   return (
     <div className="flex h-screen w-full items-center justify-center" style={{ background: '#120B07' }}>
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-10 w-10 animate-spin rounded-full border-4" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute h-20 w-20 animate-spin rounded-full border-4" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
+          <Image src="/Logoface.png" alt="BrandFox" width={48} height={48} className="h-12 w-12 object-contain" />
+        </div>
         <p className="animate-pulse text-sm" style={{ color: '#8B7340' }}>Loading BrandFox...</p>
       </div>
     </div>
@@ -201,13 +205,8 @@ function LandingPage() {
         className="relative z-10 flex items-center justify-between px-6 py-4 sm:px-10"
         style={{ borderBottom: `1px solid ${C.goldBorder}`, background: 'rgba(7,8,9,.7)', backdropFilter: 'blur(12px)' }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md" style={{ background: `linear-gradient(135deg, ${C.chocMid}, ${C.gold})` }}>
-            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold" style={{ color: C.goldLight }}>BrandFox</span>
+        <div className="flex items-center">
+          <Image src="/logo.png" alt="BrandFox" width={140} height={40} className="h-9 w-auto object-contain" priority />
         </div>
 
         <div className="hidden items-center gap-6 sm:flex">
@@ -463,15 +462,8 @@ function LandingPage() {
       <footer className="relative z-10 py-8" style={{ borderTop: `1px solid ${C.goldBorder}` }}>
         <div className="mx-auto max-w-5xl px-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded"
-                style={{ background: `linear-gradient(135deg, ${C.chocMid}, ${C.gold})` }}
-              >
-                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <span className="text-sm font-semibold" style={{ color: C.goldDim }}>BrandFox</span>
+            <div className="flex items-center gap-2.5">
+              <Image src="/logo.png" alt="BrandFox" width={100} height={28} className="h-7 w-auto object-contain" />
               <span className="text-xs" style={{ color: C.textMuted }}>&copy; {new Date().getFullYear()}</span>
             </div>
             <nav className="flex flex-wrap items-center gap-5 text-xs" aria-label="Footer navigation">
