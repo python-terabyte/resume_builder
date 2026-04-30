@@ -266,7 +266,7 @@ export default function ResumeBuilder() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <Image src="/Logoface.png" alt="BrandFox" width={28} height={28} className="h-7 w-7 shrink-0 object-contain" />
+          <Image src="/logoface.png" alt="BrandFox" width={28} height={28} className="h-7 w-7 shrink-0 object-contain" />
           <div className="flex min-w-0 items-center gap-1.5">
             <input
               value={currentDocName}
@@ -442,7 +442,7 @@ function ResumePicker({
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">
-          <Image src="/Logoface.png" alt="BrandFox" width={44} height={44} className="h-11 w-11 shrink-0 object-contain" />
+          <Image src="/logoface.png" alt="BrandFox" width={44} height={44} className="h-11 w-11 shrink-0 object-contain" />
           <div>
             <h1 className="text-2xl font-bold text-white">
               Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}!

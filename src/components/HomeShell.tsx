@@ -18,7 +18,7 @@ function AppLoading() {
       <div className="flex flex-col items-center gap-5">
         <div className="relative flex items-center justify-center">
           <div className="absolute h-20 w-20 animate-spin rounded-full border-4" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
-          <Image src="/Logoface.png" alt="BrandFox" width={48} height={48} className="h-12 w-12 object-contain" />
+          <Image src="/logoface.png" alt="BrandFox" width={48} height={48} className="h-12 w-12 object-contain" />
         </div>
         <p className="animate-pulse text-sm" style={{ color: '#8B7340' }}>Loading BrandFox...</p>
       </div>
