@@ -226,8 +226,12 @@ export default function ResumeBuilder() {
   // Loading state while checking for saved docs.
   if (pickerState === 'loading') {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#120B07]" style={accentStyle}>
-        <div className="flex flex-col items-center gap-4">
+      <div className="relative flex h-screen w-full items-center justify-center bg-[#120B07]" style={accentStyle}>
+        <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+          <div className="anim-orb absolute rounded-full" style={{ width: 560, height: 560, top: -140, right: -140, background: 'radial-gradient(circle, rgba(201,168,76,.13) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+          <div className="anim-orb-slow absolute rounded-full" style={{ width: 460, height: 460, bottom: -120, left: -120, background: 'radial-gradient(circle, rgba(13,144,128,.11) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        </div>
+        <div className="relative z-10 flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           <p className="animate-pulse text-slate-400">Loading your resumes...</p>
         </div>
@@ -399,9 +403,17 @@ export default function ResumeBuilder() {
           />
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col items-center overflow-auto bg-[#120B07] p-3 sm:p-6 panel-scroll">
-          <div className="preview-zoom">
-            <ResumePreview ref={previewRef} resume={resume} />
+        <div className="relative flex min-w-0 flex-1 overflow-hidden bg-[#120B07]">
+          {/* Ambient orbs */}
+          <div className="no-print pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+            <div className="anim-orb absolute rounded-full" style={{ width: 520, height: 520, top: -120, right: -120, background: 'radial-gradient(circle, rgba(201,168,76,.11) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+            <div className="anim-orb-slow absolute rounded-full" style={{ width: 420, height: 420, bottom: -100, left: -100, background: 'radial-gradient(circle, rgba(13,144,128,.09) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+            <div className="absolute rounded-full" style={{ width: 500, height: 200, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(ellipse, rgba(61,26,8,.20) 0%, transparent 70%)', filter: 'blur(50px)' }} />
+          </div>
+          <div className="relative z-10 flex flex-1 flex-col items-center overflow-auto p-3 sm:p-6 panel-scroll">
+            <div className="preview-zoom">
+              <ResumePreview ref={previewRef} resume={resume} />
+            </div>
           </div>
         </div>
       </div>
@@ -438,8 +450,14 @@ function ResumePicker({
   onNew: () => void
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
-      <div className="w-full max-w-2xl">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
+      {/* Ambient orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+        <div className="anim-orb absolute rounded-full" style={{ width: 600, height: 600, top: -180, right: -160, background: 'radial-gradient(circle, rgba(201,168,76,.14) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="anim-orb-slow absolute rounded-full" style={{ width: 500, height: 500, bottom: -140, left: -140, background: 'radial-gradient(circle, rgba(13,144,128,.12) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="absolute rounded-full" style={{ width: 700, height: 300, top: '40%', left: '50%', transform: 'translateX(-50%)', background: 'radial-gradient(ellipse, rgba(61,26,8,.28) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      </div>
+      <div className="relative z-10 w-full max-w-2xl">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">
           <Image src="/logoface.png" alt="BrandFox" width={44} height={44} className="h-11 w-11 shrink-0 object-contain" />

@@ -9,8 +9,16 @@ export default function PrivacyPolicy() {
   const lastUpdated = 'April 27, 2026'
 
   return (
-    <div className="min-h-screen bg-[#120B07] px-4 py-12 font-sans text-slate-300">
-      <div className="mx-auto max-w-2xl">
+    <div className="relative min-h-screen bg-[#120B07] px-4 py-12 font-sans text-slate-300">
+
+      {/* Ambient orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+        <div className="anim-orb absolute rounded-full" style={{ width: 580, height: 580, top: -160, right: -140, background: 'radial-gradient(circle, rgba(201,168,76,.14) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="anim-orb-slow absolute rounded-full" style={{ width: 460, height: 460, bottom: -120, left: -120, background: 'radial-gradient(circle, rgba(13,144,128,.12) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="absolute rounded-full" style={{ width: 600, height: 260, top: '50%', left: '50%', transform: 'translateX(-50%)', background: 'radial-gradient(ellipse, rgba(61,26,8,.28) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-2xl">
 
         {/* Back link */}
         <Link
@@ -158,6 +166,7 @@ export default function PrivacyPolicy() {
     </div>
   )
 }
+
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

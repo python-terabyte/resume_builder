@@ -121,8 +121,16 @@ export default function AuthGate() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#120B07] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] p-6 shadow-2xl">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#120B07] p-4">
+
+      {/* Ambient orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+        <div className="anim-orb absolute rounded-full" style={{ width: 600, height: 600, top: -180, right: -160, background: 'radial-gradient(circle, rgba(201,168,76,.15) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="anim-orb-slow absolute rounded-full" style={{ width: 500, height: 500, bottom: -140, left: -140, background: 'radial-gradient(circle, rgba(13,144,128,.13) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="absolute rounded-full" style={{ width: 700, height: 300, top: '40%', left: '50%', transform: 'translateX(-50%)', background: 'radial-gradient(ellipse, rgba(61,26,8,.30) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] p-6 shadow-2xl">
         <div className="mb-5">
           <Image src="/logoface.png" alt="BrandFox" width={140} height={40} className="h-9 w-auto object-contain" />
         </div>
@@ -158,7 +166,6 @@ export default function AuthGate() {
 
         <form onSubmit={submit} className="flex flex-col gap-3">
 
-          {/* SIGN UP: name */}
           {mode === 'signup' && (
             <Field label="Name">
               <input
@@ -170,7 +177,6 @@ export default function AuthGate() {
             </Field>
           )}
 
-          {/* Email — shown on signin, signup, forgot */}
           {(mode === 'signin' || mode === 'signup' || mode === 'forgot') && (
             <Field label="Email">
               <input
@@ -184,7 +190,6 @@ export default function AuthGate() {
             </Field>
           )}
 
-          {/* Password — shown on signin and signup */}
           {(mode === 'signin' || mode === 'signup') && (
             <Field label="Password">
               <input
@@ -199,7 +204,6 @@ export default function AuthGate() {
             </Field>
           )}
 
-          {/* Forgot password link — only on signin */}
           {mode === 'signin' && (
             <div className="-mt-1 text-right">
               <button
@@ -212,7 +216,6 @@ export default function AuthGate() {
             </div>
           )}
 
-          {/* VERIFY CODE: 6-digit input */}
           {mode === 'verify-code' && (
             <Field label="6-Digit Code">
               <input
@@ -229,7 +232,6 @@ export default function AuthGate() {
             </Field>
           )}
 
-          {/* NEW PASSWORD: new + confirm */}
           {mode === 'new-password' && (
             <>
               <Field label="New Password">
@@ -272,7 +274,6 @@ export default function AuthGate() {
           </button>
         </form>
 
-        {/* Footer links */}
         <div className="mt-4 text-center text-xs text-slate-400">
           {mode === 'signin' && (
             <p>
