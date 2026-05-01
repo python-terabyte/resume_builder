@@ -112,48 +112,25 @@ export default function ResumeBuilder() {
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
-          background-color: #ffffff !important;
-          color: #120B07;
-          color-scheme: light !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
         }
 
-        #resume-preview {
-          background: #ffffff !important;
-          background-color: #ffffff !important;
-          box-shadow: none !important;
-          overflow: visible !important;
-          gap: 0 !important;
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
 
-        #resume-preview .resume-page {
-          box-shadow: none !important;
-          margin: 0 !important;
+        #resume-print {
+          position: static !important;
+          left: auto !important;
+          top: auto !important;
+          visibility: visible !important;
+          display: block !important;
+          width: ${pageMeta.width} !important;
         }
 
-        .resume-measure {
+        .resume-measure,
+        .no-print {
           display: none !important;
-        }
-
-        #resume-preview h1,
-        #resume-preview h2,
-        #resume-preview h3 {
-          break-after: avoid-page;
-          page-break-after: avoid;
-        }
-
-        #resume-preview .mb-2,
-        #resume-preview .mb-3,
-        #resume-preview .mb-4 {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-
-        #resume-preview p,
-        #resume-preview li {
-          orphans: 3;
-          widows: 3;
         }
       }
     `,

@@ -157,7 +157,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
       <div
         ref={measureRef}
         aria-hidden
-        className="resume-measure resume-scale-text print:hidden"
+        className="resume-measure resume-scale-text"
         style={{
           position: 'fixed',
           top: 0,
@@ -170,8 +170,8 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
         <Template resume={resume} />
       </div>
 
-      {/* Visible paginated stack, also what react-to-print clones */}
-      <div ref={ref} id="resume-preview" className="flex flex-col items-center gap-6 print:gap-0">
+      {/* Visible paginated stack — screen only, never printed */}
+      <div id="resume-preview" className="flex flex-col items-center gap-6 print:hidden">
         {Array.from({ length: pageCount }, (_, i) => {
           const isLast = i === pageCount - 1
           const offset = contentOffsetForPage(i)
@@ -257,6 +257,26 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
               </div>
           )
         })}
+      </div>
+
+      {/* Print target: natural full-height template render, no clip/transform.
+          Off-screen on screen; react-to-print clones this into the print iframe. */}
+      <div
+        ref={ref}
+        id="resume-print"
+        className="resume-scale-text"
+        aria-hidden
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: -99999,
+          width: pageWidthCss,
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          ...fontStyle,
+        }}
+      >
+        <Template resume={resume} />
       </div>
     </>
   )
