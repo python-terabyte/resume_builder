@@ -270,7 +270,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
         style={{
           position: 'fixed',
           top: 0,
-          left: '-9999px',
+          left: -99999,
           width: pageWidthCss,
           pointerEvents: 'none',
           ...fontStyle,

@@ -88,6 +88,12 @@ input[type='range']:focus {
     position: static !important;
     visibility: visible !important;
   }
+
+  #resume-print,
+  #resume-print * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
 }
 
 /* Drag handle */

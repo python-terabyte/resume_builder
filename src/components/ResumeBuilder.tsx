@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useReactToPrint } from 'react-to-print'
 import Image from 'next/image'
 import Link from 'next/link'
 import { COLOR_THEMES, DEFAULT_RESUME, PAGE_SIZES, type PageSize, ResumeData } from '@/types/resume'
@@ -98,47 +99,34 @@ export default function ResumeBuilder() {
 
   const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
 
-  async function handleDownloadPDF() {
-    const element = previewRef.current
-    if (!element) return
-    setIsPdfLoading(true)
-    try {
-      const html2pdf = (await import('html2pdf.js')).default
-      const firstName = resume.personal.firstName || 'Resume'
-      const lastName = resume.personal.lastName || ''
-      const filename = [firstName, lastName].filter(Boolean).join('_') + '_Resume.pdf'
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename,
-          image: { type: 'jpeg', quality: 1 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            scrollX: 0,
-            scrollY: 0,
-          },
-          jsPDF: {
-            unit: 'mm',
-            format: pageMeta.cssSize.toLowerCase(),
-            orientation: 'portrait',
-          },
-        })
-        .from(element)
-        .save()
-    } catch (err) {
-      console.error('[PDF export failed]', err)
-    } finally {
-      setIsPdfLoading(false)
-    }
-  }
+  // react-to-print creates an isolated iframe with all stylesheets copied in,
+  // triggers the browser's native print pipeline, and tears down the iframe
+  // after. This avoids the html2canvas clone approach which caused the preview
+  // to visually glitch and produced blank PDFs (body background bled through
+  // the transparent template root onto the captured canvas).
+  const handlePrint = useReactToPrint({
+    contentRef: previewRef,
+    documentTitle: [resume.personal.firstName, resume.personal.lastName].filter(Boolean).join('_') + '_Resume',
+    // Inject the current accent color so bg-accent / text-accent classes
+    // resolve correctly inside the print iframe (the ResumeBuilder ancestor
+    // that normally provides --accent-rgb isn't present in the iframe).
+    pageStyle: `
+      @page { margin: 0; size: ${pageMeta.cssSize} portrait; }
+      :root  { --accent-rgb: ${hexToRgbTriplet(resume.accentColor)}; }
+      *, *::before, *::after {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+    `,
+    onBeforePrint: () => Promise.resolve(setIsPdfLoading(true)),
+    onAfterPrint: () => setIsPdfLoading(false),
+  })
 
-  const updateResume = useCallback((updater: (prev: ResumeData) => ResumeData) => {
+  function updateResume(updater: (prev: ResumeData) => ResumeData) {
     setResume(updater)
     setIsDirty(true)
     setSaveState('idle')
-  }, [])
+  }
 
   function pickAccent(color: string) {
     setResume((prev) => ({ ...prev, accentColor: color }))
@@ -301,7 +289,7 @@ export default function ResumeBuilder() {
             <span className="hidden sm:inline">My Resumes</span>
           </button>
           <button
-            onClick={handleDownloadPDF}
+            onClick={handlePrint}
             disabled={isPdfLoading}
             className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95 disabled:opacity-60 sm:px-3"
           >
