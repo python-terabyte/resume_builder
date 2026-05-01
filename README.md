@@ -1,6 +1,6 @@
 # BrandFox — Resume Builder
 
-A professional resume builder with cloud storage, real-time preview, 8 export-ready templates, and PDF export. Built with Next.js 15 and Firebase.
+A professional resume builder with cloud storage, real-time preview, 8 export-ready templates, password reset, and contact form. Built with Next.js 15 and Firebase.
 
 **Live**: https://www.bfox.pro
 
@@ -17,6 +17,8 @@ A professional resume builder with cloud storage, real-time preview, 8 export-re
 - **Typography controls** — font family, size, line height, letter spacing
 - **Industry-filtered templates** — filter by tech, finance, design, etc.
 - **Google & email sign-in** — Google OAuth or email/password
+- **Forgot password** — OTP code sent via email; verify and set a new password in-app
+- **Contact form** — on the landing page; messages delivered to the manager via Resend
 
 ---
 
@@ -29,6 +31,7 @@ A professional resume builder with cloud storage, real-time preview, 8 export-re
 | Styling | Tailwind CSS 3.4 |
 | Auth | NextAuth v4 (Google OAuth + Credentials) |
 | Database | Firebase Firestore (via Admin SDK) |
+| Email | Resend |
 | Drag & Drop | dnd-kit |
 | PDF Export | react-to-print |
 
@@ -40,6 +43,7 @@ A professional resume builder with cloud storage, real-time preview, 8 export-re
 - Node.js 18+
 - Firebase project with Firestore enabled
 - Google OAuth credentials (for Google sign-in)
+- Resend account (for password reset and contact emails)
 
 ### 1. Clone and install
 ```bash
@@ -66,6 +70,11 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 # NextAuth
 NEXTAUTH_SECRET=<run: openssl rand -base64 32>
 NEXTAUTH_URL=http://localhost:3000
+
+# Resend (email delivery)
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+RESEND_FROM=BrandFox <noreply@yourdomain.com>   # domain must be verified in Resend
+CONTACT_EMAIL=you@example.com                   # receives contact form messages
 ```
 
 ### 3. Run development server
@@ -74,6 +83,8 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000).
 
+> **Resend testing**: Use `RESEND_FROM=BrandFox <onboarding@resend.dev>` to send without a verified domain, but only to your own Resend-verified email address.
+
 ---
 
 ## Project Structure
@@ -81,28 +92,34 @@ Open [http://localhost:3000](http://localhost:3000).
 ```
 src/
 ├── app/
-│   ├── page.tsx            # Public landing page + authenticated app shell
-│   ├── login/page.tsx      # Sign-in / sign-up page
-│   ├── privacy/page.tsx    # Privacy policy
-│   ├── globals.css         # Global styles, CSS variables, animations
+│   ├── page.tsx              # Root — delegates to <HomeShell />
+│   ├── login/page.tsx        # Sign-in / sign-up / forgot-password page
+│   ├── privacy/page.tsx      # Privacy policy
+│   ├── globals.css           # Global styles, CSS variables, animations
 │   └── api/
-│       ├── auth/           # NextAuth + email signup endpoints
-│       └── resumes/        # CRUD endpoints for saved resumes
+│       ├── auth/             # NextAuth + signup + password-reset endpoints
+│       │   ├── forgot-password/    # Generate OTP, store in Firestore, send email
+│       │   ├── verify-reset-code/  # Validate OTP, mark verified
+│       │   └── reset-password/     # Update Firebase password, delete OTP doc
+│       ├── contact/          # Contact form → sends email via Resend
+│       └── resumes/          # CRUD endpoints for saved resumes
 ├── components/
-│   ├── ResumeBuilder.tsx   # Main editor — state, save, layout
-│   ├── Sidebar.tsx         # All section editors (personal, experience, etc.)
-│   ├── ResumePreview.tsx   # Live template preview + print target
-│   ├── DocumentsPanel.tsx  # Resume picker modal
-│   ├── AuthGate.tsx        # Sign-in / sign-up form UI
-│   └── templates/          # 8 resume template components
+│   ├── HomeShell.tsx         # App shell + full landing page (incl. ContactForm)
+│   ├── ResumeBuilder.tsx     # Main editor — state, save, layout, ResumePicker
+│   ├── Sidebar.tsx           # All section editors (personal, experience, etc.)
+│   ├── ResumePreview.tsx     # Live template preview + print target
+│   ├── DocumentsPanel.tsx    # Resume picker modal
+│   ├── AuthGate.tsx          # Auth form — signin, signup, forgot, verify, reset
+│   └── templates/            # 8 resume template components
 ├── lib/
-│   ├── auth.ts             # Client auth helpers
-│   ├── auth-options.ts     # NextAuth provider config
-│   ├── AuthContext.tsx     # useAuth() hook
-│   ├── firebase-admin.ts   # Server-side Firebase init
-│   └── resumes.ts          # API fetch wrappers
+│   ├── auth.ts               # Client auth helpers
+│   ├── auth-options.ts       # NextAuth provider config
+│   ├── AuthContext.tsx        # useAuth() hook
+│   ├── firebase-admin.ts     # Server-side Firebase init
+│   ├── mailer.ts             # Resend email client (password reset + contact)
+│   └── resumes.ts            # API fetch wrappers
 └── types/
-    └── resume.ts           # All TypeScript interfaces + constants
+    └── resume.ts             # All TypeScript interfaces + constants
 ```
 
 ---
@@ -133,7 +150,16 @@ users/{uid}/resumes/{docId}
   └── updatedAt: Timestamp
 ```
 
-All access is gated by Firebase Security Rules — users can only read/write their own data.
+Password reset OTPs are stored temporarily under:
+```
+passwordResets/{email}
+  ├── code: string          ← 6-digit numeric OTP
+  ├── createdAt: Timestamp
+  ├── expiresAt: Timestamp  ← 10 minutes after creation
+  └── verified: boolean
+```
+
+All user data access is gated by Firebase Security Rules.
 
 ---
 
@@ -143,6 +169,13 @@ All access is gated by Firebase Security Rules — users can only read/write the
 1. Add your production domain to **Authorized JavaScript origins**: `https://www.bfox.pro`
 2. Add the callback URL to **Authorized redirect URIs**: `https://www.bfox.pro/api/auth/callback/google`
 3. Update `NEXTAUTH_URL=https://www.bfox.pro` in production environment
+
+### Resend Setup (required for email)
+1. Create an account at [resend.com](https://resend.com)
+2. Verify your sending domain (DNS records)
+3. Create an API key and set `RESEND_API_KEY` in your environment
+4. Set `RESEND_FROM` to an address on your verified domain
+5. Set `CONTACT_EMAIL` to the inbox that should receive contact form messages
 
 ### Production Build
 ```bash
@@ -158,6 +191,7 @@ npm start
 - **Accent color**: stored in `localStorage` as hex, converted to `--accent-rgb` CSS var at runtime
 - **PDF zoom**: uses CSS `zoom` property (not `transform: scale`) so multi-page layout dimensions are correct
 - **Auto-save**: triggers 1.5 s after any change; unsaved changes block navigation
+- **Password reset**: OTPs expire in 10 min; rate-limited to 1 request/email/minute; non-existent emails silently succeed to prevent account enumeration
 
 ---
 
@@ -165,4 +199,4 @@ npm start
 
 See [Privacy Policy](https://www.bfox.pro/privacy) — short version: no ads, no tracking, no selling data. Resume content is yours.
 
-Contact: asimsaleem.net@gmail.com
+Contact: brandfoxpro@gmail.com

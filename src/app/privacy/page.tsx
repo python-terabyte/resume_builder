@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
   const lastUpdated = 'April 27, 2026'
 
   return (
-    <div className="relative min-h-screen bg-[#120B07] px-4 py-12 font-sans text-slate-300">
+    <div className="relative min-h-screen bg-[#120B07] px-4 py-8 font-sans text-slate-300 sm:py-12">
 
       {/* Ambient orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
@@ -38,7 +38,7 @@ export default function PrivacyPolicy() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white">Privacy Policy</h1>
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">Privacy Policy</h1>
           <p className="mt-2 text-sm text-slate-500">Last updated: {lastUpdated}</p>
         </div>
 
@@ -171,7 +171,7 @@ export default function PrivacyPolicy() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-3 text-base font-semibold text-white">{title}</h2>
+      <h2 className="mb-3 text-base font-semibold text-white sm:text-lg">{title}</h2>
       <div className="text-slate-400">{children}</div>
     </section>
   )

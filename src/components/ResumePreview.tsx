@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { PAGE_SIZES, ResumeData } from '@/types/resume'
-import { TEMPLATE_COMPONENTS, TEMPLATE_SIDEBAR_META } from './templates'
+import { TEMPLATE_COMPONENTS, TEMPLATE_FOOTER_META, TEMPLATE_SIDEBAR_META } from './templates'
 
 interface ResumePreviewProps {
   resume: ResumeData
@@ -20,6 +20,8 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
   const Template = TEMPLATE_COMPONENTS[templateId] ?? TEMPLATE_COMPONENTS['modern-gradient']
   const sidebarMeta = TEMPLATE_SIDEBAR_META[templateId]
   const sidebarColor = resume.accentColor
+  const footerMeta = TEMPLATE_FOOTER_META[templateId]
+  const footerColor = footerMeta ? resume.accentColor : undefined
   const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
 
   const pageWidthCss = pageMeta.width
@@ -93,9 +95,21 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
       if (naturalEnd >= contentHeight) break
 
       let snapAt = -1
+      let bestFit = -1
+
       for (const t of candidates) {
-        if (t > pageStart && t <= naturalEnd) snapAt = t
+        if (t > pageStart && t <= naturalEnd) {
+          bestFit = t
+        }
         else if (t > naturalEnd) break
+      }
+
+      const MIN_FILL_RATIO = 0.93
+      if (bestFit > 0) {
+        const fillRatio = (bestFit - pageStart) / capacity
+        if (fillRatio >= MIN_FILL_RATIO) {
+          snapAt = bestFit
+        }
       }
 
       const nextStart = snapAt > 0 ? snapAt : naturalEnd
@@ -164,7 +178,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
           const visible = visibleContentForPage(i)
           // Cover from end-of-content down to footer top, hiding any overflow
           // that would otherwise leak into the empty space (and the footer band).
-          const coverTop = frameTop + visible
+          const coverTop = frameTop + visible - 0.5
           const coverBottom = footerPx
           return (
               <div
@@ -237,6 +251,7 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
                 )}
                 <PageFooter
                   sidebar={sidebarMeta ? { widthFraction: sidebarMeta.widthFraction, color: sidebarColor } : undefined}
+                  accentColor={footerColor}
                 />
               </div>
           )
@@ -263,10 +278,10 @@ function PageHeader({ sidebar }: { sidebar?: { widthFraction: number; color: str
   )
 }
 
-function PageFooter({ sidebar }: { sidebar?: { widthFraction: number; color: string } }) {
+function PageFooter({ sidebar, accentColor }: { sidebar?: { widthFraction: number; color: string }; accentColor?: string }) {
   if (!sidebar) {
     return (
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${FOOTER_MM}mm`, background: '#ffffff' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${FOOTER_MM}mm`, background: accentColor ?? '#ffffff' }} />
     )
   }
   return (

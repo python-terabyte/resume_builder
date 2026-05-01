@@ -1684,7 +1684,9 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
       <nav
         aria-label="Sections"
         className={`flex shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-white/10 bg-[#120B07] panel-scroll transition-all duration-300 ${
-          compact ? 'w-[100px] px-2 py-3' : 'w-[200px] px-3 py-4'
+          compact
+            ? 'w-[60px] sm:w-[100px] px-1 sm:px-2 py-3'
+            : 'w-[60px] sm:w-[200px] px-1 sm:px-3 py-4'
         }`}
       >
         {Object.entries(SECTION_MAP).map(([key, { label, icon }]) => {
@@ -1695,10 +1697,10 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
               onClick={() => setActiveSection(active ? '' : key)}
               title={label}
               aria-current={active ? 'page' : undefined}
-              className={`relative flex rounded-lg font-medium transition ${
+              className={`relative flex flex-col items-center rounded-lg font-medium transition ${
                 compact
-                  ? 'flex-col items-center gap-1 px-2 py-2.5 text-[11px] leading-tight'
-                  : 'flex-row items-center gap-3 px-3 py-2.5 text-sm'
+                  ? 'gap-1 px-1 py-2.5 text-[11px] leading-tight sm:px-2'
+                  : 'gap-1 px-1 py-2.5 text-[11px] leading-tight sm:flex-row sm:gap-3 sm:px-3 sm:text-sm'
               } ${
                 active
                   ? 'bg-accent/15 text-accent'
@@ -1715,8 +1717,8 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
               <span
                 className={
                   compact
-                    ? 'text-center break-words leading-tight'
-                    : 'flex-1 text-left'
+                    ? 'hidden sm:inline text-center break-words leading-tight'
+                    : 'hidden sm:inline sm:flex-1 sm:text-left'
                 }
               >
                 {label}

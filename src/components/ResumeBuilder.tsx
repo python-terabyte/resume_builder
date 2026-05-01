@@ -47,12 +47,14 @@ export default function ResumeBuilder() {
   const previewRef = useRef<HTMLDivElement>(null)
 
   // Hydrate accent color from localStorage on first mount.
+  // Also close sidebar by default on mobile (< 768px).
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
     if (saved) {
       setResume((prev) => ({ ...prev, accentColor: saved }))
     }
     setHydrated(true)
+    if (window.innerWidth < 768) setIsSidebarOpen(false)
   }, [])
 
   // Persist accent color whenever it changes (after hydration).
@@ -296,7 +298,7 @@ export default function ResumeBuilder() {
               updateResume((prev) => ({ ...prev, pageSize: e.target.value as PageSize }))
             }
             title="Page size"
-            className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
+            className="hidden sm:inline rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
           >
             {PAGE_SIZES.map((s) => (
               <option key={s.id} value={s.id} className="bg-[#2D1B11]">{s.label}</option>
@@ -315,7 +317,7 @@ export default function ResumeBuilder() {
           </button>
           <button
             onClick={() => setShowDocs(true)}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+            className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
             title="My Resumes"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -379,12 +381,12 @@ export default function ResumeBuilder() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         <div
-          className={`no-print fixed inset-y-0 left-0 z-30 md:relative md:z-auto transition-all duration-300 overflow-hidden shadow-2xl md:shadow-none ${
+          className={`no-print fixed top-[52px] bottom-0 left-0 z-30 md:inset-y-0 md:relative md:z-auto transition-all duration-300 overflow-hidden shadow-2xl md:shadow-none ${
             !isSidebarOpen
               ? 'w-0'
               : activeSection
               ? 'w-full sm:w-[440px] md:w-[560px] lg:w-[620px]'
-              : 'w-[200px]'
+              : 'w-[60px] sm:w-[200px]'
           }`}
         >
           <Sidebar
@@ -398,7 +400,7 @@ export default function ResumeBuilder() {
         {isSidebarOpen && activeSection && (
           <div
             onClick={() => setActiveSection('')}
-            className="no-print fixed inset-0 z-20 bg-black/40 md:hidden"
+            className="no-print fixed top-[52px] inset-x-0 bottom-0 z-20 bg-black/40 md:hidden"
             aria-hidden
           />
         )}
@@ -535,7 +537,7 @@ function UserMenu({
     <div className="relative">
       <button
         onClick={onToggle}
-        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white transition hover:bg-white/10"
+        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white transition hover:bg-white/10"
         title={user.email ?? 'Account'}
       >
         {user.image ? (

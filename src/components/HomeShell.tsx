@@ -307,6 +307,7 @@ function ContactForm() {
 
 /* ── LandingPage ────────────────────────────────────────────────────────────── */
 function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   return (
     <div className="relative min-h-screen overflow-x-hidden font-sans" style={{ background: C.matteDeep, color: C.text }}>
 
@@ -319,11 +320,11 @@ function LandingPage() {
 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <nav
-        className="relative z-10 flex items-center justify-between px-6 py-4 sm:px-10"
+        className="relative z-10 flex items-center justify-between px-4 py-3 sm:px-10 sm:py-4"
         style={{ borderBottom: `1px solid ${C.goldBorder}`, background: 'rgba(7,8,9,.7)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center">
-          <Image src="/logo.png" alt="BrandFox" width={140} height={40} className="h-9 w-auto object-contain" priority />
+          <Image src="/logo.png" alt="BrandFox" width={140} height={40} className="h-7 w-auto object-contain sm:h-9" priority />
         </div>
 
         <div className="hidden items-center gap-6 sm:flex">
@@ -342,33 +343,84 @@ function LandingPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/login" className="rounded-md px-4 py-2 text-sm font-medium transition" style={{ color: C.textMuted }}
+          {/* Desktop-only sign-in */}
+          <Link href="/login" className="hidden sm:block rounded-md px-4 py-2 text-sm font-medium transition" style={{ color: C.textMuted }}
             onMouseEnter={e => (e.currentTarget.style.color = C.goldLight)}
             onMouseLeave={e => (e.currentTarget.style.color = C.textMuted)}
           >Sign In</Link>
-          <Link href="/login" className="anim-glow rounded-md px-4 py-2 text-sm font-semibold text-white transition"
+          {/* CTA — short label on mobile */}
+          <Link href="/login" className="anim-glow rounded-md px-3 py-2 text-xs font-semibold text-white transition sm:px-4 sm:text-sm"
             style={{ background: `linear-gradient(135deg, ${C.chocMid}, ${C.gold})` }}
-          >Get Started Free</Link>
+          >
+            <span className="sm:hidden">Start Free</span>
+            <span className="hidden sm:inline">Get Started Free</span>
+          </Link>
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={() => setMobileMenuOpen(v => !v)}
+            className="sm:hidden rounded-md p-2 transition"
+            style={{ color: C.textMuted }}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+          >
+            {mobileMenuOpen ? (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </nav>
 
+      {/* Mobile nav drawer */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden relative z-10" style={{ background: 'rgba(7,8,9,.97)', borderBottom: `1px solid ${C.goldBorder}` }}>
+          <div className="flex flex-col gap-1 px-4 py-3">
+            {(['How It Works', 'Templates', 'FAQ', 'Contact'] as const).map((label) => (
+              <a
+                key={label}
+                href={`#${label.toLowerCase().replace(/ /g, '-')}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium transition"
+                style={{ color: C.text }}
+              >
+                {label}
+              </a>
+            ))}
+            <div className="mt-2 border-t pt-3" style={{ borderColor: C.goldBorder }}>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)}
+                className="block w-full rounded-lg py-2.5 text-center text-sm font-medium transition"
+                style={{ color: C.textMuted }}
+              >Sign In</Link>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)}
+                className="mt-2 block w-full rounded-lg py-3 text-center text-sm font-bold text-white"
+                style={{ background: `linear-gradient(135deg, ${C.chocMid} 0%, ${C.gold} 100%)` }}
+              >Get Started Free</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-4xl px-6 py-20 text-center sm:py-32">
-        <div className="anim-badge mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium"
+      <section className="relative z-10 mx-auto max-w-4xl px-5 py-12 text-center sm:px-6 sm:py-32">
+        <div className="anim-badge mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium sm:mb-6"
           style={{ border: `1px solid ${C.oceanLight}40`, background: C.oceanFaint, color: C.oceanLight }}
         >
           <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: C.oceanLight }} />
           Free forever &mdash; no credit card &mdash; no watermarks
         </div>
 
-        <h1 className="anim-hero mt-2 text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+        <h1 className="anim-hero mt-2 text-3xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
           Free ATS Resume Builder
           <span className="mt-1 block">
             <span className="anim-shimmer">That Gets You Hired</span>
           </span>
         </h1>
 
-        <p className="anim-hero-delay mx-auto mt-6 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: C.textMuted }}>
+        <p className="anim-hero-delay mx-auto mt-5 max-w-2xl text-sm leading-relaxed sm:mt-6 sm:text-base" style={{ color: C.textMuted }}>
           BrandFox is the free ATS resume builder for job seekers, students, and professionals.
           Pick from <strong style={{ color: C.text }}>8 ATS-optimized templates</strong>, customize every detail,
           and export a <strong style={{ color: C.text }}>watermark-free PDF</strong> in minutes.
@@ -396,8 +448,8 @@ function LandingPage() {
       </section>
 
       {/* ── Stats strip ─────────────────────────────────────────────────── */}
-      <div className="relative z-10 mx-auto max-w-3xl px-6 pb-6">
-        <div className="grid grid-cols-3 divide-x rounded-xl py-5"
+      <div className="relative z-10 mx-auto max-w-3xl px-4 pb-6 sm:px-6">
+        <div className="grid grid-cols-3 divide-x rounded-xl py-4 sm:py-5"
           style={{ background: C.matteCardMid, border: `1px solid ${C.goldBorder}`, '--tw-divide-color': C.goldBorder } as React.CSSProperties}
         >
           {[
@@ -405,7 +457,7 @@ function LandingPage() {
             { value: '0',       label: 'Watermarks on PDF Export' },
             { value: '100%',    label: 'Free — No Hidden Fees' },
           ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center gap-0.5 px-4 text-center">
+            <div key={s.label} className="flex flex-col items-center gap-0.5 px-1 text-center sm:px-4">
               <span className="text-xl font-bold sm:text-2xl" style={{ color: C.gold }}>{s.value}</span>
               <span className="text-[11px] leading-tight sm:text-xs" style={{ color: C.textMuted }}>{s.label}</span>
             </div>
@@ -414,7 +466,7 @@ function LandingPage() {
       </div>
 
       {/* ── How It Works ────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="relative z-10 mx-auto max-w-5xl px-6 py-24">
+      <section id="how-it-works" className="relative z-10 mx-auto max-w-5xl px-5 py-14 sm:px-6 sm:py-24">
         <div className="mb-2 text-center text-xs font-semibold uppercase tracking-widest" style={{ color: C.oceanLight }}>
           How It Works
         </div>
@@ -424,7 +476,7 @@ function LandingPage() {
 
         <div className="grid gap-6 sm:grid-cols-3">
           {HOW_IT_WORKS.map((item, i) => (
-            <div key={item.step} className="relative rounded-xl p-7 text-center"
+            <div key={item.step} className="relative rounded-xl p-5 text-center sm:p-7"
               style={{ background: C.matteCard, border: `1px solid ${C.chocBorder}`, borderTop: `3px solid ${C.gold}` }}
             >
               {/* Connector */}
@@ -446,7 +498,7 @@ function LandingPage() {
       </section>
 
       {/* ── Features ────────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 pb-12">
+      <section className="relative z-10 mx-auto max-w-5xl px-5 pb-12 sm:px-6">
         <div className="mb-2 text-center text-xs font-semibold uppercase tracking-widest" style={{ color: C.oceanLight }}>
           Features
         </div>
@@ -482,7 +534,7 @@ function LandingPage() {
       </section>
 
       {/* ── Templates ───────────────────────────────────────────────────── */}
-      <section id="templates" className="relative z-10 mx-auto max-w-5xl px-6 py-24">
+      <section id="templates" className="relative z-10 mx-auto max-w-5xl px-5 py-14 sm:px-6 sm:py-24">
         <div className="mb-2 text-center text-xs font-semibold uppercase tracking-widest" style={{ color: C.oceanLight }}>
           Resume Templates
         </div>
@@ -533,7 +585,7 @@ function LandingPage() {
       </section>
 
       {/* ── FAQ ─────────────────────────────────────────────────────────── */}
-      <section id="faq" className="relative z-10 mx-auto max-w-2xl px-6 py-24">
+      <section id="faq" className="relative z-10 mx-auto max-w-2xl px-5 py-14 sm:px-6 sm:py-24">
         <div className="mb-2 text-center text-xs font-semibold uppercase tracking-widest" style={{ color: C.oceanLight }}>
           FAQ
         </div>
@@ -548,8 +600,8 @@ function LandingPage() {
       </section>
 
       {/* ── CTA banner ──────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-3xl px-6 pb-24">
-        <div className="rounded-2xl p-10 text-center"
+      <section className="relative z-10 mx-auto max-w-3xl px-5 pb-16 sm:px-6 sm:pb-24">
+        <div className="rounded-2xl p-7 text-center sm:p-10"
           style={{
             background: `linear-gradient(135deg, ${C.chocDark} 0%, ${C.matteCardMid} 100%)`,
             border: `1px solid ${C.goldBorder}`,
@@ -576,7 +628,7 @@ function LandingPage() {
       </section>
 
       {/* ── Contact ─────────────────────────────────────────────────────── */}
-      <section id="contact" className="relative z-10 mx-auto max-w-xl px-6 py-24">
+      <section id="contact" className="relative z-10 mx-auto max-w-xl px-5 py-14 sm:px-6 sm:py-24">
         <div className="mb-2 text-center text-xs font-semibold uppercase tracking-widest" style={{ color: C.oceanLight }}>
           Contact
         </div>

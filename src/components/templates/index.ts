@@ -33,3 +33,12 @@ export interface TemplateSidebarMeta {
 export const TEMPLATE_SIDEBAR_META: Partial<Record<TemplateId, TemplateSidebarMeta>> = {
   creative: { side: 'left', widthFraction: 1 / 3, colorSource: 'accentColor' },
 }
+
+export interface TemplateFooterMeta {
+  colorSource: 'accentColor'
+}
+
+/** Templates whose page footer band should use the accent color (e.g. full-width header templates). */
+export const TEMPLATE_FOOTER_META: Partial<Record<TemplateId, TemplateFooterMeta>> = {
+  'modern-gradient': { colorSource: 'accentColor' },
+}

@@ -209,7 +209,7 @@ export default function AuthGate() {
               <button
                 type="button"
                 onClick={() => resetFlow('forgot')}
-                className="text-xs text-slate-400 hover:text-accent transition"
+                className="py-1 text-sm text-slate-400 hover:text-accent transition"
               >
                 Forgot password?
               </button>
@@ -274,7 +274,7 @@ export default function AuthGate() {
           </button>
         </form>
 
-        <div className="mt-4 text-center text-xs text-slate-400">
+        <div className="mt-4 text-center text-sm text-slate-400">
           {mode === 'signin' && (
             <p>
               No account?{' '}
@@ -293,7 +293,7 @@ export default function AuthGate() {
           )}
           {(mode === 'forgot' || mode === 'verify-code' || mode === 'new-password') && (
             <p>
-              <button onClick={() => resetFlow('signin')} className="text-slate-400 hover:text-accent transition">
+              <button onClick={() => resetFlow('signin')} className="py-1 text-slate-400 hover:text-accent transition">
                 ← Back to sign in
               </button>
             </p>
@@ -304,7 +304,7 @@ export default function AuthGate() {
               <button
                 type="button"
                 onClick={() => { setError(null); setInfo(null); requestResetCode(email).catch((e) => setError((e as Error).message)) }}
-                className="text-accent hover:underline"
+                className="py-1 text-accent hover:underline"
               >
                 Resend
               </button>
