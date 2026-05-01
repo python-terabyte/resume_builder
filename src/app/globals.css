@@ -69,13 +69,24 @@ input[type='range']:focus {
   outline: none;
 }
 
-/* Print styles */
 @media print {
   body {
     background: white;
   }
+
   .no-print {
     display: none !important;
+  }
+
+  /* 🔥 CRITICAL FIX */
+  #resume-preview {
+    display: none !important;
+  }
+
+  #resume-print {
+    display: block !important;
+    position: static !important;
+    visibility: visible !important;
   }
 }
 
