@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useReactToPrint } from 'react-to-print'
 import { COLOR_THEMES, DEFAULT_RESUME, PAGE_SIZES, type PageSize, ResumeData } from '@/types/resume'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
@@ -44,6 +43,7 @@ export default function ResumeBuilder() {
   const [isDirty, setIsDirty] = useState(false)
   const [pickerState, setPickerState] = useState<PickerState>('loading')
   const [pickerDocs, setPickerDocs] = useState<ResumeDoc[]>([])
+  const [isPdfLoading, setIsPdfLoading] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   // Hydrate accent color from localStorage on first mount.
@@ -98,43 +98,41 @@ export default function ResumeBuilder() {
 
   const pageMeta = PAGE_SIZES.find((s) => s.id === resume.pageSize) ?? PAGE_SIZES[0]
 
-  const handlePrint = useReactToPrint({
-    contentRef: previewRef,
-    documentTitle: `${resume.personal.firstName}_${resume.personal.lastName}_Resume`,
-    pageStyle: `
-      @page {
-        size: ${pageMeta.cssSize};
-        margin: 0;
-      }
-
-      @media print {
-        html, body {
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #ffffff !important;
-        }
-
-        * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-
-        #resume-print {
-          position: static !important;
-          left: auto !important;
-          top: auto !important;
-          visibility: visible !important;
-          display: block !important;
-          width: ${pageMeta.width} !important;
-        }
-
-        .resume-measure,
-        .no-print {
-          display: none !important;
-        }
-      }
-    `,
-  })
+  async function handleDownloadPDF() {
+    const element = previewRef.current
+    if (!element) return
+    setIsPdfLoading(true)
+    try {
+      const html2pdf = (await import('html2pdf.js')).default
+      const firstName = resume.personal.firstName || 'Resume'
+      const lastName = resume.personal.lastName || ''
+      const filename = [firstName, lastName].filter(Boolean).join('_') + '_Resume.pdf'
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename,
+          image: { type: 'jpeg', quality: 1 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollX: 0,
+            scrollY: 0,
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: pageMeta.cssSize.toLowerCase(),
+            orientation: 'portrait',
+          },
+        })
+        .from(element)
+        .save()
+    } catch (err) {
+      console.error('[PDF export failed]', err)
+    } finally {
+      setIsPdfLoading(false)
+    }
+  }
 
   const updateResume = useCallback((updater: (prev: ResumeData) => ResumeData) => {
     setResume(updater)
@@ -303,14 +301,28 @@ export default function ResumeBuilder() {
             <span className="hidden sm:inline">My Resumes</span>
           </button>
           <button
-            onClick={() => handlePrint()}
-            className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95 sm:px-3"
+            onClick={handleDownloadPDF}
+            disabled={isPdfLoading}
+            className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95 disabled:opacity-60 sm:px-3"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span className="hidden sm:inline">Export PDF</span>
-            <span className="sm:hidden">PDF</span>
+            {isPdfLoading ? (
+              <>
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="hidden sm:inline">Generating…</span>
+                <span className="sm:hidden">…</span>
+              </>
+            ) : (
+              <>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span className="hidden sm:inline">Export PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </>
+            )}
           </button>
 
           {user && (

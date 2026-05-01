@@ -259,16 +259,22 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
         })}
       </div>
 
-      {/* Print target: natural full-height template render, no clip/transform.
-          Off-screen on screen; react-to-print clones this into the print iframe. */}
+      {/* PDF export target: natural full-height template render, no clip/transform.
+          Off-screen so users don't see it; html2canvas can still render it
+          because it's not display:none or visibility:hidden. */}
       <div
-       ref={ref}
-       id="resume-print"
-       className="resume-scale-text hidden print:block"
-       style={{
-        width: pageWidthCss,
-        ...fontStyle,
-       }} 
+        ref={ref}
+        id="resume-print"
+        className="resume-scale-text"
+        aria-hidden
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: '-9999px',
+          width: pageWidthCss,
+          pointerEvents: 'none',
+          ...fontStyle,
+        }}
       >
         <Template resume={resume} />
       </div>
