@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -188,6 +188,123 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+/* ── ContactForm ────────────────────────────────────────────────────────────── */
+function ContactForm() {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+  const formRef = useRef<HTMLFormElement>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setStatus('idle')
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send.')
+      setStatus('success')
+      setName(''); setEmail(''); setMessage('')
+    } catch (err) {
+      setErrorMsg((err as Error).message)
+      setStatus('error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const inputCls = `w-full rounded-lg px-4 py-2.5 text-sm outline-none transition`
+  const inputStyle = {
+    background: '#0F0C08',
+    border: `1px solid ${C.chocBorder}`,
+    color: C.text,
+  }
+  const inputFocus = {
+    border: `1px solid ${C.goldBorder}`,
+    boxShadow: `0 0 0 2px rgba(201,168,76,.08)`,
+  }
+
+  if (status === 'success') {
+    return (
+      <div className="rounded-xl p-8 text-center" style={{ background: C.matteCard, border: `1px solid ${C.goldBorder}` }}>
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: C.oceanFaint, border: `1px solid ${C.oceanLight}40` }}>
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: C.oceanLight }}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <p className="font-semibold text-white">Message sent!</p>
+        <p className="mt-1 text-sm" style={{ color: C.textMuted }}>Thanks for reaching out. We&apos;ll get back to you soon.</p>
+        <button onClick={() => setStatus('idle')} className="mt-5 text-xs transition" style={{ color: C.goldDim }}
+          onMouseEnter={e => (e.currentTarget.style.color = C.goldLight)}
+          onMouseLeave={e => (e.currentTarget.style.color = C.goldDim)}
+        >Send another message</button>
+      </div>
+    )
+  }
+
+  return (
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl p-6 sm:p-8"
+      style={{ background: C.matteCard, border: `1px solid ${C.chocBorder}` }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.textMuted }}>Name</span>
+          <input
+            required value={name} onChange={e => setName(e.target.value)}
+            placeholder="Your name"
+            className={inputCls} style={inputStyle}
+            onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
+            onBlur={e => Object.assign(e.currentTarget.style, inputStyle)}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.textMuted }}>Email</span>
+          <input
+            type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={inputCls} style={inputStyle}
+            onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
+            onBlur={e => Object.assign(e.currentTarget.style, inputStyle)}
+          />
+        </label>
+      </div>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.textMuted }}>Message</span>
+        <textarea
+          required rows={5} value={message} onChange={e => setMessage(e.target.value)}
+          placeholder="How can we help?"
+          className={`${inputCls} resize-none`} style={inputStyle}
+          onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
+          onBlur={e => Object.assign(e.currentTarget.style, inputStyle)}
+        />
+      </label>
+
+      {status === 'error' && (
+        <div className="rounded-lg px-4 py-2.5 text-sm" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', color: '#fca5a5' }}>
+          {errorMsg}
+        </div>
+      )}
+
+      <button
+        type="submit" disabled={busy}
+        className="rounded-lg py-2.5 text-sm font-semibold text-white transition disabled:opacity-50"
+        style={{ background: `linear-gradient(135deg, ${C.chocMid} 0%, ${C.gold} 100%)` }}
+        onMouseEnter={e => !busy && ((e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)')}
+        onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.filter = 'none')}
+      >
+        {busy ? 'Sending…' : 'Send Message'}
+      </button>
+    </form>
+  )
+}
+
 /* ── LandingPage ────────────────────────────────────────────────────────────── */
 function LandingPage() {
   return (
@@ -210,7 +327,7 @@ function LandingPage() {
         </div>
 
         <div className="hidden items-center gap-6 sm:flex">
-          {(['How It Works', 'Templates', 'FAQ'] as const).map((label) => (
+          {(['How It Works', 'Templates', 'FAQ', 'Contact'] as const).map((label) => (
             <a
               key={label}
               href={`#${label.toLowerCase().replace(/ /g, '-')}`}
@@ -458,6 +575,20 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* ── Contact ─────────────────────────────────────────────────────── */}
+      <section id="contact" className="relative z-10 mx-auto max-w-xl px-6 py-24">
+        <div className="mb-2 text-center text-xs font-semibold uppercase tracking-widest" style={{ color: C.oceanLight }}>
+          Contact
+        </div>
+        <h2 className="mb-3 text-center text-2xl font-bold text-white sm:text-3xl">
+          Get in touch
+        </h2>
+        <p className="mx-auto mb-10 max-w-md text-center text-sm leading-relaxed" style={{ color: C.textMuted }}>
+          Have a question, suggestion, or just want to say hi? We read every message.
+        </p>
+        <ContactForm />
+      </section>
+
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="relative z-10 py-8" style={{ borderTop: `1px solid ${C.goldBorder}` }}>
         <div className="mx-auto max-w-5xl px-6">
@@ -470,6 +601,7 @@ function LandingPage() {
               <a href="#how-it-works" className="transition hover:text-white" style={{ color: C.textMuted }}>How It Works</a>
               <a href="#templates" className="transition hover:text-white" style={{ color: C.textMuted }}>Templates</a>
               <a href="#faq" className="transition hover:text-white" style={{ color: C.textMuted }}>FAQ</a>
+              <a href="#contact" className="transition hover:text-white" style={{ color: C.textMuted }}>Contact</a>
               <Link href="/privacy" className="transition hover:text-white" style={{ color: C.textMuted }}>Privacy Policy</Link>
               <Link href="/login" className="font-medium transition" style={{ color: C.goldDim }}
                 onMouseEnter={e => (e.currentTarget.style.color = C.goldLight)}
