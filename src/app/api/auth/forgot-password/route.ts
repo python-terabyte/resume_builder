@@ -11,6 +11,8 @@ function generateCode() {
 }
 
 export async function POST(req: Request) {
+  if (!process.env.RESEND_API_KEY) console.error('[forgot-password] RESEND_API_KEY is not set')
+
   try {
     const { email } = await req.json() as { email?: string }
     if (!email) return NextResponse.json({ error: 'Email is required.' }, { status: 400 })
@@ -50,8 +52,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     const msg = (err as Error)?.message ?? String(err)
-    console.error('[forgot-password] error:', msg)
-    const isDev = process.env.NODE_ENV === 'development'
-    return NextResponse.json({ error: isDev ? msg : 'Failed to send reset code. Please try again.' }, { status: 500 })
+    console.error('[forgot-password] send failed:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { sendContactMessage } from '@/lib/mailer'
 
 export async function POST(req: Request) {
+  // Surface missing env vars immediately in logs
+  if (!process.env.RESEND_API_KEY) console.error('[contact] RESEND_API_KEY is not set')
+  if (!process.env.CONTACT_EMAIL)  console.error('[contact] CONTACT_EMAIL is not set')
+
   try {
     const { name, email, message } = await req.json() as {
       name?: string; email?: string; message?: string
@@ -17,8 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     const msg = (err as Error)?.message ?? String(err)
-    console.error('[contact] error:', msg)
-    const isDev = process.env.NODE_ENV === 'development'
-    return NextResponse.json({ error: isDev ? msg : 'Failed to send message. Please try again.' }, { status: 500 })
+    console.error('[contact] send failed:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
