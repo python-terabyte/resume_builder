@@ -52,21 +52,16 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
       // This is line-aware pagination, no glyph ever gets bisected, and each
       // page is filled with as much content as fits.
       const bottoms: number[] = []
-      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
-        acceptNode: (n) =>
-          n.nodeValue && n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
-      })
-      let n: Node | null = walker.nextNode()
-      while (n) {
-        const range = document.createRange()
-        range.selectNodeContents(n)
-        const rects = range.getClientRects()
-        for (let i = 0; i < rects.length; i++) {
-          const b = rects[i].bottom - containerTop
-          if (b > 0) bottoms.push(b)
+      const elements = node.querySelectorAll('*')
+      elements.forEach((el) => {
+        const rect = el.getBoundingClientRect()
+        // skip invisible / empty
+        if (rect.height === 0) return
+        const bottom = rect.bottom - containerTop
+        if (bottom > 0) {
+          bottoms.push(bottom)
         }
-        n = walker.nextNode()
-      }
+      })
       bottoms.sort((a, b) => a - b)
       setLineBottoms(bottoms)
     }
@@ -74,7 +69,13 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       document.fonts.ready.then(update).catch(() => {})
     }
-    const observer = new ResizeObserver(update)
+
+    let timeout: any
+
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timeout)
+      timeout = setTimeout(update, 50)
+    })
     observer.observe(node)
     return () => observer.disconnect()
   }, [resume])
