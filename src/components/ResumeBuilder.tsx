@@ -131,20 +131,35 @@ export default function ResumeBuilder() {
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const el = previewRef.current
-      const savedZoom = el.style.zoom
-      el.style.zoom = '1' // capture at full scale, not the preview zoom
+
+      // #resume-print lives at position:fixed, left:-99999px so users don't see it.
+      // html2canvas cannot render elements outside the viewport — move it on-screen
+      // (opacity:0 keeps it invisible) just for the duration of the capture.
+      const prev = { left: el.style.left, top: el.style.top, opacity: el.style.opacity }
+      el.style.left = '0'
+      el.style.top = '0'
+      el.style.opacity = '0'
+
       const jsPdfFormat: Record<string, string> = {
         A4: 'a4', Letter: 'letter', Legal: 'legal', A3: 'a3', A5: 'a5',
       }
       const docName =
         [resume.personal.firstName, resume.personal.lastName].filter(Boolean).join('_') + '_Resume'
+
       const pdfDoc = await html2pdf()
         .from(el)
         .set({
           margin: 0,
           filename: docName + '.pdf',
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            allowTaint: true,
+            windowWidth: el.scrollWidth,
+            windowHeight: el.scrollHeight,
+          },
           jsPDF: {
             unit: 'mm',
             format: jsPdfFormat[resume.pageSize] ?? 'a4',
@@ -153,12 +168,23 @@ export default function ResumeBuilder() {
         })
         .toPdf()
         .get('pdf')
-      el.style.zoom = savedZoom
+
+      // Restore position
+      el.style.left = prev.left
+      el.style.top = prev.top
+      el.style.opacity = prev.opacity
+
       const dataUri: string = pdfDoc.output('datauristring')
       const base64 = dataUri.split('base64,')[1]
       ;(window as any).AndroidBridge.savePdf(base64)
     } catch (e) {
       console.error('Android PDF export failed:', e)
+      // Restore position even on error
+      if (previewRef.current) {
+        previewRef.current.style.left = '-99999px'
+        previewRef.current.style.top = '0'
+        previewRef.current.style.opacity = ''
+      }
     } finally {
       setIsPdfLoading(false)
     }
