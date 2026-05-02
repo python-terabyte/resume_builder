@@ -122,6 +122,56 @@ export default function ResumeBuilder() {
     onAfterPrint: () => setIsPdfLoading(false),
   })
 
+  // On Android (Capacitor), window.print() is unsupported — use html2pdf.js instead
+  // and save the resulting PDF directly to the device's Downloads folder via
+  // the AndroidBridge JavascriptInterface exposed by MainActivity.
+  async function handleAndroidPdf() {
+    if (!previewRef.current) return
+    setIsPdfLoading(true)
+    try {
+      const html2pdf = (await import('html2pdf.js')).default
+      const el = previewRef.current
+      const savedZoom = el.style.zoom
+      el.style.zoom = '1' // capture at full scale, not the preview zoom
+      const jsPdfFormat: Record<string, string> = {
+        A4: 'a4', Letter: 'letter', Legal: 'legal', A3: 'a3', A5: 'a5',
+      }
+      const docName =
+        [resume.personal.firstName, resume.personal.lastName].filter(Boolean).join('_') + '_Resume'
+      const pdfDoc = await html2pdf()
+        .from(el)
+        .set({
+          margin: 0,
+          filename: docName + '.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: {
+            unit: 'mm',
+            format: jsPdfFormat[resume.pageSize] ?? 'a4',
+            orientation: 'portrait',
+          },
+        })
+        .toPdf()
+        .get('pdf')
+      el.style.zoom = savedZoom
+      const dataUri: string = pdfDoc.output('datauristring')
+      const base64 = dataUri.split('base64,')[1]
+      ;(window as any).AndroidBridge.savePdf(base64)
+    } catch (e) {
+      console.error('Android PDF export failed:', e)
+    } finally {
+      setIsPdfLoading(false)
+    }
+  }
+
+  function handleDownload() {
+    if (typeof window !== 'undefined' && (window as any).AndroidBridge) {
+      handleAndroidPdf()
+    } else {
+      handlePrint()
+    }
+  }
+
   function updateResume(updater: (prev: ResumeData) => ResumeData) {
     setResume(updater)
     setIsDirty(true)
@@ -289,7 +339,7 @@ export default function ResumeBuilder() {
             <span className="hidden sm:inline">My Resumes</span>
           </button>
           <button
-            onClick={handlePrint}
+            onClick={handleDownload}
             disabled={isPdfLoading}
             className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95 disabled:opacity-60 sm:px-3"
           >

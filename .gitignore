@@ -2,3 +2,13 @@ node_modules
 .next/
 .env.local
 .env*.local
+android
+
+# PWA generated files (next-pwa outputs these to /public on build)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/worker-*.js
+public/fallback-*.js
+public/fallback-*.js.map
