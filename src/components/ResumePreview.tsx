@@ -259,13 +259,14 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
         })}
       </div>
 
-      {/* PDF export target: natural full-height template render, no clip/transform.
-          Off-screen so users don't see it; html2canvas can still render it
-          because it's not display:none or visibility:hidden. */}
+      {/* PDF export target: same paginated structure as the screen preview so every
+          page has an explicit white background and no theme/sidebar colour bleeds
+          into empty page-2 space. react-to-print honours pageBreakAfter; the
+          Android html2pdf path captures the stacked page divs and jsPDF slices
+          them at exactly the right page-height boundaries. */}
       <div
         ref={ref}
         id="resume-print"
-        className="resume-scale-text"
         aria-hidden
         style={{
           position: 'fixed',
@@ -273,10 +274,71 @@ const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ resume }
           left: -99999,
           width: pageWidthCss,
           pointerEvents: 'none',
-          ...fontStyle,
         }}
       >
-        <Template resume={resume} />
+        {Array.from({ length: pageCount }, (_, i) => {
+          const isLast = i === pageCount - 1
+          const offset = contentOffsetForPage(i)
+          const frameTop = i === 0 ? 0 : headerPx
+          const visible = visibleContentForPage(i)
+          const coverTop = frameTop + visible - 0.5
+          const coverBottom = footerPx
+          return (
+            <div
+              key={i}
+              style={{
+                width: pageWidthCss,
+                height: pageHeightCss,
+                background: '#ffffff',
+                position: 'relative',
+                overflow: 'hidden',
+                breakAfter: isLast ? 'auto' : 'page',
+                pageBreakAfter: isLast ? 'auto' : 'always',
+              }}
+            >
+              <div
+                className="resume-scale-text"
+                style={{
+                  transform: `translateY(-${offset}px)`,
+                  willChange: 'transform',
+                  ...fontStyle,
+                }}
+              >
+                <Template resume={resume} />
+              </div>
+
+              {sidebarMeta ? (
+                <>
+                  <div style={{
+                    position: 'absolute', top: coverTop, left: 0,
+                    width: `${sidebarMeta.widthFraction * 100}%`,
+                    bottom: coverBottom, background: sidebarColor, pointerEvents: 'none',
+                  }} />
+                  <div style={{
+                    position: 'absolute', top: coverTop,
+                    left: `${sidebarMeta.widthFraction * 100}%`,
+                    right: 0, bottom: coverBottom, background: '#ffffff', pointerEvents: 'none',
+                  }} />
+                </>
+              ) : (
+                <div style={{
+                  position: 'absolute', top: coverTop, left: 0, right: 0,
+                  bottom: coverBottom, background: '#ffffff', pointerEvents: 'none',
+                }} />
+              )}
+
+              {i > 0 && (
+                <PageHeader
+                  sidebar={sidebarMeta ? { widthFraction: sidebarMeta.widthFraction, color: sidebarColor } : undefined}
+                />
+              )}
+              <PageFooter
+                sidebar={sidebarMeta ? { widthFraction: sidebarMeta.widthFraction, color: sidebarColor } : undefined}
+                accentColor={footerColor}
+              />
+            </div>
+          )
+        })}
       </div>
     </>
   )

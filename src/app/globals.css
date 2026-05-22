@@ -76,7 +76,7 @@ input[type='range']:focus {
 }
 
 @media print {
-  body {
+  html, body {
     background: white;
   }
 
