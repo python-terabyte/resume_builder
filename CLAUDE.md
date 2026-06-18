@@ -231,6 +231,9 @@ FIREBASE_WEB_API_KEY=
 RESEND_API_KEY=              # from resend.com → API Keys
 RESEND_FROM=                 # e.g. "BrandFox <noreply@bfox.pro>" — domain must be verified in Resend
 CONTACT_EMAIL=               # inbox that receives contact form submissions
+
+# Anthropic AI (Report Builder — Phase 4 AI features)
+ANTHROPIC_API_KEY=           # from console.anthropic.com → API Keys
 ```
 
 ---
