@@ -20,7 +20,10 @@ export async function createReport(name: string, report: ReportData): Promise<st
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, report }),
   })
-  if (!res.ok) throw new Error('Failed to create report.')
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to create report.')
+  }
   const data = await res.json() as { id: string }
   return data.id
 }
@@ -31,7 +34,10 @@ export async function saveReport(docId: string, name: string, report: ReportData
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, report }),
   })
-  if (!res.ok) throw new Error('Failed to save report.')
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to save report.')
+  }
 }
 
 export async function renameReport(docId: string, name: string): Promise<void> {

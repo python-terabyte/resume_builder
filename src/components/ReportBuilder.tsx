@@ -201,7 +201,7 @@ export default function ReportBuilder() {
           setShowTemplatePicker(true)
         }
       })
-      .catch(() => setPickerState('hide'))
+      .catch(() => { setPickerState('hide'); setShowTemplatePicker(true) })
   }, [])
 
   useEffect(() => {
@@ -228,20 +228,19 @@ export default function ReportBuilder() {
         setSaveState('saved')
         setIsDirty(false)
         setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 2000)
-      } catch {
+      } catch (err) {
         setSaveState('error')
+        setSaveError((err as Error)?.message ?? 'Auto-save failed')
       }
     }, 1500)
   }, [user])
 
   function updateReport(updater: (prev: ReportData) => ReportData) {
-    setReport((prev) => {
-      const next = updater(prev)
-      setIsDirty(true)
-      setSaveState('idle')
-      triggerAutoSave(next, docName, docId)
-      return next
-    })
+    const next = updater(report)
+    setReport(next)
+    setIsDirty(true)
+    setSaveState('idle')
+    triggerAutoSave(next, docName, docId)
   }
 
   async function handleSave() {

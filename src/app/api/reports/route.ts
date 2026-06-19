@@ -31,12 +31,17 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, report } = await req.json() as { name: string; report: ReportData }
-  const ref = await reportsCol(session.user.id).add({
-    name,
-    report,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  })
-  return NextResponse.json({ id: ref.id })
+  try {
+    const { name, report } = await req.json() as { name: string; report: ReportData }
+    const ref = await reportsCol(session.user.id).add({
+      name,
+      report,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    return NextResponse.json({ id: ref.id })
+  } catch (err) {
+    console.error('[POST /api/reports]', err)
+    return NextResponse.json({ error: (err as Error)?.message ?? 'Failed to create report' }, { status: 500 })
+  }
 }
