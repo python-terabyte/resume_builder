@@ -17,7 +17,7 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     const { id } = await context.params
     const { name, report } = await req.json() as { name: string; report: ReportData }
     await reportDoc(session.user.id, id).set(
-      { name, report, updatedAt: FieldValue.serverTimestamp() },
+      { name, report: JSON.stringify(report), updatedAt: FieldValue.serverTimestamp() },
       { merge: true },
     )
     return NextResponse.json({ ok: true })

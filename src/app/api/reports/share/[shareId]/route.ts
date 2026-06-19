@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ shareId
   const data = doc.data()!
   return NextResponse.json({
     reportName: data.reportName as string,
-    reportData: data.reportData,
+    reportData: (typeof data.reportData === 'string' ? JSON.parse(data.reportData) : data.reportData),
     createdAt: (data.createdAt as FirebaseFirestore.Timestamp)?.toDate?.()?.toISOString() ?? null,
   })
 }

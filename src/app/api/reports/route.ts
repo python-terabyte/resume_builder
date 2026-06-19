@@ -19,7 +19,7 @@ export async function GET() {
     return {
       id: d.id,
       name: data.name as string,
-      report: data.report as ReportData,
+      report: (typeof data.report === 'string' ? JSON.parse(data.report) : data.report) as ReportData,
       createdAt: (data.createdAt as FirebaseFirestore.Timestamp)?.toDate?.()?.toISOString() ?? null,
       updatedAt: (data.updatedAt as FirebaseFirestore.Timestamp)?.toDate?.()?.toISOString() ?? null,
     }
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const { name, report } = await req.json() as { name: string; report: ReportData }
     const ref = await reportsCol(session.user.id).add({
       name,
-      report,
+      report: JSON.stringify(report),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })

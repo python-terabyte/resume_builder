@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   await adminDb().collection('sharedReports').doc(shareId).set({
     reportName: reportName || 'Untitled Report',
-    reportData,
+    reportData: JSON.stringify(reportData),
     ownerUid: session.user.id,
     createdAt: FieldValue.serverTimestamp(),
   })
