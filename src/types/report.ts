@@ -56,6 +56,11 @@ export interface HeadingBlock {
   level: 1 | 2 | 3
   align: 'left' | 'center' | 'right'
   color: string
+  // Rich formatting overrides
+  bold?: boolean
+  italic?: boolean
+  fontSize?: number
+  bgColor?: string
 }
 
 export interface TextBlock {
@@ -63,12 +68,24 @@ export interface TextBlock {
   type: 'text'
   content: string
   align: 'left' | 'center' | 'right' | 'justify'
+  // Rich formatting
+  bold?: boolean
+  italic?: boolean
+  fontSize?: number
+  color?: string
+  bgColor?: string
 }
 
 export interface TableCell {
   content: string
   bold: boolean
+  italic?: boolean
+  underline?: boolean
   align: 'left' | 'center' | 'right'
+  color?: string
+  bgColor?: string
+  numberFormat?: 'general' | 'number' | 'currency' | 'percentage' | 'accounting'
+  indentLevel?: number
 }
 
 export interface TableBlock {
@@ -81,6 +98,7 @@ export interface TableBlock {
   bordered: boolean
   headerBg: string
   headerText: string
+  bgColor?: string
 }
 
 export interface ImageBlock {
@@ -91,6 +109,7 @@ export interface ImageBlock {
   caption: string
   width: 'full' | 'large' | 'medium' | 'small'
   align: 'left' | 'center' | 'right'
+  bgColor?: string
 }
 
 export interface KpiItem {
@@ -110,6 +129,7 @@ export interface KpiBlock {
   columns: 2 | 3 | 4
   items: KpiItem[]
   accentColor: string
+  bgColor?: string
 }
 
 export interface DividerBlock {
@@ -118,12 +138,14 @@ export interface DividerBlock {
   style: 'solid' | 'dashed' | 'double'
   color: string
   thickness: number
+  bgColor?: string
 }
 
 export interface SpacerBlock {
   id: string
   type: 'spacer'
   height: number
+  bgColor?: string
 }
 
 export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'donut'
@@ -146,6 +168,7 @@ export interface ChartBlock {
   showLegend: boolean
   showGrid: boolean
   sourceFile: string
+  bgColor?: string
 }
 
 export interface TocBlock {
@@ -153,6 +176,7 @@ export interface TocBlock {
   type: 'toc'
   title: string
   includePageNumbers: boolean
+  bgColor?: string
 }
 
 export interface CalloutBlock {
@@ -160,6 +184,10 @@ export interface CalloutBlock {
   type: 'callout'
   content: string
   variant: 'info' | 'warning' | 'success' | 'danger'
+  bold?: boolean
+  italic?: boolean
+  fontSize?: number
+  bgColor?: string
 }
 
 export interface QuoteBlock {
@@ -167,6 +195,11 @@ export interface QuoteBlock {
   type: 'quote'
   content: string
   attribution?: string
+  bold?: boolean
+  italic?: boolean
+  fontSize?: number
+  color?: string
+  bgColor?: string
 }
 
 export interface StatusItem {
@@ -180,6 +213,7 @@ export interface StatusBlock {
   type: 'status'
   title: string
   items: StatusItem[]
+  bgColor?: string
 }
 
 export interface ProgressItem {
@@ -194,6 +228,7 @@ export interface ProgressBlock {
   type: 'progress'
   title: string
   items: ProgressItem[]
+  bgColor?: string
 }
 
 export type ReportBlock =
@@ -256,6 +291,7 @@ export interface ReportCoverPage {
   enabled: boolean
   companyName: string
   logoUrl: string
+  logoPosition?: 'tl' | 'tc' | 'tr' | 'bl' | 'bc' | 'br'
   backgroundImageUrl: string
   reportTitle: string
   subtitle: string
@@ -263,6 +299,7 @@ export interface ReportCoverPage {
   primaryColor: string
   textColor: string
   pattern: 'none' | 'grid' | 'dots' | 'diagonal'
+  coverBlocks?: ReportBlock[]
 }
 
 export interface ReportBranding {
@@ -283,9 +320,13 @@ export interface ReportData {
     showHeader: boolean
     headerLeft: string
     headerRight: string
+    headerStyle?: 'line' | 'band' | 'double' | 'gradient' | 'accent-band' | 'minimal'
+    headerBg?: string
     showFooter: boolean
     footerLeft: string
     footerRight: string
+    footerStyle?: 'line' | 'band' | 'double' | 'gradient' | 'accent-band' | 'minimal'
+    footerBg?: string
     showPageNumbers: boolean
   }
   watermark: {

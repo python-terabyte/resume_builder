@@ -210,8 +210,10 @@ export default function ReportBuilder() {
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
   const [selectedShapePageId, setSelectedShapePageId] = useState<string | null>(null)
   const [isCoverSelected, setIsCoverSelected] = useState(false)
+  const [tableFormatAPI, setTableFormatAPI] = useState<TableFormatAPI | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleTableFormatAPIChange = useCallback((api: TableFormatAPI | null) => setTableFormatAPI(api), [])
 
   const dp = getDesignPack(report.designPackId)
 
@@ -372,6 +374,46 @@ export default function ReportBuilder() {
       ),
     }))
     if (selectedBlockId === blockId) setSelectedBlockId(null)
+  }
+
+  // Cover page block management
+  function addCoverBlock(type: ReportBlockType) {
+    const block = createBlock(type, dp)
+    updateReport((prev) => ({
+      ...prev,
+      coverPage: { ...prev.coverPage, coverBlocks: [...(prev.coverPage.coverBlocks ?? []), block] },
+    }))
+    setSelectedBlockId(block.id)
+  }
+  function updateCoverBlock(blockId: string, updates: Record<string, unknown>) {
+    updateReport((prev) => ({
+      ...prev,
+      coverPage: {
+        ...prev.coverPage,
+        coverBlocks: (prev.coverPage.coverBlocks ?? []).map((b) => b.id !== blockId ? b : { ...b, ...updates }),
+      },
+    }))
+  }
+  function deleteCoverBlock(blockId: string) {
+    updateReport((prev) => ({
+      ...prev,
+      coverPage: {
+        ...prev.coverPage,
+        coverBlocks: (prev.coverPage.coverBlocks ?? []).filter((b) => b.id !== blockId),
+      },
+    }))
+    if (selectedBlockId === blockId) setSelectedBlockId(null)
+  }
+  function moveCoverBlock(blockId: string, dir: 'up' | 'down') {
+    updateReport((prev) => {
+      const blocks = [...(prev.coverPage.coverBlocks ?? [])]
+      const idx = blocks.findIndex((b) => b.id === blockId)
+      if (idx < 0) return prev
+      const newIdx = dir === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= blocks.length) return prev
+      ;[blocks[idx], blocks[newIdx]] = [blocks[newIdx], blocks[idx]]
+      return { ...prev, coverPage: { ...prev.coverPage, coverBlocks: blocks } }
+    })
   }
 
   function moveBlock(pageId: string, blockId: string, dir: 'up' | 'down') {
@@ -722,6 +764,25 @@ export default function ReportBuilder() {
         </div>
       )}
 
+      {/* ── Format Toolbar (permanent, context-sensitive) ── */}
+      <FormatToolbar
+        selectedBlock={selectedBlock}
+        tableFormatAPI={tableFormatAPI}
+        dp={dp}
+        onQuickUpdate={selectedBlock && selectedBlockPageId
+          ? (updates) => updateBlock(selectedBlockPageId, selectedBlock.id, updates)
+          : undefined}
+        onMoveUp={selectedBlock && selectedBlockPageId
+          ? () => moveBlock(selectedBlockPageId, selectedBlock.id, 'up')
+          : undefined}
+        onMoveDown={selectedBlock && selectedBlockPageId
+          ? () => moveBlock(selectedBlockPageId, selectedBlock.id, 'down')
+          : undefined}
+        onDelete={selectedBlock && selectedBlockPageId
+          ? () => deleteBlock(selectedBlockPageId, selectedBlock.id)
+          : undefined}
+      />
+
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel */}
@@ -761,6 +822,7 @@ export default function ReportBuilder() {
         <div className="relative flex-1 overflow-auto bg-[#2B2B2B] panel-scroll" onClick={(e) => {
           if ((e.target as HTMLElement).closest('[data-block]')) return
           setSelectedBlockId(null)
+          setTableFormatAPI(null)
         }}>
           <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
             <div className="anim-orb absolute rounded-full" style={{ width: 400, height: 400, top: -100, right: -100, background: 'radial-gradient(circle, rgba(201,168,76,.06) 0%, transparent 70%)', filter: 'blur(40px)' }} />
@@ -773,7 +835,15 @@ export default function ReportBuilder() {
                 dp={dp}
                 watermark={report.watermark}
                 isSelected={isCoverSelected}
+                selectedBlockId={selectedBlockId}
                 onSelect={() => { setIsCoverSelected(true); setSelectedBlockId(null); setSelectedShapeId(null) }}
+                onSelectBlock={(id) => { setSelectedBlockId(id); setIsCoverSelected(true); setSelectedShapeId(null) }}
+                onAddCoverBlock={addCoverBlock}
+                onUpdateCoverBlock={updateCoverBlock}
+                onDeleteCoverBlock={deleteCoverBlock}
+                onMoveCoverBlock={moveCoverBlock}
+                onUpdateCoverPage={(upd) => updateReport((p) => ({ ...p, coverPage: { ...p.coverPage, ...upd } }))}
+                onFormatAPIChange={handleTableFormatAPIChange}
               />
             )}
             {report.pages.map((page, pageIdx) => (
@@ -796,6 +866,7 @@ export default function ReportBuilder() {
                 onUpdateShape={(shapeId, upd) => updateShape(page.id, shapeId, upd)}
                 onDeleteShape={(shapeId) => deleteShape(page.id, shapeId)}
                 onReorderShape={(shapeId, dir) => reorderShape(page.id, shapeId, dir)}
+                onFormatAPIChange={handleTableFormatAPIChange}
               />
             ))}
             <button
@@ -1115,15 +1186,115 @@ function LeftPanel({
   )
 }
 
+// ── Header / Footer Renderers ────────────────────────────────────────────────
+
+type HFSettings = ReportData['headerFooter']
+
+function renderHeaderBand(hf: HFSettings, dp: DesignPack, isPrint: boolean): React.ReactNode {
+  const style = hf.headerStyle || 'line'
+  const bg = hf.headerBg || dp.primaryColor
+  // Print uses mm padding to match 20mm page margins; canvas uses Tailwind px-8 (2rem)
+  const px = isPrint ? '20mm' : '2rem'
+  const pyN = isPrint ? '4pt' : '0.5rem'
+  const fs = isPrint ? '8pt' : undefined
+
+  const row = (children: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: px, paddingRight: px, paddingTop: pyN, paddingBottom: pyN, fontSize: fs, ...extraStyle }}>
+      {children}
+    </div>
+  )
+
+  if (style === 'band' || style === 'accent-band') {
+    return row(<><span style={{ fontWeight: 600 }}>{hf.headerLeft}</span><span style={{ opacity: 0.8 }}>{hf.headerRight}</span></>, { background: bg, color: '#fff' })
+  }
+  if (style === 'double') {
+    return (
+      <div style={{ borderTop: `3px solid ${bg}`, borderBottom: `1px solid ${bg}`, color: bg, fontSize: fs }}>
+        {row(<><span style={{ fontWeight: 600 }}>{hf.headerLeft}</span><span>{hf.headerRight}</span></>)}
+      </div>
+    )
+  }
+  if (style === 'gradient') {
+    return row(<><span style={{ fontWeight: 600 }}>{hf.headerLeft}</span><span style={{ opacity: 0.8 }}>{hf.headerRight}</span></>, { background: `linear-gradient(90deg, ${bg} 0%, ${bg}44 100%)`, color: '#fff' })
+  }
+  if (style === 'minimal') {
+    return row(<><span>{hf.headerLeft}</span><span>{hf.headerRight}</span></>, { color: dp.textColor, opacity: 0.6 })
+  }
+  // default: 'line'
+  return row(<><span style={{ fontWeight: 600 }}>{hf.headerLeft}</span><span>{hf.headerRight}</span></>, { borderBottom: `2px solid ${bg}`, color: bg })
+}
+
+function renderFooterBand(hf: HFSettings, dp: DesignPack, pageNum: number, isPrint = false): React.ReactNode {
+  const style = hf.footerStyle || 'line'
+  const bg = hf.footerBg || dp.primaryColor
+  const px = isPrint ? '20mm' : '2rem'
+  const pyN = isPrint ? '4pt' : '0.5rem'
+  const fs = isPrint ? '8pt' : undefined
+  const pageEl = hf.showPageNumbers ? <span style={{ fontWeight: 600 }}>{pageNum}</span> : null
+  const right = <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><span>{hf.footerRight}</span>{pageEl}</div>
+
+  const row = (children: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: px, paddingRight: px, paddingTop: pyN, paddingBottom: pyN, fontSize: fs, ...extraStyle }}>
+      {children}
+    </div>
+  )
+
+  if (style === 'band' || style === 'accent-band') {
+    return row(<><span>{hf.footerLeft}</span>{right}</>, { background: bg, color: '#fff' })
+  }
+  if (style === 'double') {
+    return (
+      <div style={{ borderTop: `1px solid ${bg}`, borderBottom: `3px solid ${bg}`, color: bg, fontSize: fs }}>
+        {row(<><span>{hf.footerLeft}</span>{right}</>)}
+      </div>
+    )
+  }
+  if (style === 'gradient') {
+    return row(<><span>{hf.footerLeft}</span>{right}</>, { background: `linear-gradient(90deg, ${bg}44 0%, ${bg} 100%)`, color: '#fff' })
+  }
+  if (style === 'minimal') {
+    return row(<><span>{hf.footerLeft}</span>{right}</>, { color: dp.textColor, opacity: 0.5 })
+  }
+  // default: 'line'
+  return row(
+    <><span>{hf.footerLeft}</span><div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><span>{hf.footerRight}</span>{pageEl && <span style={{ color: bg }}>{pageEl}</span>}</div></>,
+    { borderTop: `1px solid ${bg}30`, color: dp.textColor }
+  )
+}
+
 // ── Cover Page View ─────────────────────────────────────────────────────────
 
-function CoverPageView({ coverPage, dp, watermark, isSelected, onSelect }: {
+function logoPositionStyle(pos: string | undefined): React.CSSProperties {
+  switch (pos) {
+    case 'tc': return { top: '2rem', left: '50%', transform: 'translateX(-50%)' }
+    case 'tr': return { top: '2rem', right: '2.5rem' }
+    case 'bl': return { bottom: '2rem', left: '2.5rem' }
+    case 'bc': return { bottom: '2rem', left: '50%', transform: 'translateX(-50%)' }
+    case 'br': return { bottom: '2rem', right: '2.5rem' }
+    default:   return { top: '2rem', left: '2.5rem' }
+  }
+}
+
+function CoverPageView({
+  coverPage, dp, watermark, isSelected, selectedBlockId,
+  onSelect, onSelectBlock, onAddCoverBlock, onUpdateCoverBlock, onDeleteCoverBlock, onMoveCoverBlock,
+  onUpdateCoverPage, onFormatAPIChange,
+}: {
   coverPage: ReportData['coverPage']
   dp: DesignPack
   watermark: ReportData['watermark']
   isSelected: boolean
+  selectedBlockId: string | null
   onSelect: () => void
+  onSelectBlock: (id: string) => void
+  onAddCoverBlock: (type: ReportBlockType) => void
+  onUpdateCoverBlock: (blockId: string, updates: Record<string, unknown>) => void
+  onDeleteCoverBlock: (blockId: string) => void
+  onMoveCoverBlock: (blockId: string, dir: 'up' | 'down') => void
+  onUpdateCoverPage: (upd: Partial<ReportData['coverPage']>) => void
+  onFormatAPIChange?: (api: TableFormatAPI | null) => void
 }) {
+  const [showInsert, setShowInsert] = useState(false)
   const bg = coverPage.primaryColor || dp.primaryColor
   const fg = coverPage.textColor || '#FFFFFF'
   const patternStyle: React.CSSProperties = {}
@@ -1138,63 +1309,112 @@ function CoverPageView({ coverPage, dp, watermark, isSelected, onSelect }: {
     patternStyle.backgroundSize = '16px 16px'
   }
 
+  const BLOCK_TYPES: { type: ReportBlockType; label: string }[] = [
+    { type: 'heading', label: 'Heading' }, { type: 'text', label: 'Text' },
+    { type: 'divider', label: 'Divider' }, { type: 'spacer', label: 'Spacer' },
+    { type: 'image', label: 'Image' }, { type: 'callout', label: 'Callout' },
+    { type: 'quote', label: 'Quote' },
+  ]
+
+  const coverBlocks = coverPage.coverBlocks ?? []
+
   return (
     <div
-      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg shadow-2xl cursor-pointer transition-all ${isSelected ? 'ring-2 ring-[#C9A84C]/60' : 'hover:ring-2 hover:ring-white/20'}`}
-      style={{ background: bg, minHeight: '420px' }}
+      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg shadow-2xl transition-all ${isSelected ? 'ring-2 ring-[#C9A84C]/60' : 'hover:ring-2 hover:ring-white/20'}`}
+      style={{ background: bg, minHeight: '520px' }}
       id="page-cover"
-      onClick={onSelect}
+      onClick={(e) => { if ((e.target as HTMLElement).closest('[data-block]')) return; onSelect() }}
     >
-      {/* Edit indicator */}
-      {isSelected && (
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-[#C9A84C] px-2.5 py-1 text-[10px] font-semibold text-[#1C0D03] shadow">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-          Edit in Properties panel →
-        </div>
-      )}
-      {!isSelected && (
-        <div className="absolute top-3 right-3 z-10 rounded-full bg-black/30 px-2 py-0.5 text-[9px] text-white/70 opacity-0 hover:opacity-100 transition pointer-events-none">
-          Click to edit
-        </div>
-      )}
       {/* Background image */}
       {coverPage.backgroundImageUrl && (
         <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${coverPage.backgroundImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       )}
       {/* Pattern overlay */}
-      {coverPage.pattern !== 'none' && (
-        <div style={{ position: 'absolute', inset: 0, ...patternStyle }} />
-      )}
+      {coverPage.pattern !== 'none' && <div style={{ position: 'absolute', inset: 0, ...patternStyle }} />}
       {/* Color overlay when bg image is set */}
-      {coverPage.backgroundImageUrl && (
-        <div style={{ position: 'absolute', inset: 0, background: `${bg}CC` }} />
+      {coverPage.backgroundImageUrl && <div style={{ position: 'absolute', inset: 0, background: `${bg}CC` }} />}
+
+      {/* Accent bar */}
+      <div className="absolute right-0 top-0 h-full w-2 opacity-40" style={{ background: dp.accentColor }} />
+
+      {/* Logo (repositionable) */}
+      {coverPage.logoUrl && (
+        <div style={{ position: 'absolute', ...logoPositionStyle(coverPage.logoPosition), zIndex: 2 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={coverPage.logoUrl} alt="Logo" style={{ maxHeight: '52px', maxWidth: '160px', objectFit: 'contain' }} />
+        </div>
       )}
-      <div className="relative flex flex-col justify-end p-12" style={{ minHeight: '420px', color: fg, zIndex: 1 }}>
-        {/* Logo */}
-        {coverPage.logoUrl && (
-          <div className="absolute top-8 left-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={coverPage.logoUrl} alt="Logo" style={{ maxHeight: '48px', maxWidth: '140px', objectFit: 'contain' }} />
-          </div>
-        )}
+
+      {/* Main content area */}
+      <div className="relative flex flex-col justify-end p-12 pt-24" style={{ minHeight: '520px', color: fg, zIndex: 1 }}>
         {coverPage.companyName && (
-          <p className="mb-6 text-sm font-medium uppercase tracking-widest opacity-70">{coverPage.companyName}</p>
+          <p className="mb-5 text-sm font-medium uppercase tracking-widest opacity-70">{coverPage.companyName}</p>
         )}
         <h1 className="mb-3 text-4xl font-bold leading-tight">{coverPage.reportTitle || 'Report Title'}</h1>
         {coverPage.subtitle && <p className="mb-2 text-xl opacity-80">{coverPage.subtitle}</p>}
         {coverPage.date && <p className="mt-4 text-sm opacity-60">{coverPage.date}</p>}
-        <div className="absolute right-0 top-0 h-full w-2 opacity-40" style={{ background: dp.accentColor }} />
+
+        {/* Cover blocks */}
+        {coverBlocks.length > 0 && (
+          <div className="mt-6" onClick={(e) => e.stopPropagation()}>
+            {coverBlocks.map((block, idx) => (
+              <BlockWrapper
+                key={block.id}
+                block={block}
+                dp={{ ...dp, textColor: fg, headingColor: fg }}
+                isSelected={selectedBlockId === block.id}
+                isFirst={idx === 0}
+                isLast={idx === coverBlocks.length - 1}
+                onSelect={() => onSelectBlock(block.id)}
+                onDelete={() => onDeleteCoverBlock(block.id)}
+                onMoveUp={() => onMoveCoverBlock(block.id, 'up')}
+                onMoveDown={() => onMoveCoverBlock(block.id, 'down')}
+                onQuickUpdate={(updates) => onUpdateCoverBlock(block.id, updates)}
+                onFormatAPIChange={onFormatAPIChange}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Add block to cover */}
+        {isSelected && (
+          <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+            {showInsert ? (
+              <div className="flex flex-wrap gap-1.5 rounded-lg border border-white/20 bg-black/30 p-2 backdrop-blur-sm">
+                {BLOCK_TYPES.map(({ type, label }) => (
+                  <button key={type} onClick={() => { onAddCoverBlock(type); setShowInsert(false) }}
+                    className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs text-white transition hover:bg-white/20">
+                    {label}
+                  </button>
+                ))}
+                <button onClick={() => setShowInsert(false)} className="ml-auto px-2 py-1 text-xs text-white/50 hover:text-white">✕</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowInsert(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/30 py-2 text-xs text-white/60 transition hover:border-white/50 hover:text-white/80">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Add block to cover
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
       {/* Watermark on cover */}
       {watermark.enabled && (
-        <div
-          className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
-          style={{ opacity: watermark.opacity, transform: `rotate(${watermark.rotation}deg)` }}
-        >
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
+          style={{ opacity: watermark.opacity, transform: `rotate(${watermark.rotation}deg)` }}>
           {watermark.imageUrl
             ? <img src={watermark.imageUrl} alt="watermark" style={{ maxWidth: '60%', maxHeight: '60%', objectFit: 'contain' }} />
             : <span className="text-5xl font-black tracking-widest" style={{ color: watermark.color || '#ffffff' }}>{watermark.text}</span>
           }
+        </div>
+      )}
+
+      {/* Selected indicator */}
+      {isSelected && (
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full bg-[#C9A84C] px-2 py-0.5 text-[10px] font-semibold text-[#1C0D03]">
+          Cover Page — Edit in Properties →
         </div>
       )}
     </div>
@@ -1206,7 +1426,7 @@ function CoverPageView({ coverPage, dp, watermark, isSelected, onSelect }: {
 function ReportPageView({
   page, pageNum, dp, report, isSelectedPage, selectedBlockId, selectedShapeId,
   onSelectPage, onSelectBlock, onSelectShape, onDeleteBlock, onMoveBlock, onAddBlock, onUpdateBlock,
-  onUpdateShape, onDeleteShape, onReorderShape,
+  onUpdateShape, onDeleteShape, onReorderShape, onFormatAPIChange,
 }: {
   page: ReportPage
   pageNum: number
@@ -1225,6 +1445,7 @@ function ReportPageView({
   onUpdateShape: (id: string, upd: Partial<ShapeItem>) => void
   onDeleteShape: (id: string) => void
   onReorderShape: (id: string, dir: 'up' | 'down') => void
+  onFormatAPIChange?: (api: TableFormatAPI | null) => void
 }) {
   const [showInsert, setShowInsert] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -1276,12 +1497,7 @@ function ReportPageView({
       })()}
 
       {/* Page header band */}
-      {report.headerFooter.showHeader && (
-        <div className="flex items-center justify-between px-8 py-2 text-[10px]" style={{ borderBottom: `2px solid ${dp.primaryColor}`, color: dp.primaryColor }}>
-          <span className="font-medium">{report.headerFooter.headerLeft}</span>
-          <span>{report.headerFooter.headerRight}</span>
-        </div>
-      )}
+      {report.headerFooter.showHeader && renderHeaderBand(report.headerFooter, dp, false)}
 
       {/* Page content */}
       <div className="px-12 py-8">
@@ -1319,6 +1535,7 @@ function ReportPageView({
             onMoveUp={() => onMoveBlock(block.id, 'up')}
             onMoveDown={() => onMoveBlock(block.id, 'down')}
             onQuickUpdate={(updates) => onUpdateBlock(block.id, updates)}
+            onFormatAPIChange={onFormatAPIChange}
           />
         ))}
 
@@ -1351,17 +1568,7 @@ function ReportPageView({
       </div>
 
       {/* Page footer band */}
-      {report.headerFooter.showFooter && (
-        <div className="flex items-center justify-between px-8 py-2 text-[10px]" style={{ borderTop: `1px solid ${dp.primaryColor}20`, color: dp.textColor }}>
-          <span>{report.headerFooter.footerLeft}</span>
-          <div className="flex items-center gap-3">
-            <span>{report.headerFooter.footerRight}</span>
-            {report.headerFooter.showPageNumbers && (
-              <span className="font-medium" style={{ color: dp.primaryColor }}>{pageNum}</span>
-            )}
-          </div>
-        </div>
-      )}
+      {report.headerFooter.showFooter && renderFooterBand(report.headerFooter, dp, pageNum)}
 
       {/* Shape overlay */}
       {(page.shapes || []).length > 0 && (
@@ -1399,7 +1606,7 @@ function ReportPageView({
 
 function BlockWrapper({
   block, dp, report, isSelected, isFirst, isLast,
-  onSelect, onDelete, onMoveUp, onMoveDown, onQuickUpdate,
+  onSelect, onDelete, onMoveUp, onMoveDown, onQuickUpdate, onFormatAPIChange,
 }: {
   block: ReportBlock
   dp: DesignPack
@@ -1412,96 +1619,9 @@ function BlockWrapper({
   onMoveUp: () => void
   onMoveDown: () => void
   onQuickUpdate?: (updates: Record<string, unknown>) => void
+  onFormatAPIChange?: (api: TableFormatAPI | null) => void
 }) {
-  const sep = <div className="mx-0.5 h-3 w-px bg-gray-200" />
-
-  // Block-type-specific quick actions
-  function renderQuickActions() {
-    if (!onQuickUpdate) return null
-    if (block.type === 'heading') {
-      return (
-        <>
-          {sep}
-          {([1, 2, 3] as const).map((l) => (
-            <button key={l} onClick={() => onQuickUpdate({ level: l })}
-              className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition ${block.level === l ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
-              H{l}
-            </button>
-          ))}
-          {sep}
-          {(['left', 'center', 'right'] as const).map((a) => (
-            <button key={a} onClick={() => onQuickUpdate({ align: a })}
-              className={`rounded p-1 text-[10px] transition ${block.align === a ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}
-              title={a}>{a[0].toUpperCase()}</button>
-          ))}
-        </>
-      )
-    }
-    if (block.type === 'text') {
-      return (
-        <>
-          {sep}
-          {(['left', 'center', 'right', 'justify'] as const).map((a) => (
-            <button key={a} onClick={() => onQuickUpdate({ align: a })}
-              className={`rounded p-1 text-[10px] transition ${block.align === a ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}
-              title={a}>{a === 'justify' ? 'J' : a[0].toUpperCase()}</button>
-          ))}
-        </>
-      )
-    }
-    if (block.type === 'table') {
-      return (
-        <>
-          {sep}
-          <button onClick={() => onQuickUpdate({ striped: !(block as import('@/types/report').TableBlock).striped })}
-            className={`rounded px-1.5 py-0.5 text-[10px] transition ${ (block as import('@/types/report').TableBlock).striped ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
-            Striped
-          </button>
-          <button onClick={() => onQuickUpdate({ bordered: !(block as import('@/types/report').TableBlock).bordered })}
-            className={`rounded px-1.5 py-0.5 text-[10px] transition ${ (block as import('@/types/report').TableBlock).bordered ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
-            Borders
-          </button>
-        </>
-      )
-    }
-    if (block.type === 'image') {
-      return (
-        <>
-          {sep}
-          {(['full', 'large', 'medium', 'small'] as const).map((w) => (
-            <button key={w} onClick={() => onQuickUpdate({ width: w })}
-              className={`rounded px-1.5 py-0.5 text-[10px] capitalize transition ${(block as import('@/types/report').ImageBlock).width === w ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
-              {w[0].toUpperCase()}
-            </button>
-          ))}
-          {sep}
-          {(['left', 'center', 'right'] as const).map((a) => (
-            <button key={a} onClick={() => onQuickUpdate({ align: a })}
-              className={`rounded p-1 text-[10px] transition ${(block as import('@/types/report').ImageBlock).align === a ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}
-              title={a}>{a[0].toUpperCase()}</button>
-          ))}
-        </>
-      )
-    }
-    if (block.type === 'callout') {
-      return (
-        <>
-          {sep}
-          {(['info', 'success', 'warning', 'danger'] as const).map((v) => {
-            const colors: Record<string, string> = { info: 'text-blue-600', success: 'text-green-600', warning: 'text-amber-600', danger: 'text-red-600' }
-            return (
-              <button key={v} onClick={() => onQuickUpdate({ variant: v })}
-                className={`rounded px-1.5 py-0.5 text-[10px] capitalize transition ${(block as CalloutBlock).variant === v ? 'bg-gray-100 font-semibold' : 'text-gray-400 hover:bg-gray-100'} ${colors[v]}`}>
-                {v}
-              </button>
-            )
-          })}
-        </>
-      )
-    }
-    return null
-  }
-
+  const blockBg = (block as { bgColor?: string }).bgColor
   return (
     <div
       data-block
@@ -1510,25 +1630,44 @@ function BlockWrapper({
           ? 'outline outline-2 outline-blue-400 outline-offset-2'
           : 'hover:outline hover:outline-1 hover:outline-gray-200 hover:outline-offset-2'
       }`}
+      style={blockBg ? { backgroundColor: blockBg, borderRadius: 6, padding: '2px' } : undefined}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
     >
-      {/* Quick action toolbar */}
-      <div className={`absolute -top-7 left-0 flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1 py-0.5 shadow-sm z-10 ${isSelected ? 'flex' : 'hidden group-hover:flex'}`}
-        onClick={(e) => e.stopPropagation()}>
-        <button onClick={onMoveUp} disabled={isFirst} className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" title="Move up">
+      {/* Minimal block controls — appear on hover/select at left edge */}
+      <div
+        className={`absolute -left-8 top-1 flex flex-col items-center gap-0.5 z-10 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onMoveUp} disabled={isFirst}
+          className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition"
+          title="Move up">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
         </button>
-        <button onClick={onMoveDown} disabled={isLast} className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" title="Move down">
+        <button onClick={onMoveDown} disabled={isLast}
+          className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition"
+          title="Move down">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </button>
-        {renderQuickActions()}
-        {sep}
-        <button onClick={onDelete} className="rounded p-1 text-gray-400 transition hover:bg-red-50 hover:text-red-500" title="Delete block">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        <button onClick={onDelete}
+          className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-red-500 transition"
+          title="Delete block">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
-      {/* Block content */}
-      {renderBlockContent(block, dp, report)}
+
+      {/* Block content — tables use inline interactive view */}
+      {block.type === 'table' && onQuickUpdate ? (
+        <TableBlockView
+          block={block as TableBlock}
+          dp={dp}
+          isSelected={isSelected}
+          onUpdate={onQuickUpdate}
+          onSelect={onSelect}
+          onFormatAPIChange={onFormatAPIChange}
+        />
+      ) : (
+        renderBlockContent(block, dp, report)
+      )}
     </div>
   )
 }
@@ -1539,12 +1678,19 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
   switch (block.type) {
     case 'heading': {
       const sizes: Record<number, string> = { 1: 'text-2xl', 2: 'text-xl', 3: 'text-lg' }
-      const weights: Record<number, string> = { 1: 'font-bold', 2: 'font-semibold', 3: 'font-semibold' }
+      const defaultWeights: Record<number, number> = { 1: 700, 2: 600, 3: 600 }
       const margins: Record<number, string> = { 1: 'mb-3 mt-2', 2: 'mb-2 mt-1', 3: 'mb-1' }
       return (
         <div
-          className={`${sizes[block.level]} ${weights[block.level]} ${margins[block.level]} leading-tight`}
-          style={{ color: block.color || dp.headingColor, textAlign: block.align, fontFamily: dp.fontFamily }}
+          className={`${block.fontSize ? '' : sizes[block.level]} ${margins[block.level]} leading-tight`}
+          style={{
+            color: block.color || dp.headingColor,
+            textAlign: block.align,
+            fontFamily: dp.fontFamily,
+            fontWeight: block.bold !== undefined ? (block.bold ? 700 : 400) : defaultWeights[block.level],
+            fontStyle: block.italic ? 'italic' : undefined,
+            fontSize: block.fontSize ? `${block.fontSize}px` : undefined,
+          }}
         >
           {block.content || 'Heading'}
         </div>
@@ -1553,8 +1699,15 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
     case 'text':
       return (
         <div
-          className="text-sm leading-relaxed whitespace-pre-wrap"
-          style={{ color: dp.textColor, textAlign: block.align, fontFamily: dp.fontFamily }}
+          className="leading-relaxed whitespace-pre-wrap"
+          style={{
+            color: block.color || dp.textColor,
+            textAlign: block.align,
+            fontFamily: dp.fontFamily,
+            fontSize: block.fontSize ? `${block.fontSize}px` : '0.875rem',
+            fontWeight: block.bold ? 600 : undefined,
+            fontStyle: block.italic ? 'italic' : undefined,
+          }}
         >
           {block.content}
         </div>
@@ -1587,17 +1740,21 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
                   {row.map((cell, cIdx) => (
                     <td
                       key={cIdx}
-                      className="px-3 py-1.5"
                       style={{
                         textAlign: cell.align,
                         fontWeight: cell.bold ? 600 : 400,
-                        color: dp.textColor,
+                        fontStyle: cell.italic ? 'italic' : 'normal',
+                        textDecoration: cell.underline ? 'underline' : 'none',
+                        color: cell.color || dp.textColor,
+                        background: cell.bgColor || 'transparent',
                         border: block.bordered ? '1px solid #E5E7EB' : 'none',
-                        borderTop: block.bordered ? '1px solid #E5E7EB' : 'none',
+                        paddingTop: '6px', paddingBottom: '6px',
+                        paddingLeft: `${((cell.indentLevel || 0) * 16) + 12}px`,
+                        paddingRight: '12px',
                         overflowWrap: 'break-word',
                       }}
                     >
-                      {cell.content}
+                      {formatCellContent(cell)}
                     </td>
                   ))}
                 </tr>
@@ -1694,8 +1851,16 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
       }
       const vs = variantStyles[block.variant] ?? variantStyles.info
       return (
-        <div className="flex gap-3 rounded-lg px-4 py-3 text-sm leading-relaxed"
-          style={{ borderLeft: `4px solid ${vs.border}`, background: vs.bg, color: vs.text, fontFamily: dp.fontFamily }}>
+        <div className="flex gap-3 rounded-lg px-4 py-3 leading-relaxed"
+          style={{
+            borderLeft: `4px solid ${vs.border}`,
+            background: block.bgColor || vs.bg,
+            color: vs.text,
+            fontFamily: dp.fontFamily,
+            fontSize: block.fontSize ? `${block.fontSize}px` : '0.875rem',
+            fontWeight: block.bold ? 700 : undefined,
+            fontStyle: block.italic ? 'italic' : undefined,
+          }}>
           <span className="mt-0.5 shrink-0">{vs.icon}</span>
           <span className="whitespace-pre-wrap">{block.content}</span>
         </div>
@@ -1703,10 +1868,15 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
     }
     case 'quote':
       return (
-        <div className="py-2" style={{ fontFamily: dp.fontFamily }}>
+        <div className="py-2" style={{ fontFamily: dp.fontFamily, background: block.bgColor || undefined, borderRadius: block.bgColor ? 6 : undefined, padding: block.bgColor ? '8px 12px' : undefined }}>
           <div className="relative border-l-4 pl-5 py-1" style={{ borderColor: dp.accentColor }}>
             <span className="absolute -left-2 -top-2 text-4xl font-serif leading-none opacity-20" style={{ color: dp.primaryColor }}>"</span>
-            <p className="text-base italic leading-relaxed" style={{ color: dp.textColor }}>{block.content}</p>
+            <p className="leading-relaxed" style={{
+              color: block.color || dp.textColor,
+              fontSize: block.fontSize ? `${block.fontSize}px` : '1rem',
+              fontWeight: block.bold ? 700 : undefined,
+              fontStyle: block.italic !== undefined ? (block.italic ? 'italic' : 'normal') : 'italic',
+            }}>{block.content}</p>
             {block.attribution && (
               <p className="mt-2 text-xs font-semibold not-italic" style={{ color: dp.primaryColor }}>— {block.attribution}</p>
             )}
@@ -1758,6 +1928,943 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
   }
+}
+
+// ── Inline Table Block View ─────────────────────────────────────────────────
+
+function formatCellContent(cell: TableCell): string {
+  const fmt = cell.numberFormat
+  if (!fmt || fmt === 'general') return cell.content
+  const cleaned = cell.content.replace(/[$,()%\s]/g, '')
+  const isNegParen = cell.content.startsWith('(')
+  const num = parseFloat(cleaned) * (isNegParen ? -1 : 1)
+  if (isNaN(num)) return cell.content
+  switch (fmt) {
+    case 'number':     return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    case 'currency':   return num < 0
+      ? `($${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+      : `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    case 'accounting': return num < 0
+      ? `(${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+      : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    case 'percentage': return `${num.toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
+  }
+  return cell.content
+}
+
+interface TableFormatAPI {
+  selectedCells: Set<string>
+  firstCell: TableCell | null
+  selectionAllHas: <K extends keyof TableCell>(field: K, value: TableCell[K]) => boolean
+  applyToSelected: (updates: Partial<TableCell>) => void
+  addRow: (where: 'above' | 'below') => void
+  deleteSelectedRows: () => void
+  addCol: (where: 'left' | 'right') => void
+  deleteSelectedCols: () => void
+  applyFinancialFormat: () => void
+  rowCount: number
+  colCount: number
+}
+
+function TableBlockView({
+  block, dp, isSelected, onUpdate, onSelect, onFormatAPIChange,
+}: {
+  block: TableBlock
+  dp: DesignPack
+  isSelected: boolean
+  onUpdate?: (updates: Record<string, unknown>) => void
+  onSelect?: () => void
+  onFormatAPIChange?: (api: TableFormatAPI | null) => void
+}) {
+  const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [anchorCell, setAnchorCell] = useState<{ row: number; col: number } | null>(null)
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
+  const [pendingHeaderFocus, setPendingHeaderFocus] = useState<number | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const headerInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const cellKey = (r: number, c: number) => `${r},${c}`
+
+  function commitCurrentEdit(r?: number, c?: number, val?: string) {
+    if (!onUpdate) return
+    const row = r ?? editingCell?.row
+    const col = c ?? editingCell?.col
+    const value = val ?? editValue
+    if (row === undefined || col === undefined) return
+    const rows = block.rows.map((rr, ri) =>
+      ri !== row ? rr : rr.map((cell, ci) => ci !== col ? cell : { ...cell, content: value })
+    )
+    onUpdate({ rows })
+  }
+
+  function startEditing(r: number, c: number) {
+    if (!onUpdate) return
+    const cell = block.rows[r]?.[c]
+    if (!cell) return
+    setEditingCell({ row: r, col: c })
+    setEditValue(cell.content)
+    setSelectedCells(new Set([cellKey(r, c)]))
+    setAnchorCell({ row: r, col: c })
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 0)
+  }
+
+  // Clear state when deselected
+  useEffect(() => {
+    if (!isSelected) {
+      setEditingCell(null)
+      setSelectedCells(new Set())
+      setAnchorCell(null)
+      setPendingHeaderFocus(null)
+      onFormatAPIChange?.(null)
+    }
+  }, [isSelected]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Focus a header input once the block becomes selected
+  useEffect(() => {
+    if (isSelected && pendingHeaderFocus !== null) {
+      const el = headerInputRefs.current[pendingHeaderFocus]
+      if (el) { el.focus(); el.select() }
+      setPendingHeaderFocus(null)
+    }
+  }, [isSelected, pendingHeaderFocus])
+
+  // Build and emit format API whenever selection changes
+  useEffect(() => {
+    if (!isSelected || !onFormatAPIChange) return
+    const first = [...selectedCells][0]
+    const firstCell: TableCell | null = first
+      ? (block.rows[parseInt(first.split(',')[0])]?.[parseInt(first.split(',')[1])] ?? null)
+      : null
+    const api: TableFormatAPI = {
+      selectedCells,
+      firstCell,
+      rowCount: block.rows.length,
+      colCount: block.headers.length,
+      selectionAllHas: <K extends keyof TableCell>(field: K, value: TableCell[K]) => {
+        if (selectedCells.size === 0) return false
+        return [...selectedCells].every((key) => {
+          const [r, c] = key.split(',').map(Number)
+          return block.rows[r]?.[c]?.[field] === value
+        })
+      },
+      applyToSelected: (updates) => {
+        if (!onUpdate || selectedCells.size === 0) return
+        const rows = block.rows.map((row, ri) =>
+          row.map((cell, ci) => selectedCells.has(cellKey(ri, ci)) ? { ...cell, ...updates } : cell)
+        )
+        onUpdate({ rows })
+      },
+      addRow: (where) => {
+        if (!onUpdate) return
+        const ref = anchorCell?.row ?? block.rows.length - 1
+        const newRow: TableCell[] = block.headers.map(() => ({ content: '', bold: false, align: 'left' as const }))
+        const rows = [...block.rows]
+        rows.splice(where === 'above' ? ref : ref + 1, 0, newRow)
+        onUpdate({ rows })
+      },
+      deleteSelectedRows: () => {
+        if (!onUpdate || block.rows.length <= 1) return
+        const toDelete = new Set([...selectedCells].map((k) => parseInt(k.split(',')[0])))
+        const rows = block.rows.filter((_, i) => !toDelete.has(i))
+        if (rows.length === 0) return
+        onUpdate({ rows })
+        setSelectedCells(new Set()); setEditingCell(null)
+      },
+      addCol: (where) => {
+        if (!onUpdate) return
+        const ref = anchorCell?.col ?? block.headers.length - 1
+        const idx = where === 'left' ? ref : ref + 1
+        const headers = [...block.headers]
+        headers.splice(idx, 0, `Col ${headers.length + 1}`)
+        const rows = block.rows.map((row) => {
+          const r = [...row]; r.splice(idx, 0, { content: '', bold: false, align: 'left' as const }); return r
+        })
+        onUpdate({ headers, rows })
+      },
+      deleteSelectedCols: () => {
+        if (!onUpdate || block.headers.length <= 1) return
+        const toDelete = new Set([...selectedCells].map((k) => parseInt(k.split(',')[1])))
+        const headers = block.headers.filter((_, i) => !toDelete.has(i))
+        const rows = block.rows.map((row) => row.filter((_, i) => !toDelete.has(i)))
+        if (headers.length === 0) return
+        onUpdate({ headers, rows })
+        setSelectedCells(new Set()); setEditingCell(null)
+      },
+      applyFinancialFormat: () => {
+        if (!onUpdate) return
+        const rows = block.rows.map((row) =>
+          row.map((cell, cIdx) => {
+            const isFirstCol = cIdx === 0
+            const looksNumeric = /^[\d$,.()%\s-]+$/.test(cell.content.trim()) && cell.content.trim().length > 0 && !isFirstCol
+            const isTotalRow = /total|gross|net|profit|income|loss|balance|subtotal|revenue|expenses?/i.test(cell.content)
+            return {
+              ...cell,
+              align: isFirstCol ? ('left' as const) : (looksNumeric ? ('right' as const) : cell.align),
+              bold: isFirstCol && isTotalRow ? true : (looksNumeric && isTotalRow ? true : cell.bold),
+              numberFormat: looksNumeric ? ('accounting' as const) : cell.numberFormat,
+            }
+          })
+        )
+        onUpdate({ rows, bordered: true })
+      },
+    }
+    onFormatAPIChange(api)
+  }, [isSelected, selectedCells, block.rows, block.headers, block.rows.length, block.headers.length, anchorCell]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleRowHeaderClick(r: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!isSelected) onSelect?.()
+    if (editingCell) { commitCurrentEdit(); setEditingCell(null) }
+    const numCols = block.headers.length
+    if (e.shiftKey && anchorCell) {
+      const minR = Math.min(anchorCell.row, r), maxR = Math.max(anchorCell.row, r)
+      const cells = new Set<string>()
+      for (let ri = minR; ri <= maxR; ri++)
+        for (let ci = 0; ci < numCols; ci++)
+          cells.add(cellKey(ri, ci))
+      setSelectedCells(cells)
+    } else if (e.ctrlKey || e.metaKey) {
+      const next = new Set(selectedCells)
+      const allIn = Array.from({ length: numCols }, (_, ci) => cellKey(r, ci)).every((k) => next.has(k))
+      for (let ci = 0; ci < numCols; ci++) allIn ? next.delete(cellKey(r, ci)) : next.add(cellKey(r, ci))
+      setSelectedCells(next)
+      setAnchorCell({ row: r, col: 0 })
+    } else {
+      const cells = new Set<string>()
+      for (let ci = 0; ci < numCols; ci++) cells.add(cellKey(r, ci))
+      setSelectedCells(cells)
+      setAnchorCell({ row: r, col: 0 })
+    }
+  }
+
+  function handleColHeaderClick(c: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!isSelected) onSelect?.()
+    if (editingCell) { commitCurrentEdit(); setEditingCell(null) }
+    const numRows = block.rows.length
+    if (e.shiftKey && anchorCell) {
+      const minC = Math.min(anchorCell.col, c), maxC = Math.max(anchorCell.col, c)
+      const cells = new Set<string>()
+      for (let ri = 0; ri < numRows; ri++)
+        for (let ci = minC; ci <= maxC; ci++)
+          cells.add(cellKey(ri, ci))
+      setSelectedCells(cells)
+    } else if (e.ctrlKey || e.metaKey) {
+      const next = new Set(selectedCells)
+      const allIn = Array.from({ length: numRows }, (_, ri) => cellKey(ri, c)).every((k) => next.has(k))
+      for (let ri = 0; ri < numRows; ri++) allIn ? next.delete(cellKey(ri, c)) : next.add(cellKey(ri, c))
+      setSelectedCells(next)
+      setAnchorCell({ row: 0, col: c })
+    } else {
+      const cells = new Set<string>()
+      for (let ri = 0; ri < numRows; ri++) cells.add(cellKey(ri, c))
+      setSelectedCells(cells)
+      setAnchorCell({ row: 0, col: c })
+    }
+  }
+
+  function handleSelectAll(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!isSelected) onSelect?.()
+    if (editingCell) { commitCurrentEdit(); setEditingCell(null) }
+    const cells = new Set<string>()
+    for (let ri = 0; ri < block.rows.length; ri++)
+      for (let ci = 0; ci < block.headers.length; ci++)
+        cells.add(cellKey(ri, ci))
+    setSelectedCells(cells)
+    setAnchorCell({ row: 0, col: 0 })
+  }
+
+  function handleCellClick(r: number, c: number, e: React.MouseEvent) {
+    if (!onUpdate) return
+    e.stopPropagation()
+    // Select block first if not already selected
+    if (!isSelected) {
+      onSelect?.()
+    }
+    if (e.shiftKey && anchorCell && isSelected) {
+      if (editingCell) { commitCurrentEdit(); setEditingCell(null) }
+      const minR = Math.min(anchorCell.row, r), maxR = Math.max(anchorCell.row, r)
+      const minC = Math.min(anchorCell.col, c), maxC = Math.max(anchorCell.col, c)
+      const cells = new Set<string>()
+      for (let ri = minR; ri <= maxR; ri++)
+        for (let ci = minC; ci <= maxC; ci++)
+          cells.add(cellKey(ri, ci))
+      setSelectedCells(cells)
+    } else if ((e.ctrlKey || e.metaKey) && isSelected) {
+      if (editingCell) { commitCurrentEdit(); setEditingCell(null) }
+      const key = cellKey(r, c)
+      const next = new Set(selectedCells)
+      if (next.has(key)) next.delete(key)
+      else { next.add(key); setAnchorCell({ row: r, col: c }) }
+      setSelectedCells(next)
+    } else {
+      if (editingCell && (editingCell.row !== r || editingCell.col !== c)) commitCurrentEdit()
+      startEditing(r, c)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent, r: number, c: number) {
+    const numRows = block.rows.length
+    const numCols = block.headers.length
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      commitCurrentEdit(r, c, editValue)
+      setEditingCell(null)
+      const nc = e.shiftKey ? c - 1 : c + 1
+      if (nc >= 0 && nc < numCols) startEditing(r, nc)
+      else if (nc >= numCols && r + 1 < numRows) startEditing(r + 1, 0)
+      else if (nc < 0 && r > 0) startEditing(r - 1, numCols - 1)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      commitCurrentEdit(r, c, editValue)
+      setEditingCell(null)
+      if (r + 1 < numRows) startEditing(r + 1, c)
+    } else if (e.key === 'Escape') {
+      setEditingCell(null)
+      setEditValue('')
+    }
+  }
+
+  const headerBg = block.headerBg || dp.tableHeaderBg
+  const headerText = block.headerText || dp.tableHeaderText
+
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      {/* Caption */}
+      {block.caption && <p className="mb-1.5 text-xs text-gray-500 italic">{block.caption}</p>}
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table
+          className="w-full"
+          style={{ fontFamily: dp.fontFamily, borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed', wordBreak: 'break-word' }}
+        >
+          <thead>
+            {/* Column number row — only in edit mode */}
+            {isSelected && (
+              <tr>
+                {/* Corner: select all */}
+                <td
+                  onClick={handleSelectAll}
+                  title="Select all cells"
+                  style={{ width: 28, minWidth: 28, background: '#E2E8F0', border: '1px solid #CBD5E1', cursor: 'pointer', textAlign: 'center', fontSize: 9, color: '#64748B', padding: '2px 0', userSelect: 'none' }}
+                >▣</td>
+                {block.headers.map((_, ci) => {
+                  const colFullySel = block.rows.every((_, ri) => selectedCells.has(cellKey(ri, ci)))
+                  return (
+                    <td key={ci}
+                      onClick={(e) => handleColHeaderClick(ci, e)}
+                      title={`Select column ${ci + 1}`}
+                      style={{
+                        background: colFullySel ? '#BFDBFE' : '#F1F5F9',
+                        border: '1px solid #CBD5E1',
+                        cursor: 'pointer', textAlign: 'center',
+                        fontSize: 10, color: colFullySel ? '#1D4ED8' : '#64748B',
+                        fontWeight: colFullySel ? 700 : 400,
+                        padding: '2px 0', userSelect: 'none',
+                      }}
+                    >{ci + 1}</td>
+                  )
+                })}
+              </tr>
+            )}
+            {/* Column header row */}
+            <tr>
+              {/* Row number placeholder in header row */}
+              {isSelected && (
+                <td style={{ width: 28, minWidth: 28, background: '#F1F5F9', border: block.bordered ? `1px solid ${headerBg}30` : '1px solid #E2E8F0' }} />
+              )}
+              {block.headers.map((h, i) => (
+                <th
+                  key={i}
+                  className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
+                  style={{
+                    background: headerBg, color: headerText,
+                    border: block.bordered ? `1px solid ${headerBg}30` : 'none',
+                    overflowWrap: 'break-word',
+                    cursor: 'text',
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (!isSelected) {
+                      onSelect?.()
+                      setPendingHeaderFocus(i)
+                    } else {
+                      headerInputRefs.current[i]?.focus()
+                    }
+                  }}
+                >
+                  {isSelected && onUpdate ? (
+                    <input
+                      ref={(el) => { headerInputRefs.current[i] = el }}
+                      value={h}
+                      onChange={(e) => { const headers = [...block.headers]; headers[i] = e.target.value; onUpdate({ headers }) }}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault()
+                          const next = e.shiftKey ? i - 1 : i + 1
+                          if (next >= 0 && next < block.headers.length) {
+                            headerInputRefs.current[next]?.focus()
+                            headerInputRefs.current[next]?.select()
+                          } else if (next >= block.headers.length) {
+                            startEditing(0, 0)
+                          }
+                        } else if (e.key === 'Escape') {
+                          headerInputRefs.current[i]?.blur()
+                        }
+                      }}
+                      className="w-full bg-transparent text-xs font-semibold uppercase tracking-wide outline-none"
+                      style={{ color: headerText, minWidth: '40px' }}
+                      placeholder={`Col ${i + 1}`}
+                    />
+                  ) : (
+                    <span style={{ minWidth: 40, display: 'inline-block' }}>{h || `Col ${i + 1}`}</span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, rIdx) => {
+              const rowFullySel = block.headers.every((_, ci) => selectedCells.has(cellKey(rIdx, ci)))
+              return (
+              <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white' }}>
+                {/* Row number */}
+                {isSelected && (
+                  <td
+                    onClick={(e) => handleRowHeaderClick(rIdx, e)}
+                    title={`Select row ${rIdx + 1}`}
+                    style={{
+                      width: 28, minWidth: 28,
+                      background: rowFullySel ? '#BFDBFE' : '#F1F5F9',
+                      border: '1px solid #CBD5E1',
+                      cursor: 'pointer', textAlign: 'center',
+                      fontSize: 10, color: rowFullySel ? '#1D4ED8' : '#64748B',
+                      fontWeight: rowFullySel ? 700 : 400,
+                      padding: '4px 0', userSelect: 'none',
+                    }}
+                  >{rIdx + 1}</td>
+                )}
+                {row.map((cell, cIdx) => {
+                  const key = cellKey(rIdx, cIdx)
+                  const isEditing = editingCell?.row === rIdx && editingCell?.col === cIdx
+                  const isCellSel = selectedCells.has(key)
+                  const pLeft = `${((cell.indentLevel || 0) * 16) + 12}px`
+                  return (
+                    <td
+                      key={cIdx}
+                      style={{
+                        textAlign: cell.align,
+                        fontWeight: cell.bold ? 600 : 400,
+                        fontStyle: cell.italic ? 'italic' : 'normal',
+                        textDecoration: cell.underline ? 'underline' : 'none',
+                        color: cell.color || dp.textColor,
+                        background: isEditing ? '#EFF6FF' : (isCellSel ? '#DBEAFE' : (cell.bgColor || 'transparent')),
+                        border: block.bordered ? '1px solid #E5E7EB' : 'none',
+                        outline: isEditing ? '2px solid #3B82F6' : (isCellSel && isSelected ? '1px solid #93C5FD' : 'none'),
+                        outlineOffset: '-1px',
+                        cursor: 'cell',
+                        paddingTop: '6px', paddingBottom: '6px',
+                        paddingLeft: pLeft, paddingRight: '12px',
+                        overflowWrap: 'break-word',
+                      }}
+                      onClick={(e) => handleCellClick(rIdx, cIdx, e)}
+                    >
+                      {isEditing ? (
+                        <input
+                          ref={inputRef}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => { commitCurrentEdit(rIdx, cIdx, editValue); setEditingCell(null) }}
+                          onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
+                          className="w-full border-none bg-transparent outline-none"
+                          style={{
+                            font: 'inherit', textAlign: cell.align,
+                            fontWeight: cell.bold ? 600 : 400,
+                            fontStyle: cell.italic ? 'italic' : 'normal',
+                            color: cell.color || dp.textColor,
+                            minWidth: '40px',
+                          }}
+                        />
+                      ) : (
+                        formatCellContent(cell)
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Keyboard hint */}
+      {isSelected && !editingCell && (
+        <p className="mt-1 text-center text-[9px] text-gray-400">
+          Click cell to edit · Row/col numbers to select row/col · ▣ to select all · Shift/Ctrl+click to extend · Tab/Enter to navigate
+        </p>
+      )}
+      {!isSelected && (
+        <p className="mt-1 text-center text-[9px] text-gray-400 opacity-0 group-hover:opacity-100 transition">
+          Click any cell to start editing
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Permanent Format Toolbar ────────────────────────────────────────────────
+
+function FormatToolbar({
+  selectedBlock, tableFormatAPI, dp, onQuickUpdate, onMoveUp, onMoveDown, onDelete,
+}: {
+  selectedBlock: ReportBlock | null
+  tableFormatAPI: TableFormatAPI | null
+  dp: DesignPack
+  onQuickUpdate?: (updates: Record<string, unknown>) => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  onDelete?: () => void
+}) {
+  const sep = <div className="mx-1 h-5 w-px bg-white/15 shrink-0" />
+  const btn = (active: boolean, onClick: () => void, title: string, children: React.ReactNode, key?: string | number) => (
+    <button
+      key={key}
+      title={title}
+      onClick={onClick}
+      className={`flex h-7 min-w-[28px] items-center justify-center rounded px-1.5 text-sm transition ${
+        active ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+      }`}
+    >{children}</button>
+  )
+  const iconBtn = (onClick: () => void, title: string, icon: React.ReactNode, cls = '') => (
+    <button title={title} onClick={onClick}
+      className={`flex h-7 w-7 items-center justify-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white ${cls}`}>
+      {icon}
+    </button>
+  )
+
+  // Table cell mode: show all cell-level formatting
+  if (tableFormatAPI && tableFormatAPI.selectedCells.size > 0) {
+    const { selectedCells, firstCell, selectionAllHas, applyToSelected,
+            addRow, deleteSelectedRows, addCol, deleteSelectedCols,
+            applyFinancialFormat, rowCount, colCount } = tableFormatAPI
+    return (
+      <div className="no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-[#1A0C05] px-3 toolbar-scroll">
+        {/* Context label */}
+        <span className="mr-1 shrink-0 rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+          Table — {selectedCells.size} cell{selectedCells.size !== 1 ? 's' : ''}
+        </span>
+        {sep}
+
+        {/* B / I / U */}
+        {btn(selectionAllHas('bold', true), () => applyToSelected({ bold: !selectionAllHas('bold', true) }), 'Bold', <span className="font-bold">B</span>)}
+        {btn(selectionAllHas('italic', true), () => applyToSelected({ italic: !selectionAllHas('italic', true) }), 'Italic', <span className="italic">I</span>)}
+        {btn(selectionAllHas('underline', true), () => applyToSelected({ underline: !selectionAllHas('underline', true) }), 'Underline', <span className="underline">U</span>)}
+        {sep}
+
+        {/* Alignment */}
+        {btn(selectionAllHas('align', 'left'), () => applyToSelected({ align: 'left' }), 'Align left',
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h10M4 14h16M4 18h10" /></svg>
+        )}
+        {btn(selectionAllHas('align', 'center'), () => applyToSelected({ align: 'center' }), 'Align center',
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M4 14h16M7 18h10" /></svg>
+        )}
+        {btn(selectionAllHas('align', 'right'), () => applyToSelected({ align: 'right' }), 'Align right',
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M10 10h10M4 14h16M10 18h10" /></svg>
+        )}
+        {sep}
+
+        {/* Number format */}
+        <select
+          value={firstCell?.numberFormat || 'general'}
+          onChange={(e) => applyToSelected({ numberFormat: e.target.value as TableCell['numberFormat'] })}
+          className="h-7 rounded border border-white/15 bg-[#120B07] px-1 text-[11px] text-slate-300 outline-none focus:border-[#C9A84C]"
+          title="Number format"
+        >
+          <option value="general" className="bg-[#120B07]">General</option>
+          <option value="number" className="bg-[#120B07]">1,234</option>
+          <option value="currency" className="bg-[#120B07]">$ Currency</option>
+          <option value="accounting" className="bg-[#120B07]">() Acctg</option>
+          <option value="percentage" className="bg-[#120B07]">% Percent</option>
+        </select>
+        {sep}
+
+        {/* Fill / Font color */}
+        <label title="Cell fill color" className="flex h-7 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">
+          <span className="text-[10px]">Fill</span>
+          <input type="color" value={firstCell?.bgColor || '#ffffff'}
+            onChange={(e) => applyToSelected({ bgColor: e.target.value === '#ffffff' ? undefined : e.target.value })}
+            className="h-4 w-5 cursor-pointer rounded border-0 p-0" />
+        </label>
+        <label title="Font color" className="flex h-7 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">
+          <span className="font-bold text-[10px]">A</span>
+          <input type="color" value={firstCell?.color || '#374151'}
+            onChange={(e) => applyToSelected({ color: e.target.value })}
+            className="h-4 w-5 cursor-pointer rounded border-0 p-0" />
+        </label>
+        {sep}
+
+        {/* Row ops */}
+        <button title="Add row above" onClick={() => addRow('above')} className="flex h-7 items-center gap-0.5 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">↑ Row</button>
+        <button title="Add row below" onClick={() => addRow('below')} className="flex h-7 items-center gap-0.5 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">↓ Row</button>
+        <button title="Delete row(s)" onClick={deleteSelectedRows} disabled={rowCount <= 1}
+          className="flex h-7 items-center rounded px-1.5 text-[11px] text-red-400 hover:bg-red-500/10 disabled:opacity-30 transition">− Row</button>
+        {sep}
+
+        {/* Col ops */}
+        <button title="Add column left" onClick={() => addCol('left')} className="flex h-7 items-center gap-0.5 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">← Col</button>
+        <button title="Add column right" onClick={() => addCol('right')} className="flex h-7 items-center gap-0.5 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">→ Col</button>
+        <button title="Delete column(s)" onClick={deleteSelectedCols} disabled={colCount <= 1}
+          className="flex h-7 items-center rounded px-1.5 text-[11px] text-red-400 hover:bg-red-500/10 disabled:opacity-30 transition">− Col</button>
+        {sep}
+
+        {/* Financial preset */}
+        <button
+          onClick={applyFinancialFormat}
+          title="Auto-format: right-align numbers, bold totals, accounting format"
+          className="flex h-7 items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition"
+        >$ Financial</button>
+      </div>
+    )
+  }
+
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+  const upIcon = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+  const downIcon = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+  const delIcon = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+  const alignL = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h10M4 14h16M4 18h10" /></svg>
+  const alignC = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M4 14h16M7 18h10" /></svg>
+  const alignR = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M10 10h10M4 14h16M10 18h10" /></svg>
+  const alignJ = <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+
+  const ops = (
+    <div className="ml-auto flex shrink-0 items-center gap-0.5">
+      {sep}
+      {iconBtn(onMoveUp ?? (() => {}), 'Move up', upIcon)}
+      {iconBtn(onMoveDown ?? (() => {}), 'Move down', downIcon)}
+      {iconBtn(onDelete ?? (() => {}), 'Delete block', delIcon, 'hover:text-red-400')}
+    </div>
+  )
+
+  const lbl = (text: string, color = 'text-[#C9A84C]') => (
+    <span className={`mr-1 shrink-0 rounded bg-[#C9A84C]/15 px-2 py-0.5 text-[10px] font-semibold ${color}`}>{text}</span>
+  )
+
+  const cpick = (val: string, onChange: (v: string) => void, label: string) => (
+    <label className="flex h-7 shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 text-[10px] text-slate-400 hover:bg-white/10 transition" title={label}>
+      {label}
+      <input type="color" value={val} onChange={(e) => onChange(e.target.value)} className="ml-0.5 h-4 w-5 cursor-pointer rounded border-0 p-0" />
+    </label>
+  )
+
+  const fsCtrl = (val: number | undefined, onChange: (v: number) => void) => {
+    const v = val || 13
+    return (
+      <div className="flex h-7 shrink-0 items-center gap-0" title="Font size">
+        <button onClick={() => onChange(Math.max(8, v - 1))} className="flex h-7 w-5 items-center justify-center rounded-l border border-white/15 bg-[#120B07] text-[11px] text-slate-400 hover:bg-white/10 hover:text-white">−</button>
+        <input type="number" min={8} max={96} step={1} value={v}
+          onChange={(e) => { const n = parseInt(e.target.value); if (!isNaN(n) && n >= 8 && n <= 96) onChange(n) }}
+          className="h-7 w-10 border-y border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        <button onClick={() => onChange(Math.min(96, v + 1))} className="flex h-7 w-5 items-center justify-center rounded-r border border-white/15 bg-[#120B07] text-[11px] text-slate-400 hover:bg-white/10 hover:text-white">+</button>
+        <span className="ml-1 text-[9px] text-slate-600">px</span>
+      </div>
+    )
+  }
+
+  const boldItalic = (bold: boolean | undefined, italic: boolean | undefined) => (
+    <>
+      {btn(!!bold, () => onQuickUpdate?.({ bold: !bold }), 'Bold', <span className="font-bold text-sm">B</span>)}
+      {btn(!!italic, () => onQuickUpdate?.({ italic: !italic }), 'Italic', <span className="italic text-sm">I</span>)}
+    </>
+  )
+
+  const row = 'no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-[#1A0C05] px-3'
+
+  // ── Table selected but no cells ────────────────────────────────────────────
+  if (selectedBlock?.type === 'table' && onQuickUpdate) {
+    const tb = selectedBlock as TableBlock
+    return (
+      <div className={row}>
+        {lbl('Table')}
+        {sep}
+        {btn(tb.striped, () => onQuickUpdate({ striped: !tb.striped }), 'Toggle striped rows', 'Striped')}
+        {btn(tb.bordered, () => onQuickUpdate({ bordered: !tb.bordered }), 'Toggle borders', 'Bordered')}
+        {sep}
+        {cpick(tb.headerBg || dp.tableHeaderBg, (v) => onQuickUpdate({ headerBg: v }), 'Hdr BG')}
+        {cpick(tb.headerText || dp.tableHeaderText, (v) => onQuickUpdate({ headerText: v }), 'Hdr Text')}
+        {cpick(tb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'Block BG')}
+        {sep}
+        <span className="text-[10px] text-slate-600">Click a cell for cell formatting</span>
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Heading ────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'heading' && onQuickUpdate) {
+    const hb = selectedBlock as HeadingBlock
+    return (
+      <div className={row}>
+        {lbl('Heading')}
+        {sep}
+        {([1, 2, 3] as const).map((l) => btn(hb.level === l, () => onQuickUpdate({ level: l }), `Heading ${l}`, `H${l}`, l))}
+        {sep}
+        {boldItalic(hb.bold, hb.italic)}
+        {sep}
+        {fsCtrl(hb.fontSize, (v) => onQuickUpdate({ fontSize: v }))}
+        {sep}
+        {btn(hb.align === 'left', () => onQuickUpdate({ align: 'left' }), 'Left', alignL)}
+        {btn(hb.align === 'center', () => onQuickUpdate({ align: 'center' }), 'Center', alignC)}
+        {btn(hb.align === 'right', () => onQuickUpdate({ align: 'right' }), 'Right', alignR)}
+        {sep}
+        {cpick(hb.color || dp.headingColor, (v) => onQuickUpdate({ color: v }), 'Text')}
+        {cpick(hb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Text ───────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'text' && onQuickUpdate) {
+    const tb = selectedBlock as TextBlock
+    return (
+      <div className={row}>
+        {lbl('Text')}
+        {sep}
+        {boldItalic(tb.bold, tb.italic)}
+        {sep}
+        {fsCtrl(tb.fontSize, (v) => onQuickUpdate({ fontSize: v }))}
+        {sep}
+        {btn(tb.align === 'left', () => onQuickUpdate({ align: 'left' }), 'Left', alignL)}
+        {btn(tb.align === 'center', () => onQuickUpdate({ align: 'center' }), 'Center', alignC)}
+        {btn(tb.align === 'right', () => onQuickUpdate({ align: 'right' }), 'Right', alignR)}
+        {btn(tb.align === 'justify', () => onQuickUpdate({ align: 'justify' }), 'Justify', alignJ)}
+        {sep}
+        {cpick(tb.color || dp.textColor, (v) => onQuickUpdate({ color: v }), 'Text')}
+        {cpick(tb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Image ──────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'image' && onQuickUpdate) {
+    const ib = selectedBlock as ImageBlock
+    return (
+      <div className={row}>
+        {lbl('Image')}
+        {sep}
+        {(['full', 'large', 'medium', 'small'] as const).map((w) => btn(ib.width === w, () => onQuickUpdate({ width: w }), `Width: ${w}`, w.charAt(0).toUpperCase() + w.slice(1), w))}
+        {sep}
+        {btn(ib.align === 'left', () => onQuickUpdate({ align: 'left' }), 'Left', alignL)}
+        {btn(ib.align === 'center', () => onQuickUpdate({ align: 'center' }), 'Center', alignC)}
+        {btn(ib.align === 'right', () => onQuickUpdate({ align: 'right' }), 'Right', alignR)}
+        {sep}
+        {cpick(ib.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Callout ────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'callout' && onQuickUpdate) {
+    const cb = selectedBlock as CalloutBlock
+    const variants = { info: 'text-blue-400', success: 'text-emerald-400', warning: 'text-amber-400', danger: 'text-red-400' } as const
+    return (
+      <div className={row}>
+        {lbl('Callout')}
+        {sep}
+        {(Object.keys(variants) as Array<keyof typeof variants>).map((v) => (
+          <button key={v} onClick={() => onQuickUpdate({ variant: v })}
+            className={`h-7 rounded px-2.5 text-[11px] capitalize transition ${cb.variant === v ? 'bg-white/15 font-semibold' : 'hover:bg-white/10'} ${variants[v]}`}>
+            {v}
+          </button>
+        ))}
+        {sep}
+        {boldItalic(cb.bold, cb.italic)}
+        {sep}
+        {fsCtrl(cb.fontSize, (v) => onQuickUpdate({ fontSize: v }))}
+        {sep}
+        {cpick(cb.bgColor || '#EFF6FF', (v) => onQuickUpdate({ bgColor: v }), 'Box BG')}
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Quote ──────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'quote' && onQuickUpdate) {
+    const qb = selectedBlock as QuoteBlock
+    return (
+      <div className={row}>
+        {lbl('Quote')}
+        {sep}
+        {boldItalic(qb.bold, qb.italic)}
+        {sep}
+        {fsCtrl(qb.fontSize, (v) => onQuickUpdate({ fontSize: v }))}
+        {sep}
+        {cpick(qb.color || dp.textColor, (v) => onQuickUpdate({ color: v }), 'Text')}
+        {cpick(qb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Divider ────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'divider' && onQuickUpdate) {
+    const db = selectedBlock as DividerBlock
+    return (
+      <div className={row}>
+        {lbl('Divider')}
+        {sep}
+        {(['solid', 'dashed', 'double'] as const).map((s) => btn(db.style === s, () => onQuickUpdate({ style: s }), s, s.charAt(0).toUpperCase() + s.slice(1), s))}
+        {sep}
+        {cpick(db.color || dp.primaryColor, (v) => onQuickUpdate({ color: v }), 'Color')}
+        {sep}
+        <label className="flex h-7 shrink-0 items-center gap-1 text-[10px] text-slate-400" title="Thickness">
+          <span>Thick</span>
+          <input type="number" min={1} max={8} step={1} value={db.thickness || 1}
+            onChange={(e) => onQuickUpdate({ thickness: Number(e.target.value) })}
+            className="h-5 w-10 rounded border border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          <span className="text-[9px] text-slate-600">px</span>
+        </label>
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Spacer ─────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'spacer' && onQuickUpdate) {
+    const sb = selectedBlock as SpacerBlock
+    return (
+      <div className={row}>
+        {lbl('Spacer')}
+        {sep}
+        <label className="flex h-7 shrink-0 items-center gap-1 text-[10px] text-slate-400" title="Height">
+          <span>Height</span>
+          <input type="number" min={4} max={400} step={4} value={sb.height || 24}
+            onChange={(e) => onQuickUpdate({ height: Number(e.target.value) })}
+            className="h-5 w-14 rounded border border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          <span className="text-[9px] text-slate-600">px</span>
+        </label>
+        {ops}
+      </div>
+    )
+  }
+
+  // ── KPI ────────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'kpi' && onQuickUpdate) {
+    const kb = selectedBlock as KpiBlock
+    return (
+      <div className={row}>
+        {lbl('KPI')}
+        {sep}
+        <span className="text-[10px] text-slate-500">Cols</span>
+        {([2, 3, 4] as const).map((c) => btn(kb.columns === c, () => onQuickUpdate({ columns: c }), `${c} columns`, `${c}`, c))}
+        {sep}
+        {cpick(kb.accentColor || dp.kpiAccent, (v) => onQuickUpdate({ accentColor: v }), 'Accent')}
+        {cpick(kb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {sep}
+        <span className="text-[10px] text-slate-600">Edit items in Properties panel</span>
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Chart ──────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'chart' && onQuickUpdate) {
+    const cb = selectedBlock as ChartBlock
+    return (
+      <div className={row}>
+        {lbl('Chart')}
+        {sep}
+        {btn(cb.showLegend, () => onQuickUpdate({ showLegend: !cb.showLegend }), 'Toggle legend', 'Legend')}
+        {btn(cb.showGrid, () => onQuickUpdate({ showGrid: !cb.showGrid }), 'Toggle grid', 'Grid')}
+        {sep}
+        <label className="flex h-7 shrink-0 items-center gap-1 text-[10px] text-slate-400" title="Chart height">
+          <span>H</span>
+          <input type="number" min={80} max={600} step={20} value={cb.height || 200}
+            onChange={(e) => onQuickUpdate({ height: Number(e.target.value) })}
+            className="h-5 w-14 rounded border border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          <span className="text-[9px] text-slate-600">px</span>
+        </label>
+        {sep}
+        {cpick(cb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {sep}
+        <span className="text-[10px] text-slate-600">Edit data in Properties panel</span>
+        {ops}
+      </div>
+    )
+  }
+
+  // ── TOC ────────────────────────────────────────────────────────────────────
+  if (selectedBlock?.type === 'toc' && onQuickUpdate) {
+    const tb = selectedBlock as TocBlock
+    return (
+      <div className={row}>
+        {lbl('TOC')}
+        {sep}
+        {btn(tb.includePageNumbers, () => onQuickUpdate({ includePageNumbers: !tb.includePageNumbers }), 'Toggle page numbers', 'Page #s')}
+        {sep}
+        {cpick(tb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Status / Progress ──────────────────────────────────────────────────────
+  if ((selectedBlock?.type === 'status' || selectedBlock?.type === 'progress') && onQuickUpdate) {
+    const sb = selectedBlock as StatusBlock | ProgressBlock
+    const typeLabel = sb.type.charAt(0).toUpperCase() + sb.type.slice(1)
+    return (
+      <div className={row}>
+        {lbl(typeLabel)}
+        {sep}
+        {cpick((sb.bgColor) || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {sep}
+        <span className="text-[10px] text-slate-600">Edit items in Properties panel</span>
+        {ops}
+      </div>
+    )
+  }
+
+  // ── Generic fallback (any other selected block) ────────────────────────────
+  if (selectedBlock && onQuickUpdate) {
+    const typeLabel = selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)
+    const anyBlock = selectedBlock as { bgColor?: string }
+    return (
+      <div className={row}>
+        {lbl(typeLabel)}
+        {sep}
+        {cpick(anyBlock.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
+        {sep}
+        <span className="text-[10px] text-slate-600">Edit content in Properties panel</span>
+        {ops}
+      </div>
+    )
+  }
+
+  if (selectedBlock) {
+    const typeLabel = selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)
+    return (
+      <div className={row}>
+        {lbl(typeLabel)}
+        {ops}
+      </div>
+    )
+  }
+
+  // Nothing selected
+  return (
+    <div className="no-print flex h-[48px] shrink-0 items-center gap-3 border-b border-white/10 bg-[#1A0C05] px-4">
+      <span className="text-xs text-slate-600">Select a block to format it</span>
+      <span className="text-[10px] text-slate-700">· Click a table cell to access cell-level formatting</span>
+    </div>
+  )
 }
 
 // ── Right Panel ─────────────────────────────────────────────────────────────
@@ -1934,7 +3041,7 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
         </div>
       )
     case 'table':
-      return <TableEditor block={block} onUpdate={onUpdate} />
+      return <TableEditor block={block} dp={dp} onUpdate={onUpdate} />
     case 'kpi':
       return <KpiEditor block={block} onUpdate={onUpdate} />
     case 'image':
@@ -2025,116 +3132,83 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
   }
 }
 
-// ── Table Editor ────────────────────────────────────────────────────────────
+// ── Table Editor (Properties panel — configuration only) ─────────────────────
 
-function TableEditor({ block, onUpdate }: { block: TableBlock; onUpdate: (u: Record<string, unknown>) => void }) {
+function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPack; onUpdate: (u: Record<string, unknown>) => void }) {
   const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
 
-  function updHeader(i: number, v: string) {
-    const headers = [...block.headers]
-    headers[i] = v
-    onUpdate({ headers })
-  }
-
-  function updCell(r: number, c: number, field: keyof TableCell, val: unknown) {
-    const rows = block.rows.map((row, ri) =>
-      ri !== r ? row : row.map((cell, ci) => ci !== c ? cell : { ...cell, [field]: val })
-    )
-    onUpdate({ rows })
-  }
-
   function addRow() {
-    const rows = [...block.rows, block.headers.map(() => ({ content: '', bold: false, align: 'left' as const }))]
-    onUpdate({ rows })
+    onUpdate({ rows: [...block.rows, block.headers.map(() => ({ content: '', bold: false, align: 'left' as const }))] })
   }
-
-  function removeRow(r: number) {
-    onUpdate({ rows: block.rows.filter((_, i) => i !== r) })
+  function removeLastRow() {
+    if (block.rows.length <= 1) return
+    onUpdate({ rows: block.rows.slice(0, -1) })
   }
-
   function addCol() {
-    const headers = [...block.headers, `Col ${block.headers.length + 1}`]
-    const rows = block.rows.map((row) => [...row, { content: '', bold: false, align: 'left' as const }])
-    onUpdate({ headers, rows })
-  }
-
-  function removeCol(c: number) {
-    if (block.headers.length <= 1) return
     onUpdate({
-      headers: block.headers.filter((_, i) => i !== c),
-      rows: block.rows.map((row) => row.filter((_, i) => i !== c)),
+      headers: [...block.headers, `Col ${block.headers.length + 1}`],
+      rows: block.rows.map((row) => [...row, { content: '', bold: false, align: 'left' as const }]),
     })
+  }
+  function removeLastCol() {
+    if (block.headers.length <= 1) return
+    onUpdate({ headers: block.headers.slice(0, -1), rows: block.rows.map((row) => row.slice(0, -1)) })
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Canvas edit hint */}
+      <div className="rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 py-2 text-[10px] leading-relaxed text-[#C9A84C]">
+        Click any cell on the canvas to edit it. Use the toolbar above the table for bold, alignment, number format, and row/column operations.
+      </div>
+
       <div>
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Caption</label>
         <input value={block.caption} onChange={(e) => onUpdate({ caption: e.target.value })} className={inputCls} placeholder="Table caption…" />
       </div>
 
-      <div className="flex gap-2">
-        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
-          <input type="checkbox" checked={block.striped} onChange={(e) => onUpdate({ striped: e.target.checked })} className="rounded" />
-          Striped
+      <div className="flex gap-3">
+        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400">
+          <input type="checkbox" checked={block.striped} onChange={(e) => onUpdate({ striped: e.target.checked })} />
+          Striped rows
         </label>
-        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
-          <input type="checkbox" checked={block.bordered} onChange={(e) => onUpdate({ bordered: e.target.checked })} className="rounded" />
-          Bordered
+        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400">
+          <input type="checkbox" checked={block.bordered} onChange={(e) => onUpdate({ bordered: e.target.checked })} />
+          Borders
         </label>
       </div>
 
       <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Columns ({block.headers.length})</span>
-          <div className="flex gap-1">
-            <button onClick={addCol} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-[#C9A84C]">+ Col</button>
+        <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Header Colors</label>
+        <div className="flex gap-2">
+          <div className="flex flex-1 flex-col gap-1">
+            <span className="text-[9px] text-slate-500">Background</span>
+            <input type="color" value={block.headerBg || dp.tableHeaderBg} onChange={(e) => onUpdate({ headerBg: e.target.value })} className="h-7 w-full cursor-pointer rounded" />
+          </div>
+          <div className="flex flex-1 flex-col gap-1">
+            <span className="text-[9px] text-slate-500">Text</span>
+            <input type="color" value={block.headerText || dp.tableHeaderText} onChange={(e) => onUpdate({ headerText: e.target.value })} className="h-7 w-full cursor-pointer rounded" />
           </div>
         </div>
-        <div className="flex flex-col gap-1">
-          {block.headers.map((h, i) => (
-            <div key={i} className="flex gap-1">
-              <input value={h} onChange={(e) => updHeader(i, e.target.value)} className={inputCls} />
-              {block.headers.length > 1 && (
-                <button onClick={() => removeCol(i)} className="shrink-0 text-slate-500 hover:text-red-400">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
       <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Rows ({block.rows.length})</span>
-          <button onClick={addRow} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-[#C9A84C]">+ Row</button>
-        </div>
-        <div className="flex flex-col gap-2">
-          {block.rows.map((row, rIdx) => (
-            <div key={rIdx} className="rounded border border-white/10 p-1.5">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[10px] text-slate-600">Row {rIdx + 1}</span>
-                {block.rows.length > 1 && (
-                  <button onClick={() => removeRow(rIdx)} className="text-[10px] text-slate-600 hover:text-red-400">✕</button>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                {row.map((cell, cIdx) => (
-                  <div key={cIdx} className="flex gap-1 items-center">
-                    <input
-                      value={cell.content}
-                      onChange={(e) => updCell(rIdx, cIdx, 'content', e.target.value)}
-                      placeholder={block.headers[cIdx] || `Col ${cIdx + 1}`}
-                      className={`${inputCls} flex-1`}
-                    />
-                    <label className="shrink-0 flex items-center gap-0.5 text-[10px] text-slate-500 cursor-pointer">
-                      <input type="checkbox" checked={cell.bold} onChange={(e) => updCell(rIdx, cIdx, 'bold', e.target.checked)} />
-                      B
-                    </label>
-                  </div>
-                ))}
-              </div>
+        <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Structure</label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] text-slate-500">Rows: {block.rows.length}</span>
+            <div className="flex gap-1">
+              <button onClick={addRow} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition">+ Row</button>
+              <button onClick={removeLastRow} disabled={block.rows.length <= 1} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-red-400/50 hover:text-red-400 disabled:opacity-30 transition">− Row</button>
             </div>
-          ))}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] text-slate-500">Columns: {block.headers.length}</span>
+            <div className="flex gap-1">
+              <button onClick={addCol} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition">+ Col</button>
+              <button onClick={removeLastCol} disabled={block.headers.length <= 1} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-red-400/50 hover:text-red-400 disabled:opacity-30 transition">− Col</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2529,32 +3603,65 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
 
       {/* Header & Footer */}
       <Section title="Header & Footer">
+        {/* Header */}
         <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
           <input type="checkbox" checked={report.headerFooter.showHeader} onChange={(e) => upHF('showHeader', e.target.checked)} />
           Show header
         </label>
         {report.headerFooter.showHeader && (
           <>
-            <input value={report.headerFooter.headerLeft} onChange={(e) => upHF('headerLeft', e.target.value)} className={inputCls} placeholder="Header left" />
-            {advanced && <input value={report.headerFooter.headerRight} onChange={(e) => upHF('headerRight', e.target.value)} className={inputCls} placeholder="Header right" />}
+            <input value={report.headerFooter.headerLeft} onChange={(e) => upHF('headerLeft', e.target.value)} className={inputCls} placeholder="Header left text" />
+            <input value={report.headerFooter.headerRight} onChange={(e) => upHF('headerRight', e.target.value)} className={inputCls} placeholder="Header right text" />
+            <div>
+              <label className="mb-1 block text-[10px] text-slate-500">Header Style</label>
+              <div className="grid grid-cols-3 gap-1">
+                {(['line', 'band', 'double', 'gradient', 'accent-band', 'minimal'] as const).map((s) => (
+                  <button key={s} onClick={() => upHF('headerStyle', s)}
+                    className={`rounded border py-1 text-[10px] capitalize transition ${(report.headerFooter.headerStyle || 'line') === s ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-500 hover:border-white/30 hover:text-slate-300'}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-[10px] text-slate-500">Header Color</label>
+                <input type="color" value={report.headerFooter.headerBg || '#1E3A5F'} onChange={(e) => upHF('headerBg', e.target.value)} className="h-7 w-full cursor-pointer rounded" />
+              </div>
+            </div>
           </>
         )}
+
+        {/* Footer */}
         <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
           <input type="checkbox" checked={report.headerFooter.showFooter} onChange={(e) => upHF('showFooter', e.target.checked)} />
           Show footer
         </label>
         {report.headerFooter.showFooter && (
           <>
+            <input value={report.headerFooter.footerLeft} onChange={(e) => upHF('footerLeft', e.target.value)} className={inputCls} placeholder="Footer left text" />
+            <input value={report.headerFooter.footerRight} onChange={(e) => upHF('footerRight', e.target.value)} className={inputCls} placeholder="Footer right text" />
             <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
               <input type="checkbox" checked={report.headerFooter.showPageNumbers} onChange={(e) => upHF('showPageNumbers', e.target.checked)} />
-              Page numbers
+              Show page numbers
             </label>
-            {advanced && (
-              <>
-                <input value={report.headerFooter.footerLeft} onChange={(e) => upHF('footerLeft', e.target.value)} className={inputCls} placeholder="Footer left" />
-                <input value={report.headerFooter.footerRight} onChange={(e) => upHF('footerRight', e.target.value)} className={inputCls} placeholder="Footer right" />
-              </>
-            )}
+            <div>
+              <label className="mb-1 block text-[10px] text-slate-500">Footer Style</label>
+              <div className="grid grid-cols-3 gap-1">
+                {(['line', 'band', 'double', 'gradient', 'accent-band', 'minimal'] as const).map((s) => (
+                  <button key={s} onClick={() => upHF('footerStyle', s)}
+                    className={`rounded border py-1 text-[10px] capitalize transition ${(report.headerFooter.footerStyle || 'line') === s ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-500 hover:border-white/30 hover:text-slate-300'}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-[10px] text-slate-500">Footer Color</label>
+                <input type="color" value={report.headerFooter.footerBg || '#1E3A5F'} onChange={(e) => upHF('footerBg', e.target.value)} className="h-7 w-full cursor-pointer rounded" />
+              </div>
+            </div>
           </>
         )}
       </Section>
@@ -2605,6 +3712,22 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
                   {['none', 'grid', 'dots', 'diagonal'].map((pat) => <option key={pat} value={pat} className="bg-[#1C1008]">{pat.charAt(0).toUpperCase() + pat.slice(1)}</option>)}
                 </select>
                 <ImageUploadField value={report.coverPage.logoUrl} onChange={(url) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, logoUrl: url } }))} placeholder="Logo" />
+                {report.coverPage.logoUrl && (
+                  <div>
+                    <label className="mb-1 block text-[10px] text-slate-500">Logo Position</label>
+                    <div className="grid grid-cols-3 gap-1">
+                      {(['tl', 'tc', 'tr', 'bl', 'bc', 'br'] as const).map((pos) => {
+                        const labels: Record<string, string> = { tl: '↖ TL', tc: '↑ TC', tr: '↗ TR', bl: '↙ BL', bc: '↓ BC', br: '↘ BR' }
+                        return (
+                          <button key={pos} onClick={() => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, logoPosition: pos } }))}
+                            className={`rounded border py-1 text-[10px] transition ${(report.coverPage.logoPosition || 'tl') === pos ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-500 hover:border-white/30 hover:text-slate-300'}`}>
+                            {labels[pos]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <ImageUploadField value={report.coverPage.backgroundImageUrl} onChange={(url) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, backgroundImageUrl: url } }))} placeholder="Background image" />
               </>
             )}
@@ -2787,6 +3910,22 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
               </select>
               <label className="text-[10px] text-slate-500">Logo Image</label>
               <ImageUploadField value={report.coverPage.logoUrl} onChange={(url) => upCover('logoUrl', url)} placeholder="Logo URL or upload" />
+              {report.coverPage.logoUrl && (
+                <div>
+                  <label className="mb-1 block text-[10px] text-slate-500">Logo Position</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(['tl', 'tc', 'tr', 'bl', 'bc', 'br'] as const).map((pos) => {
+                      const labels: Record<string, string> = { tl: '↖ TL', tc: '↑ TC', tr: '↗ TR', bl: '↙ BL', bc: '↓ BC', br: '↘ BR' }
+                      return (
+                        <button key={pos} onClick={() => upCover('logoPosition', pos)}
+                          className={`rounded border py-1 text-[10px] transition ${(report.coverPage.logoPosition || 'tl') === pos ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-500 hover:border-white/30 hover:text-slate-300'}`}>
+                          {labels[pos]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <label className="text-[10px] text-slate-500">Background Image</label>
               <ImageUploadField value={report.coverPage.backgroundImageUrl} onChange={(url) => upCover('backgroundImageUrl', url)} placeholder="Background image URL or upload" />
             </>
@@ -2797,7 +3936,7 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
       {/* Header & Footer */}
       <details>
         <summary className="cursor-pointer text-[10px] font-medium uppercase tracking-wide text-slate-500">Header & Footer</summary>
-        <div className="mt-2 flex flex-col gap-1.5">
+        <div className="mt-2 flex flex-col gap-2">
           <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
             <input type="checkbox" checked={report.headerFooter.showHeader} onChange={(e) => upHF('showHeader', e.target.checked)} />
             Show header
@@ -2806,6 +3945,18 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
             <>
               <input value={report.headerFooter.headerLeft} onChange={(e) => upHF('headerLeft', e.target.value)} className={inputCls} placeholder="Header left text" />
               <input value={report.headerFooter.headerRight} onChange={(e) => upHF('headerRight', e.target.value)} className={inputCls} placeholder="Header right text" />
+              <div>
+                <label className="mb-1 block text-[10px] text-slate-500">Header Style</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {(['line', 'band', 'double', 'gradient', 'accent-band', 'minimal'] as const).map((s) => (
+                    <button key={s} onClick={() => upHF('headerStyle', s)}
+                      className={`rounded border py-1 text-[10px] capitalize transition ${(report.headerFooter.headerStyle || 'line') === s ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-500 hover:border-white/30'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input type="color" value={report.headerFooter.headerBg || '#1E3A5F'} onChange={(e) => upHF('headerBg', e.target.value)} className="h-7 w-full cursor-pointer rounded" title="Header color" />
             </>
           )}
           <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
@@ -2820,6 +3971,18 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
                 <input type="checkbox" checked={report.headerFooter.showPageNumbers} onChange={(e) => upHF('showPageNumbers', e.target.checked)} />
                 Show page numbers
               </label>
+              <div>
+                <label className="mb-1 block text-[10px] text-slate-500">Footer Style</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {(['line', 'band', 'double', 'gradient', 'accent-band', 'minimal'] as const).map((s) => (
+                    <button key={s} onClick={() => upHF('footerStyle', s)}
+                      className={`rounded border py-1 text-[10px] capitalize transition ${(report.headerFooter.footerStyle || 'line') === s ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-500 hover:border-white/30'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input type="color" value={report.headerFooter.footerBg || '#1E3A5F'} onChange={(e) => upHF('footerBg', e.target.value)} className="h-7 w-full cursor-pointer rounded" title="Footer color" />
             </>
           )}
         </div>
@@ -2871,44 +4034,61 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
   return (
     <div>
       {/* Cover page */}
-      {report.coverPage.enabled && (
-        <div style={{ ...PAGE_STYLES, background: report.coverPage.primaryColor || dp.primaryColor, padding: '40mm 20mm 20mm', position: 'relative', overflow: 'hidden' }}>
-          {report.coverPage.backgroundImageUrl && (
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${report.coverPage.backgroundImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-          )}
-          {report.coverPage.backgroundImageUrl && (
-            <div style={{ position: 'absolute', inset: 0, background: `${report.coverPage.primaryColor || dp.primaryColor}CC` }} />
-          )}
-          <div style={{ position: 'relative', zIndex: 1, color: report.coverPage.textColor || '#FFFFFF', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+      {report.coverPage.enabled && (() => {
+        const cpBg = report.coverPage.primaryColor || dp.primaryColor
+        const cpFg = report.coverPage.textColor || '#FFFFFF'
+        const logoPos = report.coverPage.logoPosition || 'tl'
+        const logoStyle: React.CSSProperties = {
+          position: 'absolute',
+          maxHeight: '48px', maxWidth: '140px', objectFit: 'contain',
+          ...(logoPos === 'tc' ? { top: '16mm', left: '50%', transform: 'translateX(-50%)' } :
+             logoPos === 'tr' ? { top: '16mm', right: '16mm' } :
+             logoPos === 'bl' ? { bottom: '16mm', left: '16mm' } :
+             logoPos === 'bc' ? { bottom: '16mm', left: '50%', transform: 'translateX(-50%)' } :
+             logoPos === 'br' ? { bottom: '16mm', right: '16mm' } :
+             { top: '16mm', left: '16mm' }),
+        }
+        return (
+          <div style={{ ...PAGE_STYLES, background: cpBg, padding: '40mm 20mm 20mm', position: 'relative', overflow: 'hidden' }}>
+            {report.coverPage.backgroundImageUrl && (
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${report.coverPage.backgroundImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+            )}
+            {report.coverPage.backgroundImageUrl && (
+              <div style={{ position: 'absolute', inset: 0, background: `${cpBg}CC` }} />
+            )}
+            {/* Logo — positioned relative to the page div so position is consistent with canvas */}
             {report.coverPage.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={report.coverPage.logoUrl} alt="Logo" style={{ position: 'absolute', top: '-20mm', left: 0, maxHeight: '48px', maxWidth: '140px', objectFit: 'contain' }} />
+              <img src={report.coverPage.logoUrl} alt="Logo" style={logoStyle} />
             )}
-            {report.coverPage.companyName && <p style={{ fontSize: '10pt', marginBottom: '24pt', letterSpacing: '2px', opacity: 0.7, textTransform: 'uppercase' }}>{report.coverPage.companyName}</p>}
-            <h1 style={{ fontSize: '28pt', fontWeight: 700, marginBottom: '8pt', lineHeight: 1.2 }}>{report.coverPage.reportTitle}</h1>
-            {report.coverPage.subtitle && <p style={{ fontSize: '14pt', opacity: 0.8, marginBottom: '4pt' }}>{report.coverPage.subtitle}</p>}
-            {report.coverPage.date && <p style={{ fontSize: '10pt', opacity: 0.6, marginTop: '16pt' }}>{report.coverPage.date}</p>}
-          </div>
-          {/* Watermark on cover page */}
-          {report.watermark.enabled && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}>
-              {report.watermark.imageUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={report.watermark.imageUrl} alt="watermark" style={{ maxWidth: '60%', maxHeight: '60%', objectFit: 'contain' }} />
-                : <span style={{ fontSize: '48pt', fontWeight: 900, color: report.watermark.color || '#ffffff', letterSpacing: '8px' }}>{report.watermark.text}</span>
-              }
+            <div style={{ position: 'relative', zIndex: 1, color: cpFg, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+              {report.coverPage.companyName && <p style={{ fontSize: '10pt', marginBottom: '24pt', letterSpacing: '2px', opacity: 0.7, textTransform: 'uppercase' }}>{report.coverPage.companyName}</p>}
+              <h1 style={{ fontSize: '28pt', fontWeight: 700, marginBottom: '8pt', lineHeight: 1.2 }}>{report.coverPage.reportTitle}</h1>
+              {report.coverPage.subtitle && <p style={{ fontSize: '14pt', opacity: 0.8, marginBottom: '4pt' }}>{report.coverPage.subtitle}</p>}
+              {report.coverPage.date && <p style={{ fontSize: '10pt', opacity: 0.6, marginTop: '16pt' }}>{report.coverPage.date}</p>}
+              {(report.coverPage.coverBlocks ?? []).map((b) => (
+                <div key={b.id} style={{ marginTop: '8pt' }}>{renderPrintBlock(b, dp)}</div>
+              ))}
             </div>
-          )}
-        </div>
-      )}
+            {report.watermark.enabled && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}>
+                {report.watermark.imageUrl
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={report.watermark.imageUrl} alt="watermark" style={{ maxWidth: '60%', maxHeight: '60%', objectFit: 'contain' }} />
+                  : <span style={{ fontSize: '48pt', fontWeight: 900, color: report.watermark.color || '#ffffff', letterSpacing: '8px' }}>{report.watermark.text}</span>
+                }
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {report.pages.map((page, pageIdx) => (
         <div key={page.id} style={{ ...PAGE_STYLES, pageBreakBefore: pageIdx === 0 && !report.coverPage.enabled ? 'avoid' : 'always' }}>
-          {/* Header */}
+          {/* Header — absolute so it spans the full page width without being constrained by the 20mm content padding */}
           {report.headerFooter.showHeader && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8mm', paddingBottom: '3mm', borderBottom: `2px solid ${dp.primaryColor}`, fontSize: '8pt', color: dp.primaryColor }}>
-              <span>{report.headerFooter.headerLeft}</span>
-              <span>{report.headerFooter.headerRight}</span>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 }}>
+              {renderHeaderBand(report.headerFooter, dp, true)}
             </div>
           )}
 
@@ -2932,21 +4112,17 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
             </div>
           )}
 
-          {/* Blocks */}
+          {/* Blocks — breakInside: avoid prevents charts/tables/images from being sliced across pages */}
           {page.blocks.map((block) => (
-            <div key={block.id} style={{ marginBottom: '12pt' }}>
+            <div key={block.id} style={{ marginBottom: '12pt', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
               {renderPrintBlock(block, dp, report)}
             </div>
           ))}
 
-          {/* Footer */}
+          {/* Footer — full page width, aligned at the bottom */}
           {report.headerFooter.showFooter && (
-            <div style={{ position: 'absolute', bottom: '10mm', left: '20mm', right: '20mm', display: 'flex', justifyContent: 'space-between', fontSize: '8pt', color: dp.textColor, borderTop: `1px solid ${dp.primaryColor}20`, paddingTop: '3mm' }}>
-              <span>{report.headerFooter.footerLeft}</span>
-              <div style={{ display: 'flex', gap: '12pt' }}>
-                <span>{report.headerFooter.footerRight}</span>
-                {report.headerFooter.showPageNumbers && <span style={{ color: dp.primaryColor, fontWeight: 600 }}>{pageIdx + 1}</span>}
-              </div>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2 }}>
+              {renderFooterBand(report.headerFooter, dp, pageIdx + 1, true)}
             </div>
           )}
         </div>
@@ -2986,7 +4162,19 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
               {block.rows.map((row, rIdx) => (
                 <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white' }}>
                   {row.map((cell, cIdx) => (
-                    <td key={cIdx} style={{ padding: '3pt 6pt', textAlign: cell.align, fontWeight: cell.bold ? 600 : 400, color: dp.textColor, border: block.bordered ? '1px solid #E5E7EB' : 'none', overflowWrap: 'break-word' }}>{cell.content}</td>
+                    <td key={cIdx} style={{
+                      textAlign: cell.align,
+                      fontWeight: cell.bold ? 600 : 400,
+                      fontStyle: cell.italic ? 'italic' : 'normal',
+                      textDecoration: cell.underline ? 'underline' : 'none',
+                      color: cell.color || dp.textColor,
+                      background: cell.bgColor || 'transparent',
+                      border: block.bordered ? '1px solid #E5E7EB' : 'none',
+                      paddingTop: '3pt', paddingBottom: '3pt',
+                      paddingLeft: `${((cell.indentLevel || 0) * 12) + 6}pt`,
+                      paddingRight: '6pt',
+                      overflowWrap: 'break-word',
+                    }}>{formatCellContent(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -3775,9 +4963,35 @@ function ChartEditor({ block, onUpdate }: { block: ChartBlock; onUpdate: (u: Rec
 
 // ── File Import Modal ───────────────────────────────────────────────────────
 
+interface XlsxCellStyle {
+  font?: { bold?: boolean; italic?: boolean; underline?: boolean; color?: { rgb?: string } }
+  fill?: { fgColor?: { rgb?: string } }
+  alignment?: { horizontal?: string; indent?: number }
+  numFmt?: string
+}
+
+interface XlsxCell {
+  v?: unknown
+  t?: string
+  s?: XlsxCellStyle
+  z?: string
+}
+
 interface ParsedSheet {
   name: string
   rows: unknown[][]
+  cellStyles: Record<string, XlsxCellStyle>
+}
+
+function extractXlsxNumFormat(numFmtStr: string): TableCell['numberFormat'] {
+  if (!numFmtStr) return undefined
+  if (/\$|USD|£|€/i.test(numFmtStr)) {
+    if (/\(/.test(numFmtStr)) return 'accounting'
+    return 'currency'
+  }
+  if (/%/.test(numFmtStr)) return 'percentage'
+  if (/0,0|#,##/.test(numFmtStr)) return 'number'
+  return undefined
 }
 
 function FileImportModal({
@@ -3804,11 +5018,19 @@ function FileImportModal({
     try {
       const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
-      const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
-      const parsed: ParsedSheet[] = wb.SheetNames.map((name) => ({
-        name,
-        rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' }) as unknown[][],
-      }))
+      const wb = XLSX.read(new Uint8Array(buffer), { type: 'array', cellStyles: true, cellNF: true })
+      const parsed: ParsedSheet[] = wb.SheetNames.map((name) => {
+        const ws = wb.Sheets[name]
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
+        // Extract cell styles for formatting preservation
+        const cellStyles: Record<string, XlsxCellStyle> = {}
+        Object.keys(ws).forEach((addr) => {
+          if (addr.startsWith('!')) return
+          const cell = ws[addr] as XlsxCell
+          if (cell?.s) cellStyles[addr] = cell.s
+        })
+        return { name, rows, cellStyles }
+      })
       setSheets(parsed)
       setFileName(file.name)
       setCaption(file.name.replace(/\.[^.]+$/, ''))
@@ -3831,14 +5053,57 @@ function FileImportModal({
     if (!sheet || sheet.rows.length === 0) return
 
     if (importAs === 'table') {
+      const XLSX_encode_cell = (r: number, c: number) => {
+        const col = String.fromCharCode(65 + c)
+        return `${col}${r + 1}`
+      }
       const [headerRow, ...dataRows] = sheet.rows
       const headers = (headerRow as unknown[]).map(String)
-      const rows: TableCell[][] = dataRows.map((row) =>
-        (row as unknown[]).map((cell) => ({ content: String(cell ?? ''), bold: false, align: 'left' as const }))
+
+      const rows: TableCell[][] = dataRows.map((row, rIdx) =>
+        (row as unknown[]).map((cellVal, cIdx) => {
+          const addr = XLSX_encode_cell(rIdx + 1, cIdx)
+          const style = sheet.cellStyles[addr]
+          const font = style?.font
+          const alignment = style?.alignment
+          const fill = style?.fill
+
+          const bold = font?.bold === true
+          const italic = font?.italic === true
+          const underline = font?.underline === true
+          const horz = alignment?.horizontal
+          const align: 'left' | 'center' | 'right' = horz === 'right' ? 'right' : horz === 'center' ? 'center' : 'left'
+          const indentLevel = alignment?.indent || 0
+
+          const numFmtStr = style?.numFmt || ''
+          const numberFormat = extractXlsxNumFormat(numFmtStr)
+
+          let bgColor: string | undefined
+          const fgRgb = fill?.fgColor?.rgb
+          if (fgRgb && !/^FF?FF?FF?$/.test(fgRgb) && /^[0-9A-Fa-f]{6}$/.test(fgRgb)) {
+            bgColor = `#${fgRgb}`
+          }
+
+          let color: string | undefined
+          const fontRgb = font?.color?.rgb
+          if (fontRgb && !/^00?00?00?$/.test(fontRgb) && /^[0-9A-Fa-f]{6}$/.test(fontRgb)) {
+            color = `#${fontRgb}`
+          }
+
+          return {
+            content: String(cellVal ?? ''),
+            bold, italic, underline, align,
+            ...(indentLevel > 0 ? { indentLevel } : {}),
+            ...(numberFormat ? { numberFormat } : {}),
+            ...(bgColor ? { bgColor } : {}),
+            ...(color ? { color } : {}),
+          }
+        })
       )
+
       const block: TableBlock = {
         id: uuidv4(), type: 'table', caption,
-        headers, rows, striped: true, bordered: true, headerBg: '', headerText: '',
+        headers, rows, striped: false, bordered: true, headerBg: '', headerText: '',
       }
       onImport(currentPageId, block)
     } else {
