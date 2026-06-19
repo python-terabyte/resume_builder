@@ -155,6 +155,47 @@ export interface TocBlock {
   includePageNumbers: boolean
 }
 
+export interface CalloutBlock {
+  id: string
+  type: 'callout'
+  content: string
+  variant: 'info' | 'warning' | 'success' | 'danger'
+}
+
+export interface QuoteBlock {
+  id: string
+  type: 'quote'
+  content: string
+  attribution?: string
+}
+
+export interface StatusItem {
+  id: string
+  label: string
+  status: 'done' | 'in-progress' | 'pending' | 'blocked'
+}
+
+export interface StatusBlock {
+  id: string
+  type: 'status'
+  title: string
+  items: StatusItem[]
+}
+
+export interface ProgressItem {
+  id: string
+  label: string
+  value: number
+  color?: string
+}
+
+export interface ProgressBlock {
+  id: string
+  type: 'progress'
+  title: string
+  items: ProgressItem[]
+}
+
 export type ReportBlock =
   | HeadingBlock
   | TextBlock
@@ -165,16 +206,27 @@ export type ReportBlock =
   | SpacerBlock
   | ChartBlock
   | TocBlock
+  | CalloutBlock
+  | QuoteBlock
+  | StatusBlock
+  | ProgressBlock
 
 export type ReportBlockType = ReportBlock['type']
 
 // ── Page & Document ────────────────────────────────────────────────────────
+
+export interface PageStyle {
+  backgroundColor?: string
+  backgroundImage?: string
+  backgroundPattern?: 'none' | 'grid' | 'dots' | 'diagonal'
+}
 
 export interface ReportPage {
   id: string
   title: string
   blocks: ReportBlock[]
   shapes?: ShapeItem[]
+  style?: PageStyle
 }
 
 export type DesignPackId =
@@ -213,6 +265,14 @@ export interface ReportCoverPage {
   pattern: 'none' | 'grid' | 'dots' | 'diagonal'
 }
 
+export interface ReportBranding {
+  logoUrl?: string
+  companyName?: string
+  primaryColor?: string
+  secondaryColor?: string
+  fontFamily?: string
+}
+
 export interface ReportData {
   documentType: ReportDocumentType
   coverPage: ReportCoverPage
@@ -237,6 +297,7 @@ export interface ReportData {
     color?: string
   }
   status: ReportStatus
+  branding?: ReportBranding
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────

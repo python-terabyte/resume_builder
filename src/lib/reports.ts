@@ -3,7 +3,6 @@ import type { ReportData } from '@/types/report'
 export interface ReportDoc {
   id: string
   name: string
-  report: ReportData
   createdAt: string | null
   updatedAt: string | null
 }
@@ -12,6 +11,16 @@ export async function listReports(): Promise<ReportDoc[]> {
   const res = await fetch('/api/reports')
   if (!res.ok) throw new Error('Failed to load reports.')
   return res.json() as Promise<ReportDoc[]>
+}
+
+export async function getReport(id: string): Promise<ReportData> {
+  const res = await fetch(`/api/reports/${id}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to load report.')
+  }
+  const data = await res.json() as { report: ReportData }
+  return data.report
 }
 
 export async function createReport(name: string, report: ReportData): Promise<string> {

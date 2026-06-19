@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
-import { createReport, listReports, saveReport, type ReportDoc } from '@/lib/reports'
+import { createReport, getReport, listReports, saveReport, type ReportDoc } from '@/lib/reports'
 import { REPORT_TEMPLATES, TEMPLATE_CATEGORIES, type ReportTemplate } from '@/lib/report-templates'
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -22,7 +22,10 @@ import {
   type HeadingBlock, type TextBlock, type TableBlock,
   type ImageBlock, type KpiBlock, type DividerBlock, type SpacerBlock,
   type ChartBlock, type ChartDataset, type TocBlock,
+  type CalloutBlock, type QuoteBlock, type StatusBlock, type ProgressBlock,
+  type StatusItem, type ProgressItem, type PageStyle,
   type ShapeItem, type ShapeType, type ShapeTemplate,
+  type ReportBranding,
 } from '@/types/report'
 
 const CHART_PALETTE = ['#2D7DD2','#0D9080','#DC2626','#C9A84C','#a855f7','#f97316','#10b981','#f43f5e']
@@ -97,6 +100,28 @@ function createBlock(type: ReportBlockType, dp: DesignPack): ReportBlock {
       }
     case 'toc':
       return { id, type: 'toc', title: 'Table of Contents', includePageNumbers: true }
+    case 'callout':
+      return { id, type: 'callout', content: 'Important note or callout text here.', variant: 'info' as const }
+    case 'quote':
+      return { id, type: 'quote', content: 'Enter a compelling quote or highlight here.', attribution: '' }
+    case 'status':
+      return {
+        id, type: 'status', title: 'Project Status',
+        items: [
+          { id: uuidv4(), label: 'Planning', status: 'done' as const },
+          { id: uuidv4(), label: 'Development', status: 'in-progress' as const },
+          { id: uuidv4(), label: 'Testing', status: 'pending' as const },
+        ],
+      }
+    case 'progress':
+      return {
+        id, type: 'progress', title: 'Progress Overview',
+        items: [
+          { id: uuidv4(), label: 'Revenue Target', value: 78, color: dp.accentColor || '#2D7DD2' },
+          { id: uuidv4(), label: 'Cost Reduction', value: 45, color: dp.primaryColor || '#1E3A5F' },
+          { id: uuidv4(), label: 'Customer NPS', value: 91, color: '#059669' },
+        ],
+      }
   }
 }
 
@@ -294,17 +319,24 @@ export default function ReportBuilder() {
     setShowTemplatePicker(false)
   }
 
-  function handleOpenDoc(d: ReportDoc) {
-    setReport(d.report)
-    setDocId(d.id)
-    setDocName(d.name || 'Untitled Report')
-    setSelectedBlockId(null)
-    setSelectedPageId(d.report.pages[0]?.id ?? null)
-    setSaveState('saved')
-    setIsDirty(false)
-    setPickerState('hide')
+  async function handleOpenDoc(d: ReportDoc) {
     setShowDocs(false)
-    setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+    setPickerState('loading')
+    try {
+      const reportData = await getReport(d.id)
+      setReport(reportData)
+      setDocId(d.id)
+      setDocName(d.name || 'Untitled Report')
+      setSelectedBlockId(null)
+      setSelectedPageId(reportData.pages[0]?.id ?? null)
+      setSaveState('saved')
+      setIsDirty(false)
+      setPickerState('hide')
+      setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+    } catch (err) {
+      setSaveError(`Failed to open report: ${(err as Error).message}`)
+      setPickerState('show')
+    }
   }
 
   // Block operations
@@ -760,6 +792,7 @@ export default function ReportBuilder() {
                 onDeleteBlock={(blockId) => deleteBlock(page.id, blockId)}
                 onMoveBlock={(blockId, dir) => moveBlock(page.id, blockId, dir)}
                 onAddBlock={(type) => addBlock(page.id, type)}
+                onUpdateBlock={(blockId, updates) => updateBlock(page.id, blockId, updates)}
                 onUpdateShape={(shapeId, upd) => updateShape(page.id, shapeId, upd)}
                 onDeleteShape={(shapeId) => deleteShape(page.id, shapeId)}
                 onReorderShape={(shapeId, dir) => reorderShape(page.id, shapeId, dir)}
@@ -786,6 +819,7 @@ export default function ReportBuilder() {
               docName={docName}
               selectedBlock={selectedBlock}
               selectedBlockPageId={selectedBlockPageId}
+              selectedPageId={selectedPageId}
               isCoverSelected={isCoverSelected}
               selectedShape={selectedShape}
               selectedShapePageId={selectedShapePageId}
@@ -883,16 +917,20 @@ function LeftPanel({
   const [editingPageId, setEditingPageId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
-  const BLOCK_TYPES: { type: ReportBlockType; icon: string; label: string }[] = [
-    { type: 'heading', icon: 'H',  label: 'Heading' },
-    { type: 'text',    icon: 'T',  label: 'Text' },
-    { type: 'table',   icon: '⊞', label: 'Table' },
-    { type: 'chart',   icon: '📈', label: 'Chart' },
-    { type: 'kpi',     icon: '📊', label: 'KPI Cards' },
-    { type: 'image',   icon: '🖼', label: 'Image' },
-    { type: 'divider', icon: '─',  label: 'Divider' },
-    { type: 'spacer',  icon: '↕',  label: 'Spacer' },
-    { type: 'toc',     icon: '📋', label: 'Table of Contents' },
+  const BLOCK_TYPES: { type: ReportBlockType; icon: string; label: string; group?: string }[] = [
+    { type: 'heading',  icon: 'H',  label: 'Heading' },
+    { type: 'text',     icon: 'T',  label: 'Text' },
+    { type: 'table',    icon: '⊞',  label: 'Table' },
+    { type: 'chart',    icon: '📈', label: 'Chart' },
+    { type: 'kpi',      icon: '📊', label: 'KPI Cards' },
+    { type: 'image',    icon: '🖼',  label: 'Image' },
+    { type: 'divider',  icon: '─',  label: 'Divider' },
+    { type: 'spacer',   icon: '↕',  label: 'Spacer' },
+    { type: 'toc',      icon: '📋', label: 'Contents' },
+    { type: 'callout',  icon: '💬', label: 'Callout' },
+    { type: 'quote',    icon: '"',   label: 'Quote' },
+    { type: 'status',   icon: '✅', label: 'Status' },
+    { type: 'progress', icon: '▓',  label: 'Progress' },
   ]
 
   const SHAPE_TYPES: { type: ShapeType; label: string; preview: string }[] = [
@@ -1167,7 +1205,7 @@ function CoverPageView({ coverPage, dp, watermark, isSelected, onSelect }: {
 
 function ReportPageView({
   page, pageNum, dp, report, isSelectedPage, selectedBlockId, selectedShapeId,
-  onSelectPage, onSelectBlock, onSelectShape, onDeleteBlock, onMoveBlock, onAddBlock,
+  onSelectPage, onSelectBlock, onSelectShape, onDeleteBlock, onMoveBlock, onAddBlock, onUpdateBlock,
   onUpdateShape, onDeleteShape, onReorderShape,
 }: {
   page: ReportPage
@@ -1183,6 +1221,7 @@ function ReportPageView({
   onDeleteBlock: (id: string) => void
   onMoveBlock: (id: string, dir: 'up' | 'down') => void
   onAddBlock: (type: ReportBlockType) => void
+  onUpdateBlock: (blockId: string, updates: Record<string, unknown>) => void
   onUpdateShape: (id: string, upd: Partial<ShapeItem>) => void
   onDeleteShape: (id: string) => void
   onReorderShape: (id: string, dir: 'up' | 'down') => void
@@ -1191,15 +1230,19 @@ function ReportPageView({
   const containerRef = useRef<HTMLDivElement>(null)
 
   const BLOCK_TYPES: { type: ReportBlockType; label: string }[] = [
-    { type: 'heading', label: 'Heading' },
-    { type: 'text',    label: 'Text' },
-    { type: 'table',   label: 'Table' },
-    { type: 'chart',   label: 'Chart' },
-    { type: 'kpi',     label: 'KPI Cards' },
-    { type: 'image',   label: 'Image' },
-    { type: 'divider', label: 'Divider' },
-    { type: 'spacer',  label: 'Spacer' },
-    { type: 'toc',     label: 'Table of Contents' },
+    { type: 'heading',  label: 'Heading' },
+    { type: 'text',     label: 'Text' },
+    { type: 'table',    label: 'Table' },
+    { type: 'chart',    label: 'Chart' },
+    { type: 'kpi',      label: 'KPI Cards' },
+    { type: 'image',    label: 'Image' },
+    { type: 'divider',  label: 'Divider' },
+    { type: 'spacer',   label: 'Spacer' },
+    { type: 'toc',      label: 'Table of Contents' },
+    { type: 'callout',  label: 'Callout Box' },
+    { type: 'quote',    label: 'Quote' },
+    { type: 'status',   label: 'Status List' },
+    { type: 'progress', label: 'Progress Bars' },
   ]
 
   return (
@@ -1210,8 +1253,28 @@ function ReportPageView({
         isSelectedPage ? 'ring-2 ring-[#C9A84C]/40' : ''
       }`}
       onClick={onSelectPage}
-      style={{ background: '#FFFFFF', minHeight: '600px' }}
+      style={{
+        background: page.style?.backgroundImage
+          ? `url(${page.style.backgroundImage}) center/cover`
+          : page.style?.backgroundColor || '#FFFFFF',
+        minHeight: '600px',
+      }}
     >
+      {/* Background pattern overlay */}
+      {page.style?.backgroundPattern && page.style.backgroundPattern !== 'none' && (() => {
+        const p = page.style.backgroundPattern
+        const patternStyle: React.CSSProperties = {
+          position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', opacity: 0.15,
+          backgroundImage: p === 'grid'
+            ? 'linear-gradient(#000 1px,transparent 1px),linear-gradient(90deg,#000 1px,transparent 1px)'
+            : p === 'dots'
+            ? 'radial-gradient(circle,#000 1px,transparent 1px)'
+            : 'repeating-linear-gradient(-45deg,#000 0,#000 1px,transparent 0,transparent 50%)',
+          backgroundSize: p === 'grid' ? '20px 20px' : p === 'dots' ? '16px 16px' : '8px 8px',
+        }
+        return <div style={patternStyle} />
+      })()}
+
       {/* Page header band */}
       {report.headerFooter.showHeader && (
         <div className="flex items-center justify-between px-8 py-2 text-[10px]" style={{ borderBottom: `2px solid ${dp.primaryColor}`, color: dp.primaryColor }}>
@@ -1255,6 +1318,7 @@ function ReportPageView({
             onDelete={() => onDeleteBlock(block.id)}
             onMoveUp={() => onMoveBlock(block.id, 'up')}
             onMoveDown={() => onMoveBlock(block.id, 'down')}
+            onQuickUpdate={(updates) => onUpdateBlock(block.id, updates)}
           />
         ))}
 
@@ -1335,7 +1399,7 @@ function ReportPageView({
 
 function BlockWrapper({
   block, dp, report, isSelected, isFirst, isLast,
-  onSelect, onDelete, onMoveUp, onMoveDown,
+  onSelect, onDelete, onMoveUp, onMoveDown, onQuickUpdate,
 }: {
   block: ReportBlock
   dp: DesignPack
@@ -1347,7 +1411,97 @@ function BlockWrapper({
   onDelete: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onQuickUpdate?: (updates: Record<string, unknown>) => void
 }) {
+  const sep = <div className="mx-0.5 h-3 w-px bg-gray-200" />
+
+  // Block-type-specific quick actions
+  function renderQuickActions() {
+    if (!onQuickUpdate) return null
+    if (block.type === 'heading') {
+      return (
+        <>
+          {sep}
+          {([1, 2, 3] as const).map((l) => (
+            <button key={l} onClick={() => onQuickUpdate({ level: l })}
+              className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition ${block.level === l ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
+              H{l}
+            </button>
+          ))}
+          {sep}
+          {(['left', 'center', 'right'] as const).map((a) => (
+            <button key={a} onClick={() => onQuickUpdate({ align: a })}
+              className={`rounded p-1 text-[10px] transition ${block.align === a ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}
+              title={a}>{a[0].toUpperCase()}</button>
+          ))}
+        </>
+      )
+    }
+    if (block.type === 'text') {
+      return (
+        <>
+          {sep}
+          {(['left', 'center', 'right', 'justify'] as const).map((a) => (
+            <button key={a} onClick={() => onQuickUpdate({ align: a })}
+              className={`rounded p-1 text-[10px] transition ${block.align === a ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}
+              title={a}>{a === 'justify' ? 'J' : a[0].toUpperCase()}</button>
+          ))}
+        </>
+      )
+    }
+    if (block.type === 'table') {
+      return (
+        <>
+          {sep}
+          <button onClick={() => onQuickUpdate({ striped: !(block as import('@/types/report').TableBlock).striped })}
+            className={`rounded px-1.5 py-0.5 text-[10px] transition ${ (block as import('@/types/report').TableBlock).striped ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
+            Striped
+          </button>
+          <button onClick={() => onQuickUpdate({ bordered: !(block as import('@/types/report').TableBlock).bordered })}
+            className={`rounded px-1.5 py-0.5 text-[10px] transition ${ (block as import('@/types/report').TableBlock).bordered ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
+            Borders
+          </button>
+        </>
+      )
+    }
+    if (block.type === 'image') {
+      return (
+        <>
+          {sep}
+          {(['full', 'large', 'medium', 'small'] as const).map((w) => (
+            <button key={w} onClick={() => onQuickUpdate({ width: w })}
+              className={`rounded px-1.5 py-0.5 text-[10px] capitalize transition ${(block as import('@/types/report').ImageBlock).width === w ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
+              {w[0].toUpperCase()}
+            </button>
+          ))}
+          {sep}
+          {(['left', 'center', 'right'] as const).map((a) => (
+            <button key={a} onClick={() => onQuickUpdate({ align: a })}
+              className={`rounded p-1 text-[10px] transition ${(block as import('@/types/report').ImageBlock).align === a ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}
+              title={a}>{a[0].toUpperCase()}</button>
+          ))}
+        </>
+      )
+    }
+    if (block.type === 'callout') {
+      return (
+        <>
+          {sep}
+          {(['info', 'success', 'warning', 'danger'] as const).map((v) => {
+            const colors: Record<string, string> = { info: 'text-blue-600', success: 'text-green-600', warning: 'text-amber-600', danger: 'text-red-600' }
+            return (
+              <button key={v} onClick={() => onQuickUpdate({ variant: v })}
+                className={`rounded px-1.5 py-0.5 text-[10px] capitalize transition ${(block as CalloutBlock).variant === v ? 'bg-gray-100 font-semibold' : 'text-gray-400 hover:bg-gray-100'} ${colors[v]}`}>
+                {v}
+              </button>
+            )
+          })}
+        </>
+      )
+    }
+    return null
+  }
+
   return (
     <div
       data-block
@@ -1358,8 +1512,8 @@ function BlockWrapper({
       }`}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
     >
-      {/* Toolbar */}
-      <div className={`absolute -top-7 right-0 flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1 py-0.5 shadow-sm ${isSelected ? 'flex' : 'hidden group-hover:flex'}`}
+      {/* Quick action toolbar */}
+      <div className={`absolute -top-7 left-0 flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1 py-0.5 shadow-sm z-10 ${isSelected ? 'flex' : 'hidden group-hover:flex'}`}
         onClick={(e) => e.stopPropagation()}>
         <button onClick={onMoveUp} disabled={isFirst} className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" title="Move up">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
@@ -1367,7 +1521,8 @@ function BlockWrapper({
         <button onClick={onMoveDown} disabled={isLast} className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" title="Move down">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </button>
-        <div className="mx-0.5 h-3 w-px bg-gray-200" />
+        {renderQuickActions()}
+        {sep}
         <button onClick={onDelete} className="rounded p-1 text-gray-400 transition hover:bg-red-50 hover:text-red-500" title="Delete block">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         </button>
@@ -1530,13 +1685,85 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
     }
+    case 'callout': {
+      const variantStyles: Record<string, { border: string; bg: string; icon: string; text: string }> = {
+        info:    { border: '#3B82F6', bg: '#EFF6FF', icon: 'ℹ️', text: '#1E40AF' },
+        warning: { border: '#F59E0B', bg: '#FFFBEB', icon: '⚠️', text: '#92400E' },
+        success: { border: '#10B981', bg: '#ECFDF5', icon: '✅', text: '#065F46' },
+        danger:  { border: '#EF4444', bg: '#FEF2F2', icon: '🚨', text: '#991B1B' },
+      }
+      const vs = variantStyles[block.variant] ?? variantStyles.info
+      return (
+        <div className="flex gap-3 rounded-lg px-4 py-3 text-sm leading-relaxed"
+          style={{ borderLeft: `4px solid ${vs.border}`, background: vs.bg, color: vs.text, fontFamily: dp.fontFamily }}>
+          <span className="mt-0.5 shrink-0">{vs.icon}</span>
+          <span className="whitespace-pre-wrap">{block.content}</span>
+        </div>
+      )
+    }
+    case 'quote':
+      return (
+        <div className="py-2" style={{ fontFamily: dp.fontFamily }}>
+          <div className="relative border-l-4 pl-5 py-1" style={{ borderColor: dp.accentColor }}>
+            <span className="absolute -left-2 -top-2 text-4xl font-serif leading-none opacity-20" style={{ color: dp.primaryColor }}>"</span>
+            <p className="text-base italic leading-relaxed" style={{ color: dp.textColor }}>{block.content}</p>
+            {block.attribution && (
+              <p className="mt-2 text-xs font-semibold not-italic" style={{ color: dp.primaryColor }}>— {block.attribution}</p>
+            )}
+          </div>
+        </div>
+      )
+    case 'status': {
+      const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
+        'done':        { color: '#10B981', icon: '✓', label: 'Done' },
+        'in-progress': { color: '#F59E0B', icon: '◐', label: 'In Progress' },
+        'pending':     { color: '#94A3B8', icon: '○', label: 'Pending' },
+        'blocked':     { color: '#EF4444', icon: '✗', label: 'Blocked' },
+      }
+      return (
+        <div style={{ fontFamily: dp.fontFamily }}>
+          {block.title && <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>{block.title}</p>}
+          <div className="flex flex-col gap-2">
+            {block.items.map((item) => {
+              const cfg = statusConfig[item.status] ?? statusConfig.pending
+              return (
+                <div key={item.id} className="flex items-center gap-3">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: cfg.color }}>{cfg.icon}</span>
+                  <span className="flex-1 text-sm" style={{ color: dp.textColor }}>{item.label}</span>
+                  <span className="text-xs font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+    case 'progress':
+      return (
+        <div style={{ fontFamily: dp.fontFamily }}>
+          {block.title && <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>{block.title}</p>}
+          <div className="flex flex-col gap-3">
+            {block.items.map((item) => (
+              <div key={item.id}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-sm" style={{ color: dp.textColor }}>{item.label}</span>
+                  <span className="text-xs font-semibold tabular-nums" style={{ color: item.color || dp.accentColor }}>{item.value}%</span>
+                </div>
+                <div className="h-2 w-full rounded-full" style={{ background: (item.color || dp.accentColor) + '20' }}>
+                  <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, item.value))}%`, background: item.color || dp.accentColor }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
   }
 }
 
 // ── Right Panel ─────────────────────────────────────────────────────────────
 
 function RightPanel({
-  report, dp, selectedBlock, selectedBlockPageId, docName,
+  report, dp, selectedBlock, selectedBlockPageId, selectedPageId, docName,
   isCoverSelected, selectedShape, selectedShapePageId,
   onUpdateBlock, onUpdateShape, onDeleteShape, onReorderShape, onUpdateReport, onSaveShapeTemplate, onCoverDeselect,
 }: {
@@ -1545,6 +1772,7 @@ function RightPanel({
   docName: string
   selectedBlock: ReportBlock | null
   selectedBlockPageId: string | null
+  selectedPageId: string | null
   isCoverSelected: boolean
   selectedShape: ShapeItem | null
   selectedShapePageId: string | null
@@ -1556,7 +1784,7 @@ function RightPanel({
   onSaveShapeTemplate: (name: string, shapes: ShapeItem[]) => void
   onCoverDeselect: () => void
 }) {
-  const [rightTab, setRightTab] = useState<'properties' | 'design' | 'document' | 'ai'>('properties')
+  const [rightTab, setRightTab] = useState<'properties' | 'style' | 'ai'>('properties')
 
   const upd = (updates: Record<string, unknown>) => {
     if (selectedBlock && selectedBlockPageId) onUpdateBlock(selectedBlockPageId, selectedBlock.id, updates)
@@ -1566,15 +1794,17 @@ function RightPanel({
     if (selectedBlock || selectedShape || isCoverSelected) setRightTab('properties')
   }, [selectedBlock?.id, selectedShape?.id, isCoverSelected])
 
+  const currentPage = report.pages.find((p) => p.id === selectedPageId) ?? null
+  const hasSelection = !!(selectedBlock || selectedShape || isCoverSelected)
+
   return (
     <div className="flex h-full flex-col">
       {/* Tabs */}
       <div className="flex shrink-0 border-b border-white/10">
         {([
           { id: 'properties', label: 'Properties' },
-          { id: 'design', label: 'Design' },
-          { id: 'document', label: 'Doc' },
-          { id: 'ai', label: '✨ AI' },
+          { id: 'style',      label: 'Style' },
+          { id: 'ai',         label: '✨ AI' },
         ] as const).map(({ id, label }) => (
           <button
             key={id}
@@ -1611,23 +1841,31 @@ function RightPanel({
               />
             ) : selectedBlock ? (
               <BlockEditor block={selectedBlock} dp={dp} onUpdate={upd} />
+            ) : currentPage ? (
+              <PageStyleEditor
+                page={currentPage}
+                onUpdatePage={(style) => onUpdateReport((prev) => ({
+                  ...prev,
+                  pages: prev.pages.map((p) => p.id === currentPage.id ? { ...p, style: { ...p.style, ...style } } : p),
+                }))}
+                onApplyToAll={(style) => onUpdateReport((prev) => ({
+                  ...prev,
+                  pages: prev.pages.map((p) => ({ ...p, style: { ...p.style, ...style } })),
+                }))}
+              />
             ) : (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
                 <svg className="h-8 w-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
                 </svg>
-                <p className="text-slate-500">Click a block, shape, or the cover page to edit</p>
+                <p className="text-slate-500">Click a page or block to edit</p>
               </div>
             )}
           </>
         )}
 
-        {rightTab === 'design' && (
-          <DesignPanel report={report} onUpdateReport={onUpdateReport} />
-        )}
-
-        {rightTab === 'document' && (
-          <DocumentPanel report={report} onUpdateReport={onUpdateReport} />
+        {rightTab === 'style' && (
+          <DesignStudio report={report} onUpdateReport={onUpdateReport} />
         )}
 
         {rightTab === 'ai' && (
@@ -1752,6 +1990,38 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
           </p>
         </div>
       )
+    case 'callout':
+      return (
+        <div className="flex flex-col gap-3">
+          <div>
+            {label('Variant')}
+            <div className="flex gap-1">
+              {(['info', 'success', 'warning', 'danger'] as const).map((v) => {
+                const colors: Record<string, string> = { info: '#3B82F6', success: '#10B981', warning: '#F59E0B', danger: '#EF4444' }
+                return (
+                  <button key={v} onClick={() => onUpdate({ variant: v })}
+                    className={`flex-1 rounded border py-1 text-[10px] capitalize transition ${(block as CalloutBlock).variant === v ? 'border-current font-semibold' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}
+                    style={{ color: colors[v], borderColor: (block as CalloutBlock).variant === v ? colors[v] : undefined }}>
+                    {v}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div>{label('Content')}<textarea value={(block as CalloutBlock).content} onChange={(e) => onUpdate({ content: e.target.value })} rows={4} className={`${inputCls} resize-none`} /></div>
+        </div>
+      )
+    case 'quote':
+      return (
+        <div className="flex flex-col gap-3">
+          <div>{label('Quote Text')}<textarea value={(block as QuoteBlock).content} onChange={(e) => onUpdate({ content: e.target.value })} rows={4} className={`${inputCls} resize-none`} /></div>
+          <div>{label('Attribution')}<input value={(block as QuoteBlock).attribution || ''} onChange={(e) => onUpdate({ attribution: e.target.value })} placeholder="— Author Name" className={inputCls} /></div>
+        </div>
+      )
+    case 'status':
+      return <StatusEditor block={block as StatusBlock} onUpdate={onUpdate} />
+    case 'progress':
+      return <ProgressEditor block={block as ProgressBlock} onUpdate={onUpdate} />
   }
 }
 
@@ -1944,7 +2214,427 @@ function KpiEditor({ block, onUpdate }: { block: KpiBlock; onUpdate: (u: Record<
   )
 }
 
-// ── Design Panel ────────────────────────────────────────────────────────────
+// ── Status Editor ────────────────────────────────────────────────────────────
+
+function StatusEditor({ block, onUpdate }: { block: StatusBlock; onUpdate: (u: Record<string, unknown>) => void }) {
+  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  function updItem(id: string, field: keyof StatusItem, val: unknown) {
+    onUpdate({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div><label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Title</label><input value={block.title} onChange={(e) => onUpdate({ title: e.target.value })} className={inputCls} /></div>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Items</span>
+          <button onClick={() => onUpdate({ items: [...block.items, { id: uuidv4(), label: 'New Task', status: 'pending' as const }] })} className="text-[10px] text-slate-400 hover:text-[#C9A84C]">+ Add</button>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {block.items.map((item) => (
+            <div key={item.id} className="flex gap-1.5 items-center">
+              <input value={item.label} onChange={(e) => updItem(item.id, 'label', e.target.value)} className={`${inputCls} flex-1`} />
+              <select value={item.status} onChange={(e) => updItem(item.id, 'status', e.target.value)} className="rounded border border-white/10 bg-[#120B07] px-1 py-1 text-[10px] text-white outline-none">
+                <option value="done" className="bg-[#1C1008]">Done</option>
+                <option value="in-progress" className="bg-[#1C1008]">In Progress</option>
+                <option value="pending" className="bg-[#1C1008]">Pending</option>
+                <option value="blocked" className="bg-[#1C1008]">Blocked</option>
+              </select>
+              {block.items.length > 1 && <button onClick={() => onUpdate({ items: block.items.filter((i) => i.id !== item.id) })} className="shrink-0 text-slate-600 hover:text-red-400">✕</button>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Progress Editor ───────────────────────────────────────────────────────────
+
+function ProgressEditor({ block, onUpdate }: { block: ProgressBlock; onUpdate: (u: Record<string, unknown>) => void }) {
+  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  function updItem(id: string, field: keyof ProgressItem, val: unknown) {
+    onUpdate({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div><label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Title</label><input value={block.title} onChange={(e) => onUpdate({ title: e.target.value })} className={inputCls} /></div>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Bars</span>
+          <button onClick={() => onUpdate({ items: [...block.items, { id: uuidv4(), label: 'Item', value: 50, color: '#2D7DD2' }] })} className="text-[10px] text-slate-400 hover:text-[#C9A84C]">+ Add</button>
+        </div>
+        <div className="flex flex-col gap-2">
+          {block.items.map((item) => (
+            <div key={item.id} className="rounded border border-white/10 p-2">
+              <div className="mb-1.5 flex items-center justify-between">
+                <input value={item.label} onChange={(e) => updItem(item.id, 'label', e.target.value)} className={`${inputCls} flex-1 mr-1`} />
+                {block.items.length > 1 && <button onClick={() => onUpdate({ items: block.items.filter((i) => i.id !== item.id) })} className="shrink-0 text-slate-600 hover:text-red-400">✕</button>}
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="range" min={0} max={100} value={item.value} onChange={(e) => updItem(item.id, 'value', Number(e.target.value))} className="flex-1" />
+                <span className="w-8 text-right text-[10px] text-slate-400">{item.value}%</span>
+                <input type="color" value={item.color || '#2D7DD2'} onChange={(e) => updItem(item.id, 'color', e.target.value)} className="h-6 w-8 cursor-pointer rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Page Style Editor (Properties tab, no block selected) ─────────────────────
+
+function PageStyleEditor({
+  page, onUpdatePage, onApplyToAll,
+}: {
+  page: ReportPage
+  onUpdatePage: (style: Partial<PageStyle>) => void
+  onApplyToAll: (style: Partial<PageStyle>) => void
+}) {
+  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
+  const style = page.style ?? {}
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 py-2 text-[10px] text-[#C9A84C]">
+        Page Background — <strong>{page.title}</strong>
+      </div>
+
+      <div>
+        {label('Background Color')}
+        <div className="flex gap-2">
+          <input type="color" value={style.backgroundColor || '#ffffff'} onChange={(e) => onUpdatePage({ backgroundColor: e.target.value })} className="h-8 w-12 cursor-pointer rounded" />
+          <button onClick={() => onUpdatePage({ backgroundColor: undefined })} className="flex-1 rounded border border-white/10 py-1 text-[10px] text-slate-400 hover:bg-white/5">Reset</button>
+        </div>
+      </div>
+
+      <div>
+        {label('Background Pattern')}
+        <select value={style.backgroundPattern || 'none'} onChange={(e) => onUpdatePage({ backgroundPattern: e.target.value as PageStyle['backgroundPattern'] })} className={inputCls}>
+          {['none', 'grid', 'dots', 'diagonal'].map((p) => <option key={p} value={p} className="bg-[#1C1008]">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+        </select>
+      </div>
+
+      <div>
+        {label('Background Image')}
+        <ImageUploadField value={style.backgroundImage || ''} onChange={(url) => onUpdatePage({ backgroundImage: url || undefined })} placeholder="Image URL or upload" />
+      </div>
+
+      <div className="border-t border-white/10 pt-3">
+        <button
+          onClick={() => onApplyToAll({ backgroundColor: style.backgroundColor, backgroundPattern: style.backgroundPattern, backgroundImage: style.backgroundImage })}
+          className="w-full rounded-lg border border-[#C9A84C]/40 py-2 text-xs font-semibold text-[#C9A84C] transition hover:bg-[#C9A84C]/10"
+        >
+          Apply This Background To All Pages
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Design Studio (unified Style tab) ────────────────────────────────────────
+
+const QUICK_PRESETS = [
+  { label: 'Corporate', packId: 'corporate-navy' },
+  { label: 'Modern',    packId: 'modern-teal' },
+  { label: 'Minimal',   packId: 'minimal-slate' },
+  { label: 'Bold',      packId: 'bold-red' },
+  { label: 'Luxury',    packId: 'elegant-gold' },
+  { label: 'Pro Blue',  packId: 'professional-blue' },
+]
+
+function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdateReport: (u: (p: ReportData) => ReportData) => void }) {
+  const [packs, setPacks] = useState<DesignPack[]>(() => getAllDesignPacks())
+  const [showPackBuilder, setShowPackBuilder] = useState(false)
+  const [advanced, setAdvanced] = useState(false)
+  const [newPack, setNewPack] = useState<Omit<DesignPack, 'id'>>({
+    name: 'My Custom Pack', primaryColor: '#1E3A5F', accentColor: '#2D7DD2',
+    headingColor: '#1E3A5F', textColor: '#374151', tableHeaderBg: '#1E3A5F',
+    tableHeaderText: '#FFFFFF', kpiAccent: '#2D7DD2', fontFamily: 'Inter',
+  })
+  const [branding, setBranding] = useState(() => report.branding ?? {})
+
+  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <details open className="group">
+      <summary className="flex cursor-pointer items-center justify-between py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-white">
+        {title}
+        <svg className="h-3 w-3 transition group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </summary>
+      <div className="mt-2 flex flex-col gap-3 pb-3 border-b border-white/5">{children}</div>
+    </details>
+  )
+
+  function saveCustomPack() {
+    const id = `custom-${Date.now()}`
+    const pack: DesignPack = { ...newPack, id }
+    const custom = packs.filter((p) => !DESIGN_PACKS.find((d) => d.id === p.id))
+    const updated = [...custom, pack]
+    localStorage.setItem('report-custom-packs', JSON.stringify(updated))
+    const all = [...DESIGN_PACKS, ...updated]
+    setPacks(all)
+    onUpdateReport((p) => ({ ...p, designPackId: id }))
+    setShowPackBuilder(false)
+  }
+
+  function deleteCustomPack(id: string) {
+    const custom = packs.filter((p) => !DESIGN_PACKS.find((d) => d.id === p.id) && p.id !== id)
+    localStorage.setItem('report-custom-packs', JSON.stringify(custom))
+    setPacks([...DESIGN_PACKS, ...custom])
+    if (report.designPackId === id) onUpdateReport((p) => ({ ...p, designPackId: 'corporate-navy' }))
+  }
+
+  function applyBranding() {
+    onUpdateReport((prev) => ({
+      ...prev,
+      branding,
+      coverPage: {
+        ...prev.coverPage,
+        logoUrl: branding.logoUrl ?? prev.coverPage.logoUrl,
+        companyName: branding.companyName ?? prev.coverPage.companyName,
+        primaryColor: branding.primaryColor ?? prev.coverPage.primaryColor,
+      },
+      headerFooter: {
+        ...prev.headerFooter,
+        headerLeft: branding.companyName ?? prev.headerFooter.headerLeft,
+      },
+    }))
+  }
+
+  const upHF = (field: string, val: unknown) => onUpdateReport((p) => ({ ...p, headerFooter: { ...p.headerFooter, [field]: val } }))
+  const upWm = (field: string, val: unknown) => onUpdateReport((p) => ({ ...p, watermark: { ...p.watermark, [field]: val } }))
+  const up = (field: string, val: unknown) => onUpdateReport((p) => ({ ...p, [field]: val }))
+
+  return (
+    <div className="flex flex-col gap-1">
+      {/* Basic / Advanced toggle */}
+      <div className="flex items-center justify-between py-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Style</span>
+        <button
+          onClick={() => setAdvanced((v) => !v)}
+          className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium transition ${advanced ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'bg-white/10 text-slate-400 hover:bg-white/15'}`}
+        >
+          {advanced ? 'Advanced' : 'Basic'}
+        </button>
+      </div>
+
+      {/* Quick Presets */}
+      <Section title="Quick Presets">
+        <div className="grid grid-cols-3 gap-1">
+          {QUICK_PRESETS.map(({ label: lbl, packId }) => {
+            const pack = DESIGN_PACKS.find((p) => p.id === packId)
+            if (!pack) return null
+            const active = report.designPackId === packId
+            return (
+              <button
+                key={packId}
+                onClick={() => onUpdateReport((p) => ({ ...p, designPackId: packId }))}
+                className={`flex flex-col items-center gap-1 rounded-lg border py-2 text-[10px] transition ${active ? 'border-[#C9A84C] bg-[#C9A84C]/10 text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}`}
+              >
+                <div className="flex gap-0.5">
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ background: pack.primaryColor }} />
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ background: pack.accentColor }} />
+                </div>
+                {lbl}
+              </button>
+            )
+          })}
+        </div>
+      </Section>
+
+      {/* Theme */}
+      <Section title="Theme">
+        <div className="flex flex-col gap-1">
+          {packs.map((pack) => {
+            const isCustom = !DESIGN_PACKS.find((d) => d.id === pack.id)
+            return (
+              <div key={pack.id} className="flex items-center gap-1">
+                <button
+                  onClick={() => onUpdateReport((p) => ({ ...p, designPackId: pack.id }))}
+                  className={`flex flex-1 items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition ${report.designPackId === pack.id ? 'border-[#C9A84C] bg-[#C9A84C]/10' : 'border-white/10 hover:bg-white/5'}`}
+                >
+                  <div className="flex gap-1">
+                    <div className="h-3 w-3 rounded-full" style={{ background: pack.primaryColor }} />
+                    <div className="h-3 w-3 rounded-full" style={{ background: pack.accentColor }} />
+                  </div>
+                  <span className={`text-xs ${report.designPackId === pack.id ? 'text-[#C9A84C]' : 'text-slate-300'}`}>{pack.name}</span>
+                  {isCustom && <span className="ml-auto text-[9px] text-slate-600">Custom</span>}
+                </button>
+                {isCustom && (
+                  <button onClick={() => deleteCustomPack(pack.id)} className="shrink-0 rounded p-1 text-slate-600 hover:text-red-400">✕</button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {advanced && (
+          <>
+            <button onClick={() => setShowPackBuilder((v) => !v)} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 py-2 text-xs text-slate-500 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition">
+              + Create Custom Theme
+            </button>
+            {showPackBuilder && (
+              <div className="rounded-lg border border-white/10 bg-[#120B07] p-3 flex flex-col gap-2">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">New Custom Theme</p>
+                <input value={newPack.name} onChange={(e) => setNewPack((p) => ({ ...p, name: e.target.value }))} className={inputCls} placeholder="Theme name" />
+                {(['primaryColor', 'accentColor', 'headingColor', 'tableHeaderBg'] as const).map((key) => (
+                  <div key={key} className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                    <input type="color" value={newPack[key] as string} onChange={(e) => setNewPack((p) => ({ ...p, [key]: e.target.value }))} className="h-6 w-10 cursor-pointer rounded" />
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-slate-400">Font</span>
+                  <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none">
+                    {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+                  </select>
+                </div>
+                <button onClick={saveCustomPack} className="w-full rounded-lg py-1.5 text-xs font-semibold text-white transition hover:brightness-110" style={{ background: '#C9A84C' }}>Save Theme</button>
+              </div>
+            )}
+          </>
+        )}
+      </Section>
+
+      {/* Branding */}
+      <Section title="Branding">
+        <div>
+          {label('Company Name')}
+          <input value={branding.companyName || ''} onChange={(e) => setBranding((b) => ({ ...b, companyName: e.target.value }))} className={inputCls} placeholder="Acme Corp" />
+        </div>
+        <div>
+          {label('Logo')}
+          <ImageUploadField value={branding.logoUrl || ''} onChange={(url) => setBranding((b) => ({ ...b, logoUrl: url }))} placeholder="Logo URL or upload" />
+        </div>
+        {advanced && (
+          <>
+            <div>
+              {label('Brand Primary Color')}
+              <input type="color" value={branding.primaryColor || '#1E3A5F'} onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))} className="h-8 w-full cursor-pointer rounded" />
+            </div>
+            <div>
+              {label('Brand Font')}
+              <select value={branding.fontFamily || 'Inter'} onChange={(e) => setBranding((b) => ({ ...b, fontFamily: e.target.value }))} className={inputCls}>
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+              </select>
+            </div>
+          </>
+        )}
+        <button onClick={applyBranding} className="w-full rounded-lg border border-[#C9A84C]/40 py-2 text-xs font-semibold text-[#C9A84C] transition hover:bg-[#C9A84C]/10">
+          Apply Branding to Document
+        </button>
+      </Section>
+
+      {/* Header & Footer */}
+      <Section title="Header & Footer">
+        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+          <input type="checkbox" checked={report.headerFooter.showHeader} onChange={(e) => upHF('showHeader', e.target.checked)} />
+          Show header
+        </label>
+        {report.headerFooter.showHeader && (
+          <>
+            <input value={report.headerFooter.headerLeft} onChange={(e) => upHF('headerLeft', e.target.value)} className={inputCls} placeholder="Header left" />
+            {advanced && <input value={report.headerFooter.headerRight} onChange={(e) => upHF('headerRight', e.target.value)} className={inputCls} placeholder="Header right" />}
+          </>
+        )}
+        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+          <input type="checkbox" checked={report.headerFooter.showFooter} onChange={(e) => upHF('showFooter', e.target.checked)} />
+          Show footer
+        </label>
+        {report.headerFooter.showFooter && (
+          <>
+            <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+              <input type="checkbox" checked={report.headerFooter.showPageNumbers} onChange={(e) => upHF('showPageNumbers', e.target.checked)} />
+              Page numbers
+            </label>
+            {advanced && (
+              <>
+                <input value={report.headerFooter.footerLeft} onChange={(e) => upHF('footerLeft', e.target.value)} className={inputCls} placeholder="Footer left" />
+                <input value={report.headerFooter.footerRight} onChange={(e) => upHF('footerRight', e.target.value)} className={inputCls} placeholder="Footer right" />
+              </>
+            )}
+          </>
+        )}
+      </Section>
+
+      {/* Watermark */}
+      <Section title="Watermark">
+        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+          <input type="checkbox" checked={report.watermark.enabled} onChange={(e) => upWm('enabled', e.target.checked)} />
+          Enable watermark (all pages)
+        </label>
+        {report.watermark.enabled && (
+          <>
+            <input value={report.watermark.text} onChange={(e) => upWm('text', e.target.value)} className={inputCls} placeholder="CONFIDENTIAL" />
+            {advanced && (
+              <>
+                <input type="color" value={report.watermark.color || '#888888'} onChange={(e) => upWm('color', e.target.value)} className="h-8 w-full cursor-pointer rounded" />
+                <ImageUploadField value={report.watermark.imageUrl || ''} onChange={(url) => upWm('imageUrl', url)} placeholder="Image watermark (overrides text)" />
+                <div>
+                  <label className="mb-1 block text-[10px] text-slate-500">Opacity: {Math.round(report.watermark.opacity * 100)}%</label>
+                  <input type="range" min={0.03} max={0.4} step={0.01} value={report.watermark.opacity} onChange={(e) => upWm('opacity', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] text-slate-500">Rotation: {report.watermark.rotation}°</label>
+                  <input type="range" min={-90} max={90} value={report.watermark.rotation} onChange={(e) => upWm('rotation', Number(e.target.value))} className="w-full" />
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </Section>
+
+      {/* Cover Page */}
+      <Section title="Cover Page">
+        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+          <input type="checkbox" checked={report.coverPage.enabled} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, enabled: e.target.checked } }))} />
+          Enable cover page
+        </label>
+        {report.coverPage.enabled && (
+          <>
+            <input value={report.coverPage.reportTitle} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, reportTitle: e.target.value } }))} className={inputCls} placeholder="Report Title" />
+            <input value={report.coverPage.subtitle} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, subtitle: e.target.value } }))} className={inputCls} placeholder="Subtitle" />
+            <input value={report.coverPage.date} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, date: e.target.value } }))} className={inputCls} placeholder="Date" />
+            {advanced && (
+              <>
+                <label className="text-[10px] text-slate-500">Background Color</label>
+                <input type="color" value={report.coverPage.primaryColor} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, primaryColor: e.target.value } }))} className="h-8 w-full cursor-pointer rounded" />
+                <select value={report.coverPage.pattern} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, pattern: e.target.value as 'none'|'grid'|'dots'|'diagonal' } }))} className={inputCls}>
+                  {['none', 'grid', 'dots', 'diagonal'].map((pat) => <option key={pat} value={pat} className="bg-[#1C1008]">{pat.charAt(0).toUpperCase() + pat.slice(1)}</option>)}
+                </select>
+                <ImageUploadField value={report.coverPage.logoUrl} onChange={(url) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, logoUrl: url } }))} placeholder="Logo" />
+                <ImageUploadField value={report.coverPage.backgroundImageUrl} onChange={(url) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, backgroundImageUrl: url } }))} placeholder="Background image" />
+              </>
+            )}
+          </>
+        )}
+      </Section>
+
+      {/* Document Settings */}
+      <Section title="Document">
+        <div>
+          {label('Page Size')}
+          <select value={report.pageSize} onChange={(e) => up('pageSize', e.target.value)} className={inputCls}>
+            <option value="A4" className="bg-[#1C1008]">A4 (210 × 297 mm)</option>
+            <option value="Letter" className="bg-[#1C1008]">Letter (8.5 × 11 in)</option>
+          </select>
+        </div>
+        {advanced && (
+          <div>
+            {label('Document Type')}
+            <select value={report.documentType} onChange={(e) => up('documentType', e.target.value)} className={inputCls}>
+              {DOCUMENT_TYPES.map(({ id, label: lbl }) => <option key={id} value={id} className="bg-[#1C1008]">{lbl}</option>)}
+            </select>
+          </div>
+        )}
+      </Section>
+    </div>
+  )
+}
+
+// ── Design Panel (legacy — kept for reference, replaced by DesignStudio) ─────
 
 function DesignPanel({ report, onUpdateReport }: { report: ReportData; onUpdateReport: (u: (p: ReportData) => ReportData) => void }) {
   const [packs, setPacks] = useState<DesignPack[]>(() => getAllDesignPacks())
@@ -2354,6 +3044,66 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
                     <span style={{ fontWeight: 600, color: dp.primaryColor }}>{idx + 1}</span>
                   </>
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    case 'callout': {
+      const variantPrint: Record<string, { border: string; bg: string; text: string }> = {
+        info:    { border: '#3B82F6', bg: '#EFF6FF', text: '#1E40AF' },
+        warning: { border: '#F59E0B', bg: '#FFFBEB', text: '#92400E' },
+        success: { border: '#10B981', bg: '#ECFDF5', text: '#065F46' },
+        danger:  { border: '#EF4444', bg: '#FEF2F2', text: '#991B1B' },
+      }
+      const vs = variantPrint[(block as CalloutBlock).variant] ?? variantPrint.info
+      return (
+        <div style={{ borderLeft: `4px solid ${vs.border}`, background: vs.bg, color: vs.text, padding: '8pt 12pt', borderRadius: '4pt', fontSize: '10pt', fontFamily: dp.fontFamily, lineHeight: 1.5 }}>
+          {(block as CalloutBlock).content}
+        </div>
+      )
+    }
+    case 'quote':
+      return (
+        <div style={{ borderLeft: `4px solid ${dp.accentColor}`, paddingLeft: '12pt', fontFamily: dp.fontFamily, margin: '6pt 0' }}>
+          <p style={{ fontStyle: 'italic', fontSize: '12pt', color: dp.headingColor, lineHeight: 1.6 }}>&ldquo;{(block as QuoteBlock).content}&rdquo;</p>
+          {(block as QuoteBlock).attribution && (
+            <p style={{ fontSize: '9pt', color: dp.textColor, marginTop: '4pt' }}>{(block as QuoteBlock).attribution}</p>
+          )}
+        </div>
+      )
+    case 'status': {
+      const statusColors: Record<string, string> = { done: '#10B981', 'in-progress': '#3B82F6', pending: '#94A3B8', blocked: '#EF4444' }
+      const statusLabels: Record<string, string> = { done: '✓ Done', 'in-progress': '⟳ In Progress', pending: '○ Pending', blocked: '✕ Blocked' }
+      return (
+        <div style={{ fontFamily: dp.fontFamily }}>
+          {(block as StatusBlock).title && <div style={{ fontWeight: 700, fontSize: '12pt', color: dp.headingColor, marginBottom: '6pt' }}>{(block as StatusBlock).title}</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4pt' }}>
+            {(block as StatusBlock).items.map((item) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4pt 8pt', background: '#F8FAFC', borderRadius: '3pt', fontSize: '10pt' }}>
+                <span style={{ color: dp.textColor }}>{item.label}</span>
+                <span style={{ color: statusColors[item.status], fontWeight: 600, fontSize: '9pt' }}>{statusLabels[item.status]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    case 'progress': {
+      return (
+        <div style={{ fontFamily: dp.fontFamily }}>
+          {(block as ProgressBlock).title && <div style={{ fontWeight: 700, fontSize: '12pt', color: dp.headingColor, marginBottom: '6pt' }}>{(block as ProgressBlock).title}</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6pt' }}>
+            {(block as ProgressBlock).items.map((item) => (
+              <div key={item.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10pt', color: dp.textColor, marginBottom: '2pt' }}>
+                  <span>{item.label}</span>
+                  <span style={{ fontWeight: 600 }}>{item.value}%</span>
+                </div>
+                <div style={{ background: '#E2E8F0', borderRadius: '99pt', height: '8pt', overflow: 'hidden' }}>
+                  <div style={{ width: `${item.value}%`, height: '100%', background: item.color || dp.accentColor, borderRadius: '99pt' }} />
+                </div>
               </div>
             ))}
           </div>
