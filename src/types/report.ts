@@ -167,6 +167,7 @@ export interface ChartBlock {
   height: number
   showLegend: boolean
   showGrid: boolean
+  showLabels: boolean
   sourceFile: string
   bgColor?: string
 }
@@ -287,6 +288,15 @@ export interface DesignPack {
 
 export type ReportStatus = 'draft' | 'published' | 'archived'
 
+export interface CoverFieldStyle {
+  bold?: boolean
+  italic?: boolean
+  fontSize?: number
+  align?: 'left' | 'center' | 'right'
+  color?: string
+  bgColor?: string
+}
+
 export interface ReportCoverPage {
   enabled: boolean
   companyName: string
@@ -300,6 +310,12 @@ export interface ReportCoverPage {
   textColor: string
   pattern: 'none' | 'grid' | 'dots' | 'diagonal'
   coverBlocks?: ReportBlock[]
+  fieldStyles?: {
+    reportTitle?: CoverFieldStyle
+    subtitle?: CoverFieldStyle
+    companyName?: CoverFieldStyle
+    date?: CoverFieldStyle
+  }
 }
 
 export interface ReportBranding {

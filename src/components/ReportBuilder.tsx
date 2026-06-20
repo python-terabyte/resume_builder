@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useReactToPrint } from 'react-to-print'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -12,7 +12,7 @@ import { REPORT_TEMPLATES, TEMPLATE_CATEGORIES, type ReportTemplate } from '@/li
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
   ResponsiveContainer,
 } from 'recharts'
 import {
@@ -96,6 +96,7 @@ function createBlock(type: ReportBlockType, dp: DesignPack): ReportBlock {
         height: 280,
         showLegend: true,
         showGrid: true,
+        showLabels: true,
         sourceFile: '',
       }
     case 'toc':
@@ -210,7 +211,9 @@ export default function ReportBuilder() {
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
   const [selectedShapePageId, setSelectedShapePageId] = useState<string | null>(null)
   const [isCoverSelected, setIsCoverSelected] = useState(false)
+  const [focusedCoverField, setFocusedCoverField] = useState<keyof NonNullable<ReportData['coverPage']['fieldStyles']> | null>(null)
   const [tableFormatAPI, setTableFormatAPI] = useState<TableFormatAPI | null>(null)
+  useEffect(() => { if (!isCoverSelected) setFocusedCoverField(null) }, [isCoverSelected])
   const printRef = useRef<HTMLDivElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleTableFormatAPIChange = useCallback((api: TableFormatAPI | null) => setTableFormatAPI(api), [])
@@ -355,6 +358,7 @@ export default function ReportBuilder() {
   }
 
   function updateBlock(pageId: string, blockId: string, updates: Record<string, unknown>) {
+    if (pageId === '__cover__') { updateCoverBlock(blockId, updates); return }
     updateReport((prev) => ({
       ...prev,
       pages: prev.pages.map((p) =>
@@ -367,6 +371,7 @@ export default function ReportBuilder() {
   }
 
   function deleteBlock(pageId: string, blockId: string) {
+    if (pageId === '__cover__') { deleteCoverBlock(blockId); return }
     updateReport((prev) => ({
       ...prev,
       pages: prev.pages.map((p) =>
@@ -417,6 +422,7 @@ export default function ReportBuilder() {
   }
 
   function moveBlock(pageId: string, blockId: string, dir: 'up' | 'down') {
+    if (pageId === '__cover__') { moveCoverBlock(blockId, dir); return }
     updateReport((prev) => ({
       ...prev,
       pages: prev.pages.map((p) => {
@@ -579,12 +585,18 @@ export default function ReportBuilder() {
     }
   }
 
-  // Find selected block + its page
+  // Find selected block + its page (also checks cover blocks via virtual '__cover__' page id)
   let selectedBlock: ReportBlock | null = null
   let selectedBlockPageId: string | null = null
-  for (const p of report.pages) {
-    const b = p.blocks.find((b) => b.id === selectedBlockId)
-    if (b) { selectedBlock = b; selectedBlockPageId = p.id; break }
+  const coverBlockMatch = (report.coverPage.coverBlocks ?? []).find((b) => b.id === selectedBlockId)
+  if (coverBlockMatch) {
+    selectedBlock = coverBlockMatch
+    selectedBlockPageId = '__cover__'
+  } else {
+    for (const p of report.pages) {
+      const b = p.blocks.find((b) => b.id === selectedBlockId)
+      if (b) { selectedBlock = b; selectedBlockPageId = p.id; break }
+    }
   }
 
   // Find selected shape
@@ -781,6 +793,14 @@ export default function ReportBuilder() {
         onDelete={selectedBlock && selectedBlockPageId
           ? () => deleteBlock(selectedBlockPageId, selectedBlock.id)
           : undefined}
+        coverField={focusedCoverField ? {
+          fieldName: focusedCoverField,
+          style: report.coverPage.fieldStyles?.[focusedCoverField] ?? {},
+          onUpdate: (s) => updateReport((prev) => ({
+            ...prev,
+            coverPage: { ...prev.coverPage, fieldStyles: { ...prev.coverPage.fieldStyles, [focusedCoverField]: s } },
+          })),
+        } : null}
       />
 
       {/* ── Body ── */}
@@ -791,8 +811,16 @@ export default function ReportBuilder() {
             <LeftPanel
               report={report}
               selectedPageId={selectedPageId}
+              isCoverSelected={isCoverSelected}
               leftTab={leftTab}
               setLeftTab={setLeftTab}
+              onSelectCover={() => {
+                setIsCoverSelected(true)
+                setSelectedPageId(null)
+                setSelectedBlockId(null)
+                setSelectedShapeId(null)
+                setTimeout(() => document.getElementById('page-cover')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+              }}
               onSelectPage={(id) => {
                 setSelectedPageId(id)
                 setSelectedBlockId(null)
@@ -828,50 +856,74 @@ export default function ReportBuilder() {
             <div className="anim-orb absolute rounded-full" style={{ width: 400, height: 400, top: -100, right: -100, background: 'radial-gradient(circle, rgba(201,168,76,.06) 0%, transparent 70%)', filter: 'blur(40px)' }} />
             <div className="anim-orb-slow absolute rounded-full" style={{ width: 300, height: 300, bottom: -80, left: -80, background: 'radial-gradient(circle, rgba(13,144,128,.05) 0%, transparent 70%)', filter: 'blur(40px)' }} />
           </div>
-          <div className="relative z-10 flex flex-col items-center py-8 px-4 gap-6">
+          <div className="relative z-10 flex flex-col items-center py-8 px-4 gap-0">
             {report.coverPage.enabled && (
-              <CoverPageView
-                coverPage={report.coverPage}
-                dp={dp}
-                watermark={report.watermark}
-                isSelected={isCoverSelected}
-                selectedBlockId={selectedBlockId}
-                onSelect={() => { setIsCoverSelected(true); setSelectedBlockId(null); setSelectedShapeId(null) }}
-                onSelectBlock={(id) => { setSelectedBlockId(id); setIsCoverSelected(true); setSelectedShapeId(null) }}
-                onAddCoverBlock={addCoverBlock}
-                onUpdateCoverBlock={updateCoverBlock}
-                onDeleteCoverBlock={deleteCoverBlock}
-                onMoveCoverBlock={moveCoverBlock}
-                onUpdateCoverPage={(upd) => updateReport((p) => ({ ...p, coverPage: { ...p.coverPage, ...upd } }))}
-                onFormatAPIChange={handleTableFormatAPIChange}
-              />
+              <>
+                <CoverPageView
+                  coverPage={report.coverPage}
+                  dp={dp}
+                  watermark={report.watermark}
+                  isSelected={isCoverSelected}
+                  selectedBlockId={selectedBlockId}
+                  onSelect={() => { setIsCoverSelected(true); setSelectedBlockId(null); setSelectedShapeId(null) }}
+                  onSelectBlock={(id) => { setSelectedBlockId(id); setIsCoverSelected(true); setSelectedShapeId(null); setSelectedPageId(null) }}
+                  onAddCoverBlock={addCoverBlock}
+                  onUpdateCoverBlock={updateCoverBlock}
+                  onDeleteCoverBlock={deleteCoverBlock}
+                  onMoveCoverBlock={moveCoverBlock}
+                  onUpdateCoverPage={(upd) => updateReport((p) => ({ ...p, coverPage: { ...p.coverPage, ...upd } }))}
+                  onFormatAPIChange={handleTableFormatAPIChange}
+                  onCoverFieldFocus={(f) => { setFocusedCoverField(f); if (f) setSelectedBlockId(null) }}
+                />
+                {/* Page break after cover */}
+                <div className="no-print flex w-full max-w-[900px] items-center gap-3 py-3">
+                  <div className="flex-1 border-t border-dashed border-white/20" />
+                  <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-[#120B07] px-3 py-1 text-[10px] font-medium tracking-wide text-slate-500">
+                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12M18 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12" /></svg>
+                    Page 1
+                  </span>
+                  <div className="flex-1 border-t border-dashed border-white/20" />
+                </div>
+              </>
             )}
             {report.pages.map((page, pageIdx) => (
-              <ReportPageView
-                key={page.id}
-                page={page}
-                pageNum={pageIdx + 1}
-                dp={dp}
-                report={report}
-                isSelectedPage={selectedPageId === page.id}
-                selectedBlockId={selectedBlockId}
-                selectedShapeId={selectedShapeId}
-                onSelectPage={() => { setSelectedPageId(page.id); setIsCoverSelected(false) }}
-                onSelectBlock={(id) => { setSelectedBlockId(id); setSelectedPageId(page.id); setSelectedShapeId(null); setIsCoverSelected(false) }}
-                onSelectShape={(id) => { setSelectedShapeId(id); setSelectedShapePageId(page.id); setSelectedBlockId(null); setIsCoverSelected(false) }}
-                onDeleteBlock={(blockId) => deleteBlock(page.id, blockId)}
-                onMoveBlock={(blockId, dir) => moveBlock(page.id, blockId, dir)}
-                onAddBlock={(type) => addBlock(page.id, type)}
-                onUpdateBlock={(blockId, updates) => updateBlock(page.id, blockId, updates)}
-                onUpdateShape={(shapeId, upd) => updateShape(page.id, shapeId, upd)}
-                onDeleteShape={(shapeId) => deleteShape(page.id, shapeId)}
-                onReorderShape={(shapeId, dir) => reorderShape(page.id, shapeId, dir)}
-                onFormatAPIChange={handleTableFormatAPIChange}
-              />
+              <React.Fragment key={page.id}>
+                <ReportPageView
+                  page={page}
+                  pageNum={pageIdx + 1}
+                  dp={dp}
+                  report={report}
+                  isSelectedPage={selectedPageId === page.id}
+                  selectedBlockId={selectedBlockId}
+                  selectedShapeId={selectedShapeId}
+                  onSelectPage={() => { setSelectedPageId(page.id); setIsCoverSelected(false) }}
+                  onSelectBlock={(id) => { setSelectedBlockId(id); setSelectedPageId(page.id); setSelectedShapeId(null); setIsCoverSelected(false) }}
+                  onSelectShape={(id) => { setSelectedShapeId(id); setSelectedShapePageId(page.id); setSelectedBlockId(null); setIsCoverSelected(false) }}
+                  onDeleteBlock={(blockId) => deleteBlock(page.id, blockId)}
+                  onMoveBlock={(blockId, dir) => moveBlock(page.id, blockId, dir)}
+                  onAddBlock={(type) => addBlock(page.id, type)}
+                  onUpdateBlock={(blockId, updates) => updateBlock(page.id, blockId, updates)}
+                  onUpdateShape={(shapeId, upd) => updateShape(page.id, shapeId, upd)}
+                  onDeleteShape={(shapeId) => deleteShape(page.id, shapeId)}
+                  onReorderShape={(shapeId, dir) => reorderShape(page.id, shapeId, dir)}
+                  onFormatAPIChange={handleTableFormatAPIChange}
+                />
+                {/* Page break between pages */}
+                {pageIdx < report.pages.length - 1 && (
+                  <div className="no-print flex w-full max-w-[900px] items-center gap-3 py-3">
+                    <div className="flex-1 border-t border-dashed border-white/20" />
+                    <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-[#120B07] px-3 py-1 text-[10px] font-medium tracking-wide text-slate-500">
+                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12M18 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12" /></svg>
+                      Page {pageIdx + 2}
+                    </span>
+                    <div className="flex-1 border-t border-dashed border-white/20" />
+                  </div>
+                )}
+              </React.Fragment>
             ))}
             <button
               onClick={addPage}
-              className="flex items-center gap-2 rounded-xl border border-dashed border-white/20 px-6 py-3 text-sm font-medium text-slate-400 transition hover:border-[#C9A84C] hover:text-[#C9A84C]"
+              className="mt-6 flex items-center gap-2 rounded-xl border border-dashed border-white/20 px-6 py-3 text-sm font-medium text-slate-400 transition hover:border-[#C9A84C] hover:text-[#C9A84C]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -968,14 +1020,16 @@ export default function ReportBuilder() {
 // ── Left Panel ──────────────────────────────────────────────────────────────
 
 function LeftPanel({
-  report, selectedPageId, leftTab, setLeftTab,
-  onSelectPage, onAddPage, onDeletePage, onDuplicatePage, onMovePage, onUpdatePageTitle, onAddBlock, onAddShape, onInsertToc,
+  report, selectedPageId, isCoverSelected, leftTab, setLeftTab,
+  onSelectPage, onSelectCover, onAddPage, onDeletePage, onDuplicatePage, onMovePage, onUpdatePageTitle, onAddBlock, onAddShape, onInsertToc,
 }: {
   report: ReportData
   selectedPageId: string | null
+  isCoverSelected: boolean
   leftTab: 'pages' | 'insert'
   setLeftTab: (t: 'pages' | 'insert') => void
   onSelectPage: (id: string) => void
+  onSelectCover: () => void
   onAddPage: () => void
   onDeletePage: (id: string) => void
   onDuplicatePage: (id: string) => void
@@ -1040,7 +1094,10 @@ function LeftPanel({
         {leftTab === 'pages' ? (
           <>
             {report.coverPage.enabled && (
-              <div className="mb-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-400">
+              <div
+                className={`mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition ${isCoverSelected ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+                onClick={onSelectCover}
+              >
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#C9A84C]/20 text-[#C9A84C] text-[10px] font-bold">C</span>
                 Cover Page
               </div>
@@ -1278,7 +1335,7 @@ function logoPositionStyle(pos: string | undefined): React.CSSProperties {
 function CoverPageView({
   coverPage, dp, watermark, isSelected, selectedBlockId,
   onSelect, onSelectBlock, onAddCoverBlock, onUpdateCoverBlock, onDeleteCoverBlock, onMoveCoverBlock,
-  onUpdateCoverPage, onFormatAPIChange,
+  onUpdateCoverPage, onFormatAPIChange, onCoverFieldFocus,
 }: {
   coverPage: ReportData['coverPage']
   dp: DesignPack
@@ -1293,6 +1350,7 @@ function CoverPageView({
   onMoveCoverBlock: (blockId: string, dir: 'up' | 'down') => void
   onUpdateCoverPage: (upd: Partial<ReportData['coverPage']>) => void
   onFormatAPIChange?: (api: TableFormatAPI | null) => void
+  onCoverFieldFocus?: (field: keyof NonNullable<ReportData['coverPage']['fieldStyles']> | null) => void
 }) {
   const [showInsert, setShowInsert] = useState(false)
   const bg = coverPage.primaryColor || dp.primaryColor
@@ -1347,12 +1405,95 @@ function CoverPageView({
 
       {/* Main content area */}
       <div className="relative flex flex-col justify-end p-12 pt-24" style={{ minHeight: '520px', color: fg, zIndex: 1 }}>
-        {coverPage.companyName && (
-          <p className="mb-5 text-sm font-medium uppercase tracking-widest opacity-70">{coverPage.companyName}</p>
-        )}
-        <h1 className="mb-3 text-4xl font-bold leading-tight">{coverPage.reportTitle || 'Report Title'}</h1>
-        {coverPage.subtitle && <p className="mb-2 text-xl opacity-80">{coverPage.subtitle}</p>}
-        {coverPage.date && <p className="mt-4 text-sm opacity-60">{coverPage.date}</p>}
+        {/* Cover page inline-editable fields — fieldStyles stores per-field formatting */}
+        {(coverPage.companyName || isSelected) && (() => {
+          const s = coverPage.fieldStyles?.companyName ?? {}
+          return (
+            <InlineField
+              value={coverPage.companyName || ''}
+              onChange={(v) => onUpdateCoverPage({ companyName: v })}
+              placeholder="Company Name"
+              isSelected={isSelected}
+              onFocus={() => onCoverFieldFocus?.('companyName')}
+              editBg={bg}
+              className="mb-5 text-sm font-medium uppercase tracking-widest"
+              style={{
+                color: s.color || fg, opacity: s.color ? 1 : 0.7,
+                fontWeight: s.bold ? 700 : undefined,
+                fontStyle: s.italic ? 'italic' : undefined,
+                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
+                textAlign: s.align,
+                backgroundColor: s.bgColor,
+              }}
+            />
+          )
+        })()}
+        {(() => {
+          const s = coverPage.fieldStyles?.reportTitle ?? {}
+          return (
+            <InlineField
+              value={coverPage.reportTitle || ''}
+              onChange={(v) => onUpdateCoverPage({ reportTitle: v })}
+              placeholder="Report Title"
+              isSelected={isSelected}
+              onFocus={() => onCoverFieldFocus?.('reportTitle')}
+              editBg={bg}
+              className="mb-3 text-4xl font-bold leading-tight"
+              style={{
+                color: s.color || fg,
+                fontWeight: s.bold !== undefined ? (s.bold ? 700 : 400) : 700,
+                fontStyle: s.italic ? 'italic' : undefined,
+                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
+                textAlign: s.align,
+                backgroundColor: s.bgColor,
+              }}
+            />
+          )
+        })()}
+        {(coverPage.subtitle || isSelected) && (() => {
+          const s = coverPage.fieldStyles?.subtitle ?? {}
+          return (
+            <InlineField
+              value={coverPage.subtitle || ''}
+              onChange={(v) => onUpdateCoverPage({ subtitle: v })}
+              placeholder="Subtitle (optional)"
+              isSelected={isSelected}
+              onFocus={() => onCoverFieldFocus?.('subtitle')}
+              editBg={bg}
+              className="mb-2 text-xl"
+              style={{
+                color: s.color || fg, opacity: s.color ? 1 : 0.8,
+                fontWeight: s.bold ? 700 : undefined,
+                fontStyle: s.italic ? 'italic' : undefined,
+                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
+                textAlign: s.align,
+                backgroundColor: s.bgColor,
+              }}
+            />
+          )
+        })()}
+        {(coverPage.date || isSelected) && (() => {
+          const s = coverPage.fieldStyles?.date ?? {}
+          return (
+            <InlineField
+              value={coverPage.date || ''}
+              onChange={(v) => onUpdateCoverPage({ date: v })}
+              placeholder="Date (optional)"
+              isSelected={isSelected}
+              onFocus={() => onCoverFieldFocus?.('date')}
+              editBg={bg}
+              className="mt-4 text-sm"
+              style={{
+                color: s.color || fg, opacity: s.color ? 1 : 0.6,
+                fontWeight: s.bold ? 700 : undefined,
+                fontStyle: s.italic ? 'italic' : undefined,
+                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
+                textAlign: s.align,
+                backgroundColor: s.bgColor,
+              }}
+            />
+          )
+        })()}
 
         {/* Cover blocks */}
         {coverBlocks.length > 0 && (
@@ -1414,7 +1555,7 @@ function CoverPageView({
       {/* Selected indicator */}
       {isSelected && (
         <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full bg-[#C9A84C] px-2 py-0.5 text-[10px] font-semibold text-[#1C0D03]">
-          Cover Page — Edit in Properties →
+          Cover Page
         </div>
       )}
     </div>
@@ -1602,6 +1743,76 @@ function ReportPageView({
   )
 }
 
+// ── Inline Editing Primitives ───────────────────────────────────────────────
+
+const FIELD_EDITING_STYLE: React.CSSProperties = {
+  fontSize: 'inherit', fontFamily: 'inherit', fontWeight: 'inherit',
+  fontStyle: 'inherit', color: 'inherit', textAlign: 'inherit',
+  lineHeight: 'inherit', letterSpacing: 'inherit',
+  background: 'transparent', border: 'none', outline: 'none',
+  padding: 0, margin: 0, cursor: 'text',
+  borderBottom: '1.5px dashed rgba(59,130,246,0.5)',
+}
+
+function InlineField({ value, onChange, placeholder, className, style, isSelected, inline = false, onFocus, editBg }: {
+  value: string; onChange: (v: string) => void; placeholder?: string
+  className?: string; style?: React.CSSProperties; isSelected: boolean; inline?: boolean
+  onFocus?: () => void; editBg?: string
+}) {
+  if (!isSelected) {
+    return (
+      <span className={className} style={{ ...style, display: inline ? 'inline' : 'block' }}>
+        {value || (placeholder ? <span style={{ opacity: 0.28, fontStyle: 'italic', fontWeight: 'normal' }}>{placeholder}</span> : ' ')}
+      </span>
+    )
+  }
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      onFocus={onFocus}
+      className={className}
+      style={{ ...FIELD_EDITING_STYLE, backgroundColor: editBg ?? 'transparent', display: inline ? 'inline' : 'block', width: inline ? 'auto' : '100%', minWidth: inline ? '1ch' : undefined, ...style }}
+    />
+  )
+}
+
+function InlineArea({ value, onChange, placeholder, className, style, isSelected }: {
+  value: string; onChange: (v: string) => void; placeholder?: string
+  className?: string; style?: React.CSSProperties; isSelected: boolean
+}) {
+  if (!isSelected) {
+    return (
+      <div className={`whitespace-pre-wrap ${className || ''}`} style={style}>
+        {value || (placeholder ? <span style={{ opacity: 0.28, fontStyle: 'italic' }}>{placeholder}</span> : null)}
+      </div>
+    )
+  }
+  const lines = (value || '').split('\n').length
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      rows={Math.max(2, lines + 1)}
+      className={className}
+      style={{
+        fontSize: 'inherit', fontFamily: 'inherit', fontWeight: 'inherit',
+        fontStyle: 'inherit', color: 'inherit', textAlign: 'inherit', lineHeight: 'inherit',
+        display: 'block', width: '100%', background: 'rgba(59,130,246,0.03)',
+        border: '1.5px dashed rgba(59,130,246,0.4)', borderRadius: 4,
+        outline: 'none', padding: '4px 6px', resize: 'none', cursor: 'text', minHeight: '3em',
+        ...style,
+      }}
+    />
+  )
+}
+
 // ── Block Wrapper ───────────────────────────────────────────────────────────
 
 function BlockWrapper({
@@ -1655,7 +1866,7 @@ function BlockWrapper({
         </button>
       </div>
 
-      {/* Block content — tables use inline interactive view */}
+      {/* Block content — tables use inline interactive view; all others use BlockContent for inline editing */}
       {block.type === 'table' && onQuickUpdate ? (
         <TableBlockView
           block={block as TableBlock}
@@ -1666,40 +1877,50 @@ function BlockWrapper({
           onFormatAPIChange={onFormatAPIChange}
         />
       ) : (
-        renderBlockContent(block, dp, report)
+        <BlockContent block={block} dp={dp} report={report} isSelected={isSelected} onUpdate={onQuickUpdate} />
       )}
     </div>
   )
 }
 
-// ── Block Content Renderers ─────────────────────────────────────────────────
+// ── Block Content (inline-editable) ────────────────────────────────────────
 
-function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportData): React.ReactNode {
+function BlockContent({ block, dp, report, isSelected, onUpdate }: {
+  block: ReportBlock; dp: DesignPack; report?: ReportData
+  isSelected: boolean; onUpdate?: (updates: Record<string, unknown>) => void
+}) {
   switch (block.type) {
     case 'heading': {
       const sizes: Record<number, string> = { 1: 'text-2xl', 2: 'text-xl', 3: 'text-lg' }
       const defaultWeights: Record<number, number> = { 1: 700, 2: 600, 3: 600 }
       const margins: Record<number, string> = { 1: 'mb-3 mt-2', 2: 'mb-2 mt-1', 3: 'mb-1' }
       return (
-        <div
-          className={`${block.fontSize ? '' : sizes[block.level]} ${margins[block.level]} leading-tight`}
-          style={{
-            color: block.color || dp.headingColor,
-            textAlign: block.align,
-            fontFamily: dp.fontFamily,
-            fontWeight: block.bold !== undefined ? (block.bold ? 700 : 400) : defaultWeights[block.level],
-            fontStyle: block.italic ? 'italic' : undefined,
-            fontSize: block.fontSize ? `${block.fontSize}px` : undefined,
-          }}
-        >
-          {block.content || 'Heading'}
+        <div className={`${block.fontSize ? '' : sizes[block.level]} ${margins[block.level]} leading-tight`}>
+          <InlineField
+            value={block.content}
+            onChange={(v) => onUpdate?.({ content: v })}
+            placeholder={`Heading ${block.level}`}
+            isSelected={isSelected}
+            style={{
+              color: block.color || dp.headingColor,
+              textAlign: block.align,
+              fontFamily: dp.fontFamily,
+              fontWeight: block.bold !== undefined ? (block.bold ? 700 : 400) : defaultWeights[block.level],
+              fontStyle: block.italic ? 'italic' : undefined,
+              fontSize: block.fontSize ? `${block.fontSize}px` : undefined,
+            }}
+          />
         </div>
       )
     }
+
     case 'text':
       return (
-        <div
-          className="leading-relaxed whitespace-pre-wrap"
+        <InlineArea
+          value={block.content}
+          onChange={(v) => onUpdate?.({ content: v })}
+          placeholder="Start typing..."
+          isSelected={isSelected}
           style={{
             color: block.color || dp.textColor,
             textAlign: block.align,
@@ -1708,27 +1929,21 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
             fontWeight: block.bold ? 600 : undefined,
             fontStyle: block.italic ? 'italic' : undefined,
           }}
-        >
-          {block.content}
-        </div>
+        />
       )
+
     case 'table': {
       const headerBg = block.headerBg || dp.tableHeaderBg
       const headerText = block.headerText || dp.tableHeaderText
       return (
         <div>
-          {block.caption && (
-            <p className="mb-1.5 text-xs text-gray-500 italic">{block.caption}</p>
-          )}
+          {block.caption && <p className="mb-1.5 text-xs text-gray-500 italic">{block.caption}</p>}
           <table className="w-full" style={{ fontFamily: dp.fontFamily, borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed', wordBreak: 'break-word' }}>
             <thead>
               <tr>
                 {block.headers.map((h, i) => (
-                  <th
-                    key={i}
-                    className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
-                    style={{ background: headerBg, color: headerText, border: block.bordered ? `1px solid ${headerBg}30` : 'none', overflowWrap: 'break-word' }}
-                  >
+                  <th key={i} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
+                    style={{ background: headerBg, color: headerText, border: block.bordered ? `1px solid ${headerBg}30` : 'none', overflowWrap: 'break-word' }}>
                     {h}
                   </th>
                 ))}
@@ -1738,22 +1953,14 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
               {block.rows.map((row, rIdx) => (
                 <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white' }}>
                   {row.map((cell, cIdx) => (
-                    <td
-                      key={cIdx}
-                      style={{
-                        textAlign: cell.align,
-                        fontWeight: cell.bold ? 600 : 400,
-                        fontStyle: cell.italic ? 'italic' : 'normal',
-                        textDecoration: cell.underline ? 'underline' : 'none',
-                        color: cell.color || dp.textColor,
-                        background: cell.bgColor || 'transparent',
-                        border: block.bordered ? '1px solid #E5E7EB' : 'none',
-                        paddingTop: '6px', paddingBottom: '6px',
-                        paddingLeft: `${((cell.indentLevel || 0) * 16) + 12}px`,
-                        paddingRight: '12px',
-                        overflowWrap: 'break-word',
-                      }}
-                    >
+                    <td key={cIdx} style={{
+                      textAlign: cell.align, fontWeight: cell.bold ? 600 : 400,
+                      fontStyle: cell.italic ? 'italic' : 'normal', textDecoration: cell.underline ? 'underline' : 'none',
+                      color: cell.color || dp.textColor, background: cell.bgColor || 'transparent',
+                      border: block.bordered ? '1px solid #E5E7EB' : 'none',
+                      paddingTop: '6px', paddingBottom: '6px',
+                      paddingLeft: `${((cell.indentLevel || 0) * 16) + 12}px`, paddingRight: '12px', overflowWrap: 'break-word',
+                    }}>
                       {formatCellContent(cell)}
                     </td>
                   ))}
@@ -1764,6 +1971,7 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
     }
+
     case 'image':
       return (
         <div style={{ textAlign: block.align }}>
@@ -1771,35 +1979,64 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
             <div className={`inline-block ${block.width === 'full' ? 'w-full' : block.width === 'large' ? 'w-3/4' : block.width === 'medium' ? 'w-1/2' : 'w-1/4'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={block.url} alt={block.alt} className="h-auto max-w-full rounded" />
-              {block.caption && <p className="mt-1 text-center text-xs text-gray-500 italic">{block.caption}</p>}
+              <InlineField
+                value={block.caption || ''}
+                onChange={(v) => onUpdate?.({ caption: v })}
+                placeholder="Caption (optional)"
+                isSelected={isSelected}
+                className="mt-1 text-center text-xs text-gray-500 italic"
+              />
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-sm text-gray-400">
-              No image URL set — add one in the properties panel
+              No image URL — add one in the properties panel
             </div>
           )}
         </div>
       )
+
     case 'kpi': {
       const accent = block.accentColor || dp.kpiAccent
       const gridCols: Record<number, string> = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }
+      const updItem = (id: string, field: string, val: unknown) =>
+        onUpdate?.({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
       return (
         <div>
-          {block.title && <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>{block.title}</p>}
+          <InlineField
+            value={block.title || ''}
+            onChange={(v) => onUpdate?.({ title: v })}
+            placeholder="Section title..."
+            isSelected={isSelected}
+            className="mb-3 text-xs font-semibold uppercase tracking-wide"
+            style={{ color: dp.headingColor }}
+          />
           <div className={`grid gap-3 ${gridCols[block.columns]}`}>
             {block.items.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-lg p-3"
-                style={{ background: `${accent}10`, borderLeft: `3px solid ${accent}` }}
-              >
-                <p className="mb-1 text-xs text-gray-500">{item.label}</p>
+              <div key={item.id} className="rounded-lg p-3" style={{ background: `${accent}10`, borderLeft: `3px solid ${accent}` }}>
+                <InlineField
+                  value={item.label}
+                  onChange={(v) => updItem(item.id, 'label', v)}
+                  placeholder="Label"
+                  isSelected={isSelected}
+                  className="mb-1 text-xs text-gray-500"
+                />
                 <p className="text-xl font-bold leading-none" style={{ color: accent }}>
-                  {item.prefix}{item.value}{item.suffix}
+                  {item.prefix}
+                  <InlineField
+                    value={item.value}
+                    onChange={(v) => updItem(item.id, 'value', v)}
+                    placeholder="0"
+                    isSelected={isSelected}
+                    inline
+                    style={{ color: accent, fontWeight: 700, fontSize: '1.25rem', lineHeight: 1 }}
+                  />
+                  {item.suffix}
                 </p>
                 {item.trendValue && (
                   <p className={`mt-1 text-xs font-medium ${item.trend === 'up' ? 'text-emerald-600' : item.trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
-                    {item.trend === 'up' ? '↑' : item.trend === 'down' ? '↓' : '→'} {item.trendValue}
+                    {item.trend === 'up' ? '↑' : item.trend === 'down' ? '↓' : '→'}{' '}
+                    <InlineField value={item.trendValue} onChange={(v) => updItem(item.id, 'trendValue', v)}
+                      placeholder="trend" isSelected={isSelected} inline />
                   </p>
                 )}
               </div>
@@ -1808,8 +2045,10 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
     }
+
     case 'chart':
-      return <ChartBlockView block={block} dp={dp} />
+      return <ChartBlockView block={block} dp={dp} isSelected={isSelected} onUpdate={onUpdate} />
+
     case 'divider': {
       const color = block.color || dp.primaryColor
       const styles: Record<string, string> = { solid: 'solid', dashed: 'dashed', double: 'double' }
@@ -1819,13 +2058,22 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
     }
+
     case 'spacer':
       return <div style={{ height: block.height }} />
+
     case 'toc': {
       const pages = report?.pages ?? []
       return (
         <div style={{ fontFamily: dp.fontFamily }}>
-          <h2 className="mb-3 text-lg font-bold" style={{ color: dp.headingColor }}>{block.title || 'Table of Contents'}</h2>
+          <InlineField
+            value={block.title || ''}
+            onChange={(v) => onUpdate?.({ title: v })}
+            placeholder="Table of Contents"
+            isSelected={isSelected}
+            className="mb-3 text-lg font-bold"
+            style={{ color: dp.headingColor }}
+          />
           <div className="flex flex-col gap-1.5">
             {pages.map((page, idx) => (
               <div key={page.id} className="flex items-center gap-1.5">
@@ -1842,6 +2090,7 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
     }
+
     case 'callout': {
       const variantStyles: Record<string, { border: string; bg: string; icon: string; text: string }> = {
         info:    { border: '#3B82F6', bg: '#EFF6FF', icon: 'ℹ️', text: '#1E40AF' },
@@ -1851,38 +2100,52 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
       }
       const vs = variantStyles[block.variant] ?? variantStyles.info
       return (
-        <div className="flex gap-3 rounded-lg px-4 py-3 leading-relaxed"
-          style={{
-            borderLeft: `4px solid ${vs.border}`,
-            background: block.bgColor || vs.bg,
-            color: vs.text,
-            fontFamily: dp.fontFamily,
-            fontSize: block.fontSize ? `${block.fontSize}px` : '0.875rem',
-            fontWeight: block.bold ? 700 : undefined,
-            fontStyle: block.italic ? 'italic' : undefined,
-          }}>
+        <div className="flex gap-3 rounded-lg px-4 py-3" style={{
+          borderLeft: `4px solid ${vs.border}`, background: block.bgColor || vs.bg, color: vs.text,
+          fontFamily: dp.fontFamily, fontSize: block.fontSize ? `${block.fontSize}px` : '0.875rem',
+          fontWeight: block.bold ? 700 : undefined, fontStyle: block.italic ? 'italic' : undefined,
+        }}>
           <span className="mt-0.5 shrink-0">{vs.icon}</span>
-          <span className="whitespace-pre-wrap">{block.content}</span>
+          <InlineArea
+            value={block.content}
+            onChange={(v) => onUpdate?.({ content: v })}
+            placeholder="Callout text..."
+            isSelected={isSelected}
+            style={{ color: vs.text }}
+          />
         </div>
       )
     }
+
     case 'quote':
       return (
         <div className="py-2" style={{ fontFamily: dp.fontFamily, background: block.bgColor || undefined, borderRadius: block.bgColor ? 6 : undefined, padding: block.bgColor ? '8px 12px' : undefined }}>
           <div className="relative border-l-4 pl-5 py-1" style={{ borderColor: dp.accentColor }}>
             <span className="absolute -left-2 -top-2 text-4xl font-serif leading-none opacity-20" style={{ color: dp.primaryColor }}>"</span>
-            <p className="leading-relaxed" style={{
-              color: block.color || dp.textColor,
-              fontSize: block.fontSize ? `${block.fontSize}px` : '1rem',
-              fontWeight: block.bold ? 700 : undefined,
-              fontStyle: block.italic !== undefined ? (block.italic ? 'italic' : 'normal') : 'italic',
-            }}>{block.content}</p>
-            {block.attribution && (
-              <p className="mt-2 text-xs font-semibold not-italic" style={{ color: dp.primaryColor }}>— {block.attribution}</p>
-            )}
+            <InlineArea
+              value={block.content}
+              onChange={(v) => onUpdate?.({ content: v })}
+              placeholder="Quote text..."
+              isSelected={isSelected}
+              style={{
+                color: block.color || dp.textColor,
+                fontSize: block.fontSize ? `${block.fontSize}px` : '1rem',
+                fontWeight: block.bold ? 700 : undefined,
+                fontStyle: block.italic !== undefined ? (block.italic ? 'italic' : 'normal') : 'italic',
+              }}
+            />
+            <InlineField
+              value={block.attribution || ''}
+              onChange={(v) => onUpdate?.({ attribution: v })}
+              placeholder="— Attribution"
+              isSelected={isSelected}
+              className="mt-2 text-xs font-semibold not-italic"
+              style={{ color: dp.primaryColor }}
+            />
           </div>
         </div>
       )
+
     case 'status': {
       const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
         'done':        { color: '#10B981', icon: '✓', label: 'Done' },
@@ -1890,16 +2153,32 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         'pending':     { color: '#94A3B8', icon: '○', label: 'Pending' },
         'blocked':     { color: '#EF4444', icon: '✗', label: 'Blocked' },
       }
+      const updItem = (id: string, field: string, val: unknown) =>
+        onUpdate?.({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
       return (
         <div style={{ fontFamily: dp.fontFamily }}>
-          {block.title && <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>{block.title}</p>}
+          <InlineField
+            value={block.title || ''}
+            onChange={(v) => onUpdate?.({ title: v })}
+            placeholder="Section title..."
+            isSelected={isSelected}
+            className="mb-3 text-xs font-semibold uppercase tracking-wide"
+            style={{ color: dp.headingColor }}
+          />
           <div className="flex flex-col gap-2">
             {block.items.map((item) => {
               const cfg = statusConfig[item.status] ?? statusConfig.pending
               return (
                 <div key={item.id} className="flex items-center gap-3">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: cfg.color }}>{cfg.icon}</span>
-                  <span className="flex-1 text-sm" style={{ color: dp.textColor }}>{item.label}</span>
+                  <InlineField
+                    value={item.label}
+                    onChange={(v) => updItem(item.id, 'label', v)}
+                    placeholder="Item label"
+                    isSelected={isSelected}
+                    className="flex-1 text-sm"
+                    style={{ color: dp.textColor }}
+                  />
                   <span className="text-xs font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
                 </div>
               )
@@ -1908,25 +2187,61 @@ function renderBlockContent(block: ReportBlock, dp: DesignPack, report?: ReportD
         </div>
       )
     }
-    case 'progress':
+
+    case 'progress': {
+      const updItem = (id: string, field: string, val: unknown) =>
+        onUpdate?.({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
       return (
         <div style={{ fontFamily: dp.fontFamily }}>
-          {block.title && <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>{block.title}</p>}
+          <InlineField
+            value={block.title || ''}
+            onChange={(v) => onUpdate?.({ title: v })}
+            placeholder="Section title..."
+            isSelected={isSelected}
+            className="mb-3 text-xs font-semibold uppercase tracking-wide"
+            style={{ color: dp.headingColor }}
+          />
           <div className="flex flex-col gap-3">
             {block.items.map((item) => (
               <div key={item.id}>
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm" style={{ color: dp.textColor }}>{item.label}</span>
-                  <span className="text-xs font-semibold tabular-nums" style={{ color: item.color || dp.accentColor }}>{item.value}%</span>
+                  <InlineField
+                    value={item.label}
+                    onChange={(v) => updItem(item.id, 'label', v)}
+                    placeholder="Label"
+                    isSelected={isSelected}
+                    className="text-sm"
+                    style={{ color: dp.textColor }}
+                  />
+                  <span className="flex items-center gap-0.5 text-xs font-semibold tabular-nums" style={{ color: item.color || dp.accentColor }}>
+                    {isSelected ? (
+                      <input
+                        type="number" min={0} max={100} step={1}
+                        value={item.value}
+                        onChange={(e) => updItem(item.id, 'value', Math.min(100, Math.max(0, Number(e.target.value))))}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        style={{ ...FIELD_EDITING_STYLE, width: '3.5em', textAlign: 'right', color: item.color || dp.accentColor, fontWeight: 600, fontSize: 'inherit' }}
+                        className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                    ) : (
+                      <span>{item.value}</span>
+                    )}
+                    %
+                  </span>
                 </div>
                 <div className="h-2 w-full rounded-full" style={{ background: (item.color || dp.accentColor) + '20' }}>
-                  <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, item.value))}%`, background: item.color || dp.accentColor }} />
+                  <div className="h-2 rounded-full" style={{ width: `${Math.min(100, Math.max(0, item.value))}%`, background: item.color || dp.accentColor }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
       )
+    }
+
+    default:
+      return null
   }
 }
 
@@ -2419,8 +2734,14 @@ function TableBlockView({
 
 // ── Permanent Format Toolbar ────────────────────────────────────────────────
 
+type CoverFieldFocus = {
+  fieldName: string
+  style: import('../types/report').CoverFieldStyle
+  onUpdate: (s: import('../types/report').CoverFieldStyle) => void
+}
+
 function FormatToolbar({
-  selectedBlock, tableFormatAPI, dp, onQuickUpdate, onMoveUp, onMoveDown, onDelete,
+  selectedBlock, tableFormatAPI, dp, onQuickUpdate, onMoveUp, onMoveDown, onDelete, coverField,
 }: {
   selectedBlock: ReportBlock | null
   tableFormatAPI: TableFormatAPI | null
@@ -2429,6 +2750,7 @@ function FormatToolbar({
   onMoveUp?: () => void
   onMoveDown?: () => void
   onDelete?: () => void
+  coverField?: CoverFieldFocus | null
 }) {
   const sep = <div className="mx-1 h-5 w-px bg-white/15 shrink-0" />
   const btn = (active: boolean, onClick: () => void, title: string, children: React.ReactNode, key?: string | number) => (
@@ -2768,8 +3090,6 @@ function FormatToolbar({
         {sep}
         {cpick(kb.accentColor || dp.kpiAccent, (v) => onQuickUpdate({ accentColor: v }), 'Accent')}
         {cpick(kb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
-        {sep}
-        <span className="text-[10px] text-slate-600">Edit items in Properties panel</span>
         {ops}
       </div>
     )
@@ -2784,6 +3104,7 @@ function FormatToolbar({
         {sep}
         {btn(cb.showLegend, () => onQuickUpdate({ showLegend: !cb.showLegend }), 'Toggle legend', 'Legend')}
         {btn(cb.showGrid, () => onQuickUpdate({ showGrid: !cb.showGrid }), 'Toggle grid', 'Grid')}
+        {btn(cb.showLabels !== false, () => onQuickUpdate({ showLabels: !(cb.showLabels !== false) }), 'Toggle value labels', 'Labels')}
         {sep}
         <label className="flex h-7 shrink-0 items-center gap-1 text-[10px] text-slate-400" title="Chart height">
           <span>H</span>
@@ -2794,8 +3115,6 @@ function FormatToolbar({
         </label>
         {sep}
         {cpick(cb.bgColor || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
-        {sep}
-        <span className="text-[10px] text-slate-600">Edit data in Properties panel</span>
         {ops}
       </div>
     )
@@ -2825,8 +3144,6 @@ function FormatToolbar({
         {lbl(typeLabel)}
         {sep}
         {cpick((sb.bgColor) || '#ffffff', (v) => onQuickUpdate({ bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
-        {sep}
-        <span className="text-[10px] text-slate-600">Edit items in Properties panel</span>
         {ops}
       </div>
     )
@@ -2854,6 +3171,37 @@ function FormatToolbar({
       <div className={row}>
         {lbl(typeLabel)}
         {ops}
+      </div>
+    )
+  }
+
+  // ── Cover page field focused ────────────────────────────────────────────────
+  if (coverField && !selectedBlock) {
+    const { fieldName, style: cs, onUpdate: updCS } = coverField
+    const fieldLabels: Record<string, string> = {
+      reportTitle: 'Report Title', subtitle: 'Subtitle',
+      companyName: 'Company Name', date: 'Date',
+    }
+    // H1/H2/H3 map to size presets matching heading defaults
+    const H_SIZES: Record<number, number> = { 1: 36, 2: 28, 3: 22 }
+    const activeLevel = cs.fontSize ? ([1, 2, 3] as const).find((l) => H_SIZES[l] === cs.fontSize) : undefined
+    return (
+      <div className={row} onMouseDown={(e) => e.preventDefault()}>
+        {lbl(fieldLabels[fieldName] ?? fieldName)}
+        {sep}
+        {([1, 2, 3] as const).map((l) => btn(activeLevel === l, () => updCS({ ...cs, fontSize: H_SIZES[l] }), `Preset H${l}`, `H${l}`, l))}
+        {sep}
+        {btn(!!cs.bold,   () => updCS({ ...cs, bold:   !cs.bold }),   'Bold',   <span className="font-bold text-sm">B</span>)}
+        {btn(!!cs.italic, () => updCS({ ...cs, italic: !cs.italic }), 'Italic', <span className="italic text-sm">I</span>)}
+        {sep}
+        {fsCtrl(cs.fontSize, (v) => updCS({ ...cs, fontSize: v }))}
+        {sep}
+        {btn(cs.align === 'left',   () => updCS({ ...cs, align: 'left' }),   'Align left',   alignL)}
+        {btn(cs.align === 'center', () => updCS({ ...cs, align: 'center' }), 'Align center', alignC)}
+        {btn(cs.align === 'right',  () => updCS({ ...cs, align: 'right' }),  'Align right',  alignR)}
+        {sep}
+        {cpick(cs.color || '#ffffff', (v) => updCS({ ...cs, color: v }), 'Text')}
+        {cpick(cs.bgColor || '#ffffff', (v) => updCS({ ...cs, bgColor: v === '#ffffff' ? undefined : v }), 'BG')}
       </div>
     )
   }
@@ -2928,8 +3276,8 @@ function RightPanel({
       <div className="flex-1 overflow-y-auto panel-scroll p-3 text-xs text-slate-300">
         {rightTab === 'properties' && (
           <>
-            {isCoverSelected ? (
-              <CoverPageEditor
+            {isCoverSelected && !selectedBlock ? (
+              <CoverStylePanel
                 coverPage={report.coverPage}
                 onUpdate={(field, val) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, [field]: val } }))}
                 onDeselect={onCoverDeselect}
@@ -4062,10 +4410,22 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
               <img src={report.coverPage.logoUrl} alt="Logo" style={logoStyle} />
             )}
             <div style={{ position: 'relative', zIndex: 1, color: cpFg, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
-              {report.coverPage.companyName && <p style={{ fontSize: '10pt', marginBottom: '24pt', letterSpacing: '2px', opacity: 0.7, textTransform: 'uppercase' }}>{report.coverPage.companyName}</p>}
-              <h1 style={{ fontSize: '28pt', fontWeight: 700, marginBottom: '8pt', lineHeight: 1.2 }}>{report.coverPage.reportTitle}</h1>
-              {report.coverPage.subtitle && <p style={{ fontSize: '14pt', opacity: 0.8, marginBottom: '4pt' }}>{report.coverPage.subtitle}</p>}
-              {report.coverPage.date && <p style={{ fontSize: '10pt', opacity: 0.6, marginTop: '16pt' }}>{report.coverPage.date}</p>}
+              {report.coverPage.companyName && (() => {
+                const s = report.coverPage.fieldStyles?.companyName ?? {}
+                return <p style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '10pt', fontWeight: s.bold ? 700 : 400, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, marginBottom: '24pt', letterSpacing: '2px', opacity: s.color ? 1 : 0.7, textTransform: 'uppercase' }}>{report.coverPage.companyName}</p>
+              })()}
+              {(() => {
+                const s = report.coverPage.fieldStyles?.reportTitle ?? {}
+                return <h1 style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '28pt', fontWeight: s.bold !== undefined ? (s.bold ? 700 : 400) : 700, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, marginBottom: '8pt', lineHeight: 1.2 }}>{report.coverPage.reportTitle}</h1>
+              })()}
+              {report.coverPage.subtitle && (() => {
+                const s = report.coverPage.fieldStyles?.subtitle ?? {}
+                return <p style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '14pt', fontWeight: s.bold ? 700 : 400, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, opacity: s.color ? 1 : 0.8, marginBottom: '4pt' }}>{report.coverPage.subtitle}</p>
+              })()}
+              {report.coverPage.date && (() => {
+                const s = report.coverPage.fieldStyles?.date ?? {}
+                return <p style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '10pt', fontWeight: s.bold ? 700 : 400, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, opacity: s.color ? 1 : 0.6, marginTop: '16pt' }}>{report.coverPage.date}</p>
+              })()}
               {(report.coverPage.coverBlocks ?? []).map((b) => (
                 <div key={b.id} style={{ marginTop: '8pt' }}>{renderPrintBlock(b, dp)}</div>
               ))}
@@ -4758,7 +5118,7 @@ function ImageUploadField({ value, onChange, placeholder }: { value: string; onC
 
 // ── Chart Block View ────────────────────────────────────────────────────────
 
-function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp: DesignPack; forPrint?: boolean }) {
+function ChartBlockView({ block, dp, forPrint = false, isSelected, onUpdate }: { block: ChartBlock; dp: DesignPack; forPrint?: boolean; isSelected?: boolean; onUpdate?: (u: Record<string, unknown>) => void }) {
   const data = block.labels.map((label, i) => {
     const point: Record<string, string | number> = { name: label }
     block.datasets.forEach((ds) => { point[ds.label] = ds.data[i] ?? 0 })
@@ -4781,6 +5141,8 @@ function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp
   const ttEl = <Tooltip contentStyle={{ fontSize: '11px' }} />
   const lgEl = block.showLegend ? <Legend wrapperStyle={{ fontSize: '11px' }} /> : null
 
+  const showLabels = block.showLabels !== false // default true for old blocks without field
+
   let chart: React.ReactNode
   if (block.chartType === 'pie' || block.chartType === 'donut') {
     chart = (
@@ -4793,8 +5155,11 @@ function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp
           cy="50%"
           innerRadius={block.chartType === 'donut' ? '50%' : 0}
           outerRadius="70%"
-          label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
-          labelLine
+          isAnimationActive={false}
+          label={showLabels
+            ? ({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
+            : false}
+          labelLine={showLabels}
         >
           {pieData.map((_, i) => (
             <Cell key={i} fill={block.datasets[0]?.color ? (i === 0 ? block.datasets[0].color : CHART_PALETTE[i % CHART_PALETTE.length]) : CHART_PALETTE[i % CHART_PALETTE.length]} />
@@ -4808,14 +5173,22 @@ function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp
     chart = (
       <BarChart {...commonProps}>
         {gridEl}{xEl}{yEl}{ttEl}{lgEl}
-        {block.datasets.map((ds) => <Bar key={ds.id} dataKey={ds.label} fill={ds.color} radius={[2, 2, 0, 0]} />)}
+        {block.datasets.map((ds) => (
+          <Bar key={ds.id} dataKey={ds.label} fill={ds.color} radius={[2, 2, 0, 0]} isAnimationActive={false}>
+            {showLabels && <LabelList dataKey={ds.label} position="top" style={{ fontSize: 9, fill: '#6B7280' }} />}
+          </Bar>
+        ))}
       </BarChart>
     )
   } else if (block.chartType === 'line') {
     chart = (
       <LineChart {...commonProps}>
         {gridEl}{xEl}{yEl}{ttEl}{lgEl}
-        {block.datasets.map((ds) => <Line key={ds.id} type="monotone" dataKey={ds.label} stroke={ds.color} strokeWidth={2} dot={{ r: 3 }} />)}
+        {block.datasets.map((ds) => (
+          <Line key={ds.id} type="monotone" dataKey={ds.label} stroke={ds.color} strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false}>
+            {showLabels && <LabelList dataKey={ds.label} position="top" style={{ fontSize: 9, fill: '#6B7280' }} />}
+          </Line>
+        ))}
       </LineChart>
     )
   } else {
@@ -4823,7 +5196,9 @@ function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp
       <AreaChart {...commonProps}>
         {gridEl}{xEl}{yEl}{ttEl}{lgEl}
         {block.datasets.map((ds) => (
-          <Area key={ds.id} type="monotone" dataKey={ds.label} stroke={ds.color} fill={`${ds.color}30`} strokeWidth={2} />
+          <Area key={ds.id} type="monotone" dataKey={ds.label} stroke={ds.color} fill={`${ds.color}30`} strokeWidth={2} isAnimationActive={false}>
+            {showLabels && <LabelList dataKey={ds.label} position="top" style={{ fontSize: 9, fill: '#6B7280' }} />}
+          </Area>
         ))}
       </AreaChart>
     )
@@ -4831,10 +5206,20 @@ function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp
 
   return (
     <div style={{ fontFamily: dp.fontFamily }}>
-      {block.title && (
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>
-          {block.title}
-        </p>
+      {/* Title: inline-editable on canvas, static on print */}
+      {(block.title || isSelected) && (
+        forPrint ? (
+          block.title ? <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: dp.headingColor }}>{block.title}</p> : null
+        ) : (
+          <InlineField
+            value={block.title || ''}
+            onChange={(v) => onUpdate?.({ title: v })}
+            placeholder="Chart title..."
+            isSelected={!!isSelected}
+            className="mb-2 text-xs font-semibold uppercase tracking-wide"
+            style={{ color: dp.headingColor }}
+          />
+        )
       )}
       {forPrint ? (
         <div style={{ width: '100%', height: block.height }}>
@@ -4843,6 +5228,55 @@ function ChartBlockView({ block, dp, forPrint = false }: { block: ChartBlock; dp
       ) : (
         <ResponsiveContainer width="100%" height={block.height}>{chart as React.ReactElement}</ResponsiveContainer>
       )}
+
+      {/* Inline label editor — visible on canvas when block is selected */}
+      {!forPrint && isSelected && onUpdate && (
+        <div className="mt-2 rounded border border-blue-400/30 bg-blue-50/5 p-2" onClick={(e) => e.stopPropagation()}>
+          <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+            {block.chartType === 'pie' || block.chartType === 'donut' ? 'Slice Labels' : 'Category Labels'}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {block.labels.map((lbl, i) => (
+              <input
+                key={i}
+                value={lbl}
+                placeholder={`Label ${i + 1}`}
+                onChange={(e) => {
+                  const next = [...block.labels]
+                  next[i] = e.target.value
+                  // keep dataset data arrays in sync (length unchanged)
+                  onUpdate({ labels: next })
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="rounded border border-white/20 bg-[#120B07] px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-blue-400"
+                style={{ minWidth: 0, width: `${Math.max(5, lbl.length + 1)}ch` }}
+              />
+            ))}
+            {/* Add / Remove label buttons */}
+            <button
+              onClick={() => {
+                const next = [...block.labels, `Label ${block.labels.length + 1}`]
+                const datasets = block.datasets.map((ds) => ({ ...ds, data: [...ds.data, 0] }))
+                onUpdate({ labels: next, datasets })
+              }}
+              className="rounded border border-dashed border-white/20 px-1.5 py-0.5 text-[11px] text-slate-500 hover:border-blue-400 hover:text-blue-400 transition"
+              title="Add label"
+            >+ Add</button>
+            {block.labels.length > 1 && (
+              <button
+                onClick={() => {
+                  const next = block.labels.slice(0, -1)
+                  const datasets = block.datasets.map((ds) => ({ ...ds, data: ds.data.slice(0, -1) }))
+                  onUpdate({ labels: next, datasets })
+                }}
+                className="rounded border border-dashed border-white/20 px-1.5 py-0.5 text-[11px] text-slate-500 hover:border-red-400 hover:text-red-400 transition"
+                title="Remove last label"
+              >− Remove</button>
+            )}
+          </div>
+        </div>
+      )}
+
       {block.sourceFile && (
         <p className="mt-1 text-[10px] text-gray-400 italic">Source: {block.sourceFile}</p>
       )}
@@ -4910,7 +5344,7 @@ function ChartEditor({ block, onUpdate }: { block: ChartBlock; onUpdate: (u: Rec
         <input type="range" min={150} max={500} value={block.height} onChange={(e) => onUpdate({ height: Number(e.target.value) })} className="w-full" />
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
           <input type="checkbox" checked={block.showLegend} onChange={(e) => onUpdate({ showLegend: e.target.checked })} />
           Legend
@@ -4918,6 +5352,10 @@ function ChartEditor({ block, onUpdate }: { block: ChartBlock; onUpdate: (u: Rec
         <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
           <input type="checkbox" checked={block.showGrid} onChange={(e) => onUpdate({ showGrid: e.target.checked })} />
           Grid
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+          <input type="checkbox" checked={block.showLabels !== false} onChange={(e) => onUpdate({ showLabels: e.target.checked })} />
+          Labels
         </label>
       </div>
 
@@ -5122,7 +5560,7 @@ function FileImportModal({
       const block: ChartBlock = {
         id: uuidv4(), type: 'chart', title: caption,
         chartType: 'bar', labels, datasets,
-        height: 300, showLegend: true, showGrid: true, sourceFile: fileName,
+        height: 300, showLegend: true, showGrid: true, showLabels: true, sourceFile: fileName,
       }
       onImport(currentPageId, block)
     }
@@ -5558,25 +5996,19 @@ function ShapeEditor({ shape, pageShapes, onUpdate, onDelete, onReorder, onSaveT
 
 // ── Cover Page Editor (right panel) ─────────────────────────────────────────
 
-function CoverPageEditor({ coverPage, onUpdate, onDeselect }: {
+function CoverStylePanel({ coverPage, onUpdate, onDeselect }: {
   coverPage: ReportData['coverPage']
   onUpdate: (field: string, val: unknown) => void
   onDeselect: () => void
 }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
   const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-[#C9A84C]">Cover Page</span>
+        <span className="text-xs font-semibold text-[#C9A84C]">Cover Page Style</span>
         <button onClick={onDeselect} className="text-[10px] text-slate-500 hover:text-slate-300 transition">Deselect ✕</button>
       </div>
-
-      <div>{label('Report Title')}<input value={coverPage.reportTitle} onChange={(e) => onUpdate('reportTitle', e.target.value)} className={inputCls} placeholder="Report Title" /></div>
-      <div>{label('Subtitle')}<input value={coverPage.subtitle} onChange={(e) => onUpdate('subtitle', e.target.value)} className={inputCls} placeholder="Subtitle" /></div>
-      <div>{label('Company Name')}<input value={coverPage.companyName} onChange={(e) => onUpdate('companyName', e.target.value)} className={inputCls} placeholder="Company Name" /></div>
-      <div>{label('Date')}<input value={coverPage.date} onChange={(e) => onUpdate('date', e.target.value)} className={inputCls} placeholder="Date" /></div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>{label('Background')}<input type="color" value={coverPage.primaryColor} onChange={(e) => onUpdate('primaryColor', e.target.value)} className="h-8 w-full cursor-pointer rounded" /></div>
