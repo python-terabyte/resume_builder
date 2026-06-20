@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from 'react'
 import { useReactToPrint } from 'react-to-print'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { COLOR_THEMES, DEFAULT_RESUME, PAGE_SIZES, type PageSize, ResumeData } from '@/types/resume'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
-import { createResume, listResumes, saveResume, type ResumeDoc } from '@/lib/resumes'
+import { createResume, getResume, listResumes, saveResume, type ResumeDoc } from '@/lib/resumes'
 import Sidebar from './Sidebar'
 import ResumePreview from './ResumePreview'
 import DocumentsPanel from './DocumentsPanel'
@@ -28,8 +29,10 @@ function hexToRgbTriplet(hex: string): string {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type PickerState = 'loading' | 'show' | 'hide'
 
-export default function ResumeBuilder() {
+export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWorkspace?: () => void; initialDocId?: string }) {
   const { user } = useAuth()
+  const router = useRouter()
+  const goWorkspace = () => { if (onGoWorkspace) { onGoWorkspace() } else { router.push('/workspace') } }
   const [resume, setResume] = useState<ResumeData>(DEFAULT_RESUME)
   const [activeSection, setActiveSection] = useState<string>('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -65,9 +68,27 @@ export default function ResumeBuilder() {
     }
   }, [hydrated, resume.accentColor])
 
+  // If a specific doc ID was provided via URL, load it directly and skip the picker.
+  useEffect(() => {
+    if (!initialDocId) return
+    getResume(initialDocId)
+      .then((doc) => {
+        setResume({ ...DEFAULT_RESUME, ...doc.resume, pageSize: doc.resume.pageSize ?? 'A4' })
+        setCurrentDocId(doc.id)
+        setCurrentDocName(doc.name || 'Untitled Resume')
+        setSaveState('saved')
+        setIsDirty(false)
+        setPickerState('hide')
+        window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+      })
+      .catch(() => setPickerState('hide'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDocId])
+
   // On mount: fetch saved docs. If the user has any, show the picker.
   // New users (no docs) go straight to the editor.
   useEffect(() => {
+    if (initialDocId) return // handled above
     listResumes()
       .then((docs) => {
         if (docs.length > 0) {
@@ -222,6 +243,7 @@ export default function ResumeBuilder() {
       } else {
         const id = await createResume(currentDocName, resume)
         setCurrentDocId(id)
+        router.replace(`/resume/${id}`)
       }
       setSaveState('saved')
       setIsDirty(false)
@@ -258,6 +280,7 @@ export default function ResumeBuilder() {
     setSaveState('saved')
     setIsDirty(false)
     setPickerState('hide')
+    router.replace(`/resume/${d.id}`)
     window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
   }
 
@@ -289,6 +312,7 @@ export default function ResumeBuilder() {
           userName={user?.name}
           onOpen={handleOpenDoc}
           onNew={handleNew}
+          onGoWorkspace={goWorkspace}
         />
       </div>
     )
@@ -331,6 +355,16 @@ export default function ResumeBuilder() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={goWorkspace}
+            className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
+            title="Back to Workspace"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="hidden sm:inline">Workspace</span>
+          </button>
           <select
             value={resume.pageSize}
             onChange={(e) =>
@@ -407,6 +441,7 @@ export default function ResumeBuilder() {
               onClose={() => setShowUserMenu(false)}
               onNew={handleNew}
               onDocs={() => { setShowUserMenu(false); setShowDocs(true) }}
+              onGoWorkspace={goWorkspace}
             />
           )}
         </div>
@@ -508,11 +543,13 @@ function ResumePicker({
   userName,
   onOpen,
   onNew,
+  onGoWorkspace,
 }: {
   docs: ResumeDoc[]
   userName?: string | null
   onOpen: (doc: ResumeDoc) => void
   onNew: () => void
+  onGoWorkspace?: () => void
 }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
@@ -563,6 +600,16 @@ function ResumePicker({
           </svg>
           New Resume
         </button>
+
+        {/* Back to Workspace */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={onGoWorkspace}
+            className="text-xs text-slate-500 transition hover:text-slate-300"
+          >
+            ← Back to Workspace
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -587,6 +634,7 @@ function UserMenu({
   onClose,
   onNew,
   onDocs,
+  onGoWorkspace,
 }: {
   user: { name?: string | null; email?: string | null; image?: string | null }
   open: boolean
@@ -594,6 +642,7 @@ function UserMenu({
   onClose: () => void
   onNew: () => void
   onDocs: () => void
+  onGoWorkspace?: () => void
 }) {
   const initials = (user.name || user.email || '?').slice(0, 1).toUpperCase()
   return (
@@ -619,6 +668,10 @@ function UserMenu({
               </div>
               {user.email && <div className="truncate text-xs text-slate-400">{user.email}</div>}
             </div>
+            <MenuItem onClick={() => { onClose(); onGoWorkspace?.() }}>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+              Workspace
+            </MenuItem>
             <MenuItem onClick={() => { onClose(); onNew() }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               New Resume

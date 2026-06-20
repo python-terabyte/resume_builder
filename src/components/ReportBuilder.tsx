@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useReactToPrint } from 'react-to-print'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
@@ -191,8 +192,9 @@ function formatDate(ts: string | null): string {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export default function ReportBuilder() {
+export default function ReportBuilder({ initialDocId }: { initialDocId?: string } = {}) {
   const { user } = useAuth()
+  const router = useRouter()
   const [report, setReport] = useState<ReportData>(DEFAULT_REPORT)
   const [docId, setDocId] = useState<string | null>(null)
   const [docName, setDocName] = useState('Untitled Report')
@@ -225,6 +227,25 @@ export default function ReportBuilder() {
   const dp = getDesignPack(report.designPackId)
 
   useEffect(() => {
+    if (!initialDocId) return
+    getReport(initialDocId)
+      .then((reportData) => {
+        setReport(reportData)
+        setDocId(initialDocId)
+        setDocName('Report')
+        setSelectedBlockId(null)
+        setSelectedPageId(reportData.pages[0]?.id ?? null)
+        setSaveState('saved')
+        setIsDirty(false)
+        setPickerState('hide')
+        window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+      })
+      .catch(() => { setPickerState('hide'); setShowTemplatePicker(true) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDocId])
+
+  useEffect(() => {
+    if (initialDocId) return // handled above
     listReports()
       .then((docs) => {
         if (docs.length > 0) {
@@ -258,6 +279,7 @@ export default function ReportBuilder() {
         } else {
           const newId = await createReport(name, r)
           setDocId(newId)
+          router.replace(`/report/${newId}`)
         }
         setSaveState('saved')
         setIsDirty(false)
@@ -341,6 +363,7 @@ export default function ReportBuilder() {
       setSaveState('saved')
       setIsDirty(false)
       setPickerState('hide')
+      router.replace(`/report/${d.id}`)
       setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
     } catch (err) {
       setSaveError(`Failed to open report: ${(err as Error).message}`)
@@ -715,16 +738,16 @@ export default function ReportBuilder() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Mode switcher */}
+          {/* Workspace switcher */}
           <Link
-            href="/"
+            href="/workspace"
             className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
-            title="Switch to Resume Builder"
+            title="Back to Workspace"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            <span>Resume Builder</span>
+            <span>Workspace</span>
           </Link>
 
           <button
@@ -5383,7 +5406,7 @@ function ReportPicker({ docs, userName, onOpen, onNew }: { docs: ReportDoc[]; us
           New Report
         </button>
         <div className="mt-6 text-center">
-          <Link href="/" className="text-xs text-slate-500 hover:text-slate-300 transition">← Back to Resume Builder</Link>
+          <Link href="/workspace" className="text-xs text-slate-500 hover:text-slate-300 transition">← Back to Workspace</Link>
         </div>
       </div>
     </div>
@@ -5461,9 +5484,9 @@ function UserMenu({ user, open, onToggle, onClose, onNew, onDocs }: {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
               My Reports
             </button>
-            <Link href="/" onClick={onClose} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/5">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Resume Builder
+            <Link href="/workspace" onClick={onClose} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+              Workspace
             </Link>
             <div className="my-1 border-t border-white/10" />
             <button onClick={() => { onClose(); signOut() }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-white/5">

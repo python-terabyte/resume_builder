@@ -2,21 +2,21 @@ import type { Metadata } from 'next'
 import HomeShell from '@/components/HomeShell'
 
 export const metadata: Metadata = {
-  title: 'BrandFox — Free ATS Resume Builder | Professional Resume Templates',
+  title: 'BrandFox — Professional Document Creation Platform',
   description:
-    'Create a professional, ATS-optimized resume in minutes with BrandFox. Choose from 8 expert-designed templates, customize every detail, and download a watermark-free PDF instantly. 100% free — no credit card ever.',
+    'Create professional documents in minutes with BrandFox. Build ATS-friendly resumes, business reports, financial statements, and investor decks. Free professional templates, one-click PDF export, cloud sync. 100% free — no credit card ever.',
   alternates: { canonical: 'https://www.bfox.pro' },
   openGraph: {
-    title: 'BrandFox — Free ATS Resume Builder',
+    title: 'BrandFox — Professional Document Creation Platform',
     description:
-      'Build a professional resume that passes ATS systems. 8 templates, one-click PDF, cloud sync. Free forever.',
+      'Build professional documents that make an impact. Resume Builder, Report Builder, and more — all from one platform. Free forever.',
     url: 'https://www.bfox.pro',
     type: 'website',
   },
   twitter: {
-    title: 'BrandFox — Free ATS Resume Builder',
+    title: 'BrandFox — Professional Document Creation Platform',
     description:
-      'Build ATS-ready resumes that get you hired. Professional templates, PDF export, no watermarks. Free forever.',
+      'Create ATS-ready resumes, business reports, and professional documents. Free templates, PDF export, no watermarks.',
   },
 }
 
@@ -26,20 +26,20 @@ const webAppSchema = {
   name: 'BrandFox',
   url: 'https://www.bfox.pro',
   description:
-    'Free online ATS resume builder with 8 professional templates, one-click PDF export, and cloud storage.',
+    'Professional document creation platform. Build ATS-friendly resumes, business reports, financial statements, and investor decks with free templates and one-click PDF export.',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web Browser',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   featureList: [
-    '8 ATS-friendly resume templates',
+    'ATS-friendly resume builder with 8 templates',
+    'Business report builder with professional blocks',
     'One-click PDF export without watermarks',
-    'Real-time resume preview',
+    'Real-time document preview',
     'Cloud sync across devices',
     'Drag-and-drop section reordering',
     'Custom accent colors and fonts',
     'Multiple page size support',
     'Google Sign-in',
-    'Multiple resumes per account',
   ],
 }
 
@@ -52,7 +52,15 @@ const faqSchema = {
       name: 'Is BrandFox free to use?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes — 100% free. No credit card, no subscription tiers, and no watermarks on exported PDFs. Build and download as many resumes as you need.',
+        text: 'Yes — 100% free. No credit card, no subscription tiers, and no watermarks on exported PDFs. Build and download as many documents as you need.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What documents can I create with BrandFox?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'BrandFox includes a Resume Builder for ATS-friendly resumes and CVs, and a Report Builder for business reports, financial statements, company profiles, investor decks, and proposals.',
       },
     },
     {
@@ -65,7 +73,7 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'Can I export my resume as a PDF?',
+      name: 'Can I export my documents as PDF?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Yes. Click the Export PDF button at any time to download a pixel-perfect, print-ready PDF. No watermarks, no limits — export as often as you like.',
@@ -73,26 +81,18 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'How many resumes can I create?',
+      name: 'How many documents can I create?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'As many as you need. Keep separate resume versions for different job roles, industries, or seniority levels, and switch between them instantly.',
+        text: 'As many as you need. Keep separate resume versions for different job roles, and multiple reports for different clients or projects, and switch between them instantly.',
       },
     },
     {
       '@type': 'Question',
-      name: 'What makes a resume ATS-friendly?',
+      name: 'Is my data private and secure?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'An ATS (Applicant Tracking System) scans resumes for keywords and structured data before a human reads them. ATS-friendly resumes use standard section headings, clean layouts, machine-readable fonts, and role-relevant keywords.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Is my resume data private and secure?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Yes. Your resume data is stored securely in your personal account via Firebase Firestore with strict security rules. No other user can access your resumes, and we never sell, share, or use your content to train AI models.',
+        text: 'Yes. Your documents are stored securely in your personal account via Firebase Firestore with strict security rules. No other user can access your files, and we never sell, share, or use your content to train AI models.',
       },
     },
   ],

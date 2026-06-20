@@ -2,11 +2,11 @@
 
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
+import Link from 'next/link'
 import { SessionProvider } from 'next-auth/react'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
-import Link from 'next/link'
 
-const ReportBuilder = dynamic(() => import('@/components/ReportBuilder'), {
+const ResumeBuilder = dynamic(() => import('@/components/ResumeBuilder'), {
   ssr: false,
   loading: () => <AppLoading />,
 })
@@ -19,7 +19,7 @@ function AppLoading() {
           <div className="absolute h-20 w-20 animate-spin rounded-full border-4" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
           <Image src="/logoface.png" alt="BrandFox" width={48} height={48} className="h-12 w-12 object-contain" />
         </div>
-        <p className="animate-pulse text-sm" style={{ color: '#8B7340' }}>Loading Report Builder...</p>
+        <p className="animate-pulse text-sm" style={{ color: '#8B7340' }}>Loading BrandFox...</p>
       </div>
     </div>
   )
@@ -33,7 +33,7 @@ function Shell({ initialDocId }: { initialDocId?: string }) {
       <div className="flex h-screen w-full flex-col items-center justify-center gap-6" style={{ background: '#120B07' }}>
         <Image src="/logoface.png" alt="BrandFox" width={56} height={56} className="h-14 w-14 object-contain" />
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white">Sign in to use Report Builder</h1>
+          <h1 className="text-2xl font-bold text-white">Sign in to use Resume Builder</h1>
           <p className="mt-2 text-sm text-slate-400">Your account gives you access to both the Resume Builder and Report Builder.</p>
         </div>
         <Link
@@ -46,10 +46,10 @@ function Shell({ initialDocId }: { initialDocId?: string }) {
       </div>
     )
   }
-  return <ReportBuilder initialDocId={initialDocId} />
+  return <ResumeBuilder initialDocId={initialDocId} />
 }
 
-export default function ReportShell({ initialDocId }: { initialDocId?: string } = {}) {
+export default function ResumeShell({ initialDocId }: { initialDocId?: string } = {}) {
   return (
     <SessionProvider>
       <AuthProvider>

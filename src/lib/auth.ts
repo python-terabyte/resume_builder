@@ -23,5 +23,5 @@ export async function signInGoogle() {
 }
 
 export async function signOut() {
-  await nextAuthSignOut({ redirect: false })
+  await nextAuthSignOut({ callbackUrl: '/' })
 }

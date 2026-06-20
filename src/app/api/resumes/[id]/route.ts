@@ -1,12 +1,30 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { authOptions } from '@/lib/auth-options'
 import { adminDb } from '@/lib/firebase-admin'
 import type { ResumeData } from '@/types/resume'
 
 function resumeDoc(uid: string, id: string) {
   return adminDb().collection('users').doc(uid).collection('resumes').doc(id)
+}
+
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await context.params
+  const doc = await resumeDoc(session.user.id, id).get()
+  if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const data = doc.data()!
+  return NextResponse.json({
+    id: doc.id,
+    name: data.name ?? 'Untitled',
+    resume: data.resume,
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : null,
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : null,
+  })
 }
 
 export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {

@@ -15,6 +15,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
   const [error, setError] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -29,12 +30,13 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
   }, [])
 
   async function handleDelete(docId: string) {
-    if (!confirm('Delete this resume? This cannot be undone.')) return
     try {
       await deleteResume(docId)
       setDocs((prev) => (prev ? prev.filter((d) => d.id !== docId) : prev))
+      setDeleteConfirmId(null)
     } catch (err) {
       setError((err as Error).message ?? 'Delete failed.')
+      setDeleteConfirmId(null)
     }
   }
 
@@ -140,7 +142,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                       </svg>
                     </button>
                     <button
-                      onClick={() => handleDelete(d.id)}
+                      onClick={() => setDeleteConfirmId(d.id)}
                       title="Delete"
                       className="rounded-md p-1.5 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
                     >
@@ -155,6 +157,35 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
           )}
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#2D1B11] p-6 shadow-2xl">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10">
+              <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="mb-1 text-base font-bold text-white">Delete this document?</h3>
+            <p className="mb-6 text-sm text-slate-400">This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 rounded-lg bg-red-500/20 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-500/30"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,6 +8,12 @@ export interface ResumeDoc {
   updatedAt: string | null
 }
 
+export async function getResume(id: string): Promise<ResumeDoc> {
+  const res = await fetch(`/api/resumes/${id}`)
+  if (!res.ok) throw new Error('Resume not found.')
+  return res.json() as Promise<ResumeDoc>
+}
+
 export async function listResumes(): Promise<ResumeDoc[]> {
   const res = await fetch('/api/resumes')
   if (!res.ok) throw new Error('Failed to load resumes.')

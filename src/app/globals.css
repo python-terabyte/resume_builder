@@ -147,6 +147,14 @@ input[type='range']:focus {
   0%,100% { box-shadow: 0 0 18px rgba(201,168,76,.35), 0 0 40px rgba(201,168,76,.12); }
   50%     { box-shadow: 0 0 32px rgba(201,168,76,.60), 0 0 70px rgba(201,168,76,.25); }
 }
+@keyframes glowGoldSoft {
+  0%,100% { box-shadow: 0 0 10px rgba(201,168,76,.22), 0 0 26px rgba(201,168,76,.08); }
+  50%     { box-shadow: 0 0 20px rgba(201,168,76,.38), 0 0 48px rgba(201,168,76,.14); }
+}
+@keyframes glowTealSoft {
+  0%,100% { box-shadow: 0 0 10px rgba(13,144,128,.22), 0 0 26px rgba(13,144,128,.08); }
+  50%     { box-shadow: 0 0 20px rgba(13,144,128,.38), 0 0 48px rgba(13,144,128,.14); }
+}
 @keyframes borderShimmer {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
@@ -164,6 +172,8 @@ input[type='range']:focus {
 .anim-hero-delay{ animation: fadeInUp .8s .2s ease both; }
 .anim-hero-d2   { animation: fadeInUp .8s .4s ease both; }
 .anim-glow      { animation: glowPulse 2.8s ease-in-out infinite; }
+.anim-glow-gold { animation: glowGoldSoft 2.8s ease-in-out infinite; }
+.anim-glow-teal { animation: glowTealSoft 2.8s ease-in-out infinite; }
 .anim-shimmer   {
   background: linear-gradient(90deg,#C9A84C,#E8C96A,#120B07,#C9A84C);
   background-size: 200% auto;
