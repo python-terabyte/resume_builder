@@ -18,8 +18,9 @@ type ActiveTab = 'mine' | 'shared'
 
 export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreateNew, onOpenShared }: Props) {
   const [docs, setDocs] = useState<ResumeDoc[] | null>(null)
+  const [docsError, setDocsError] = useState<string | null>(null)
   const [sharedDocs, setSharedDocs] = useState<SharedDocEntry[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [sharedError, setSharedError] = useState<string | null>(null)
   const [tab, setTab] = useState<ActiveTab>('mine')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
@@ -30,17 +31,16 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
 
   useEffect(() => {
     let cancelled = false
-    setError(null)
-    Promise.all([listResumes(), listSharedDocuments()])
-      .then(([own, shared]) => {
-        if (cancelled) return
-        setDocs(own)
-        setSharedDocs(shared.filter((d) => d.type === 'resume'))
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError((err as Error).message ?? 'Failed to load.')
-      })
+
+    // Load independently so a shared-endpoint failure doesn't break My Resumes
+    listResumes()
+      .then((own) => { if (!cancelled) setDocs(own) })
+      .catch((err) => { if (!cancelled) setDocsError((err as Error).message ?? 'Failed to load resumes.') })
+
+    listSharedDocuments()
+      .then((all) => { if (!cancelled) setSharedDocs(all.filter((d) => d.type === 'resume')) })
+      .catch((err) => { if (!cancelled) setSharedError((err as Error).message ?? 'Failed to load shared resumes.') })
+
     return () => { cancelled = true }
   }, [])
 
@@ -50,19 +50,21 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
       setDocs((prev) => (prev ? prev.filter((d) => d.id !== docId) : prev))
       setDeleteConfirmId(null)
     } catch (err) {
-      setError((err as Error).message ?? 'Delete failed.')
+      setDocsError((err as Error).message ?? 'Delete failed.')
       setDeleteConfirmId(null)
     }
   }
 
   async function handleDuplicate(docId: string) {
+    if (duplicating) return
     setDuplicating(docId)
     try {
-      await duplicateDocument(docId)
+      const result = await duplicateDocument(docId)
       const updated = await listResumes()
       setDocs(updated)
+      onOpenShared?.(result.id)
     } catch (err) {
-      setError((err as Error).message ?? 'Duplicate failed.')
+      setDocsError((err as Error).message ?? 'Duplicate failed.')
     } finally {
       setDuplicating(null)
     }
@@ -75,7 +77,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
       await renameResume(docId, trimmed)
       setDocs((prev) => (prev ? prev.map((d) => (d.id === docId ? { ...d, name: trimmed } : d)) : prev))
     } catch (err) {
-      setError((err as Error).message ?? 'Rename failed.')
+      setDocsError((err as Error).message ?? 'Rename failed.')
     } finally {
       setRenamingId(null)
     }
@@ -124,11 +126,6 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 panel-scroll">
-          {error && (
-            <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-              {error}
-            </div>
-          )}
 
           {/* MY RESUMES TAB */}
           {tab === 'mine' && (
@@ -143,9 +140,15 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                 New Resume
               </button>
 
-              {!docs && <p className="text-sm text-slate-500">Loading...</p>}
+              {docsError && (
+                <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {docsError}
+                </div>
+              )}
 
-              {docs && docs.length === 0 && !error && (
+              {!docs && !docsError && <p className="text-sm text-slate-500">Loading...</p>}
+
+              {docs && docs.length === 0 && (
                 <p className="text-sm text-slate-500">No saved resumes yet. Click <span className="text-white">New Resume</span> above to start.</p>
               )}
 
@@ -205,13 +208,17 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                         {/* Duplicate button */}
                         <button
                           onClick={() => handleDuplicate(d.id)}
-                          disabled={duplicating === d.id}
+                          disabled={!!duplicating}
                           title="Duplicate"
                           className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
                         >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
+                          {duplicating === d.id ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border border-slate-400 border-t-transparent" />
+                          ) : (
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
                         </button>
 
                         <button
@@ -243,7 +250,13 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
           {/* SHARED WITH ME TAB */}
           {tab === 'shared' && (
             <>
-              {!sharedDocs && <p className="text-sm text-slate-500">Loading...</p>}
+              {sharedError && (
+                <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {sharedError}
+                </div>
+              )}
+
+              {!sharedDocs && !sharedError && <p className="text-sm text-slate-500">Loading...</p>}
 
               {sharedDocs && sharedDocs.length === 0 && (
                 <div className="py-8 text-center">
@@ -260,8 +273,10 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                   {sharedDocs.map((d) => (
                     <div
                       key={d.docId}
-                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition border-white/10 bg-[#120B07] hover:border-white/20 ${
-                        d.docId === currentDocId ? 'border-accent bg-accent/10' : ''
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition ${
+                        d.docId === currentDocId
+                          ? 'border-accent bg-accent/10'
+                          : 'border-white/10 bg-[#120B07] hover:border-white/20'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
@@ -276,9 +291,24 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                           By {d.ownerEmail} · {formatTimestamp(d.updatedAt)}
                         </div>
                       </div>
-                      <span className="flex-shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                         {ROLE_LABELS[d.role]}
                       </span>
+                      {/* Duplicate to my resumes */}
+                      <button
+                        onClick={() => handleDuplicate(d.docId)}
+                        disabled={!!duplicating}
+                        title="Duplicate to my resumes"
+                        className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+                      >
+                        {duplicating === d.docId ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border border-slate-400 border-t-transparent" />
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>

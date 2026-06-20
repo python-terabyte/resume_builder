@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { FieldValue } from 'firebase-admin/firestore'
 import { authOptions } from '@/lib/auth-options'
+import { adminDb } from '@/lib/firebase-admin'
 import { collabDoc, getDocumentAccess, logActivity } from '@/lib/document-permissions'
 import type { CollaboratorRole } from '@/types/collaboration'
 import { ASSIGNABLE_ROLES } from '@/types/collaboration'
@@ -27,7 +28,11 @@ export async function PATCH(
   const snap = await collabRef.get()
   if (!snap.exists) return NextResponse.json({ error: 'Collaborator not found' }, { status: 404 })
 
-  await collabRef.update({ role, updatedAt: FieldValue.serverTimestamp() })
+  await Promise.all([
+    collabRef.update({ role, updatedAt: FieldValue.serverTimestamp() }),
+    adminDb().collection('users').doc(uid).collection('sharedWith').doc(docId)
+      .set({ role, updatedAt: FieldValue.serverTimestamp() }, { merge: true }),
+  ])
   await logActivity(docId, session.user.id, session.user.email ?? '', 'collaborator_role_changed', {
     targetUid: uid,
     targetEmail: (snap.data()?.email as string) ?? '',
@@ -59,7 +64,10 @@ export async function DELETE(
   if (!snap.exists) return NextResponse.json({ error: 'Collaborator not found' }, { status: 404 })
 
   const targetEmail = (snap.data()?.email as string) ?? ''
-  await collabRef.delete()
+  await Promise.all([
+    collabRef.delete(),
+    adminDb().collection('users').doc(uid).collection('sharedWith').doc(docId).delete(),
+  ])
   await logActivity(docId, session.user.id, session.user.email ?? '', 'collaborator_removed', {
     targetUid: uid,
     targetEmail,

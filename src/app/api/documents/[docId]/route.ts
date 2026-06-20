@@ -86,6 +86,15 @@ export async function GET(_req: Request, context: { params: Promise<{ docId: str
     }
   })
 
+  // Non-blocking backfill: ensure the reverse index exists for every collaborator.
+  // Fixes legacy shares created before the sharedWith index was added.
+  for (const c of collaborators) {
+    adminDb()
+      .collection('users').doc(c.uid).collection('sharedWith').doc(docId)
+      .set({ role: c.role }, { merge: true })
+      .catch(() => {})
+  }
+
   const pendingInvitations = invSnap
     ? invSnap.docs.map((d) => {
         const inv = d.data()

@@ -9,26 +9,26 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // CollectionGroup query: find all 'collaborators' docs where uid == current user
-  const snap = await adminDb()
-    .collectionGroup('collaborators')
-    .where('uid', '==', session.user.id)
+  // Read the reverse index: users/{uid}/sharedWith/{docId}
+  const sharedSnap = await adminDb()
+    .collection('users')
+    .doc(session.user.id)
+    .collection('sharedWith')
     .get()
 
-  if (snap.empty) return NextResponse.json([])
+  if (sharedSnap.empty) return NextResponse.json([])
 
-  // For each collaborator record, fetch the parent documentCollaboration doc
   const results = await Promise.all(
-    snap.docs.map(async (collabDoc) => {
-      const parentRef = collabDoc.ref.parent.parent
-      if (!parentRef) return null
-      const parentSnap = await parentRef.get()
+    sharedSnap.docs.map(async (d) => {
+      const docId = d.id
+      const role = (d.data().role ?? 'viewer') as CollaboratorRole
+
+      const parentSnap = await adminDb().collection('documentCollaboration').doc(docId).get()
       if (!parentSnap.exists) return null
       const data = parentSnap.data()!
-      const role = (collabDoc.data().role ?? 'viewer') as CollaboratorRole
 
       return {
-        docId: parentRef.id,
+        docId,
         type: (data.type ?? 'resume') as DocumentType,
         name: (data.name ?? 'Untitled') as string,
         ownerEmail: (data.ownerEmail ?? '') as string,
