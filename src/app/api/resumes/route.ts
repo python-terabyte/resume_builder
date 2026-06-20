@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { FieldValue } from 'firebase-admin/firestore'
 import { authOptions } from '@/lib/auth-options'
 import { adminDb } from '@/lib/firebase-admin'
+import { createCollabRecord } from '@/lib/document-permissions'
 import type { ResumeData } from '@/types/resume'
 
 function resumesCol(uid: string) {
@@ -38,5 +39,16 @@ export async function POST(req: Request) {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
+
+  // Create collaboration record for this new document
+  await createCollabRecord(
+    ref.id,
+    'resume',
+    session.user.id,
+    session.user.email ?? '',
+    session.user.name ?? '',
+    name,
+  ).catch(() => {}) // non-blocking
+
   return NextResponse.json({ id: ref.id })
 }

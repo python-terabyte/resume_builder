@@ -9,7 +9,9 @@ import { useRouter } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
-import { createReport, getReport, listReports, saveReport, type ReportDoc } from '@/lib/reports'
+import { createReport, getReport, getReportDoc, listReports, saveReport, type ReportDoc } from '@/lib/reports'
+import CollabShareModal from './ShareModal'
+import VersionHistoryModal from './VersionHistoryModal'
 import { REPORT_TEMPLATES, TEMPLATE_CATEGORIES, type ReportTemplate } from '@/lib/report-templates'
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -211,6 +213,8 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showCollabShare, setShowCollabShare] = useState(false)
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
@@ -782,17 +786,45 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
             <span>My Reports</span>
           </button>
 
-          {/* Share button */}
+          {/* Collaborate button — full permission-based sharing */}
+          {docId && (
+            <button
+              onClick={() => setShowCollabShare(true)}
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+              title="Share with collaborators"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>Share</span>
+            </button>
+          )}
+
+          {/* Public link share — read-only snapshot */}
           <button
             onClick={() => setShowShare(true)}
             className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
-            title="Share report"
+            title="Create public read-only link"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m4.242-4.242a4 4 0 010-5.656l4-4a4 4 0 015.656 5.656l-1.1 1.1" />
             </svg>
-            <span>Share</span>
+            <span>Public Link</span>
           </button>
+
+          {/* Version History */}
+          {docId && (
+            <button
+              onClick={() => setShowVersionHistory(true)}
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+              title="Version History"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>History</span>
+            </button>
+          )}
 
           {/* PDF export */}
           <button
@@ -1056,15 +1088,55 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           onNew={handleNew}
           onClose={() => setShowDocs(false)}
           onRefresh={() => listReports().then(setPickerDocs).catch(() => {})}
+          onOpenShared={(sharedDocId) => {
+            setShowDocs(false)
+            getReportDoc(sharedDocId).then((doc) => {
+              setReport(doc.report)
+              setDocId(sharedDocId)
+              setDocName(doc.name || 'Untitled Report')
+              setSelectedPageId(doc.report.pages[0]?.id ?? null)
+              setSaveState('saved')
+              setIsDirty(false)
+              router.replace(`/report/${sharedDocId}`)
+              setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+            }).catch((err) => console.error('Failed to open shared report:', err))
+          }}
         />
       )}
 
-      {/* Share modal */}
+      {/* Public link share modal */}
       {showShare && (
         <ShareModal
           report={report}
           docName={docName}
           onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {/* Collaboration share modal */}
+      {showCollabShare && docId && (
+        <CollabShareModal
+          docId={docId}
+          docName={docName}
+          onClose={() => setShowCollabShare(false)}
+        />
+      )}
+
+      {/* Version History modal */}
+      {showVersionHistory && docId && (
+        <VersionHistoryModal
+          docId={docId}
+          docName={docName}
+          canEdit={true}
+          onClose={() => setShowVersionHistory(false)}
+          onRestored={() => {
+            getReport(docId).then((r) => {
+              setReport(r)
+              setIsDirty(false)
+              setSaveState('saved')
+              setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+            }).catch(() => {})
+          }}
         />
       )}
 
@@ -5415,36 +5487,148 @@ function ReportPicker({ docs, userName, onOpen, onNew }: { docs: ReportDoc[]; us
 
 // ── Report Docs Modal ───────────────────────────────────────────────────────
 
-function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh }: {
+function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh, onOpenShared }: {
   docs: ReportDoc[]; currentId: string | null;
   onOpen: (d: ReportDoc) => void; onNew: () => void;
-  onClose: () => void; onRefresh: () => void
+  onClose: () => void; onRefresh: () => void;
+  onOpenShared?: (docId: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<'mine' | 'shared'>('mine')
+  const [sharedDocs, setSharedDocs] = useState<import('@/lib/collaboration').SharedDocEntry[]>([])
+  const [loadingShared, setLoadingShared] = useState(false)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [dupError, setDupError] = useState<string | null>(null)
   useEffect(() => { onRefresh() }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'shared' || sharedDocs.length > 0) return
+    setLoadingShared(true)
+    import('@/lib/collaboration')
+      .then(({ listSharedDocuments }) => listSharedDocuments())
+      .then((all) => setSharedDocs(all.filter((d) => d.type === 'report')))
+      .catch(() => {})
+      .finally(() => setLoadingShared(false))
+  }, [activeTab])
+
+  async function handleDuplicate(docId: string) {
+    if (duplicatingId) return
+    setDuplicatingId(docId)
+    setDupError(null)
+    try {
+      const { duplicateDocument } = await import('@/lib/collaboration')
+      const result = await duplicateDocument(docId)
+      onRefresh()
+      onOpenShared?.(result.id)
+    } catch (err) {
+      setDupError((err as Error).message || 'Failed to duplicate')
+      setDuplicatingId(null)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <h2 className="text-sm font-semibold text-white">My Reports</h2>
+          <h2 className="text-sm font-semibold text-white">Reports</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
         </div>
-        <div className="max-h-80 overflow-y-auto p-3">
-          {docs.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">No reports yet.</p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {docs.map((doc) => (
-                <button key={doc.id} onClick={() => onOpen(doc)} className={`flex items-center justify-between rounded-lg border px-4 py-2.5 text-left transition ${currentId === doc.id ? 'border-[#C9A84C]/40 bg-[#C9A84C]/5' : 'border-white/10 hover:bg-white/5'}`}>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white">{doc.name || 'Untitled'}</p>
-                    <p className="text-xs text-slate-500">{formatDate(doc.updatedAt)}</p>
+
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-white/10 px-4 pt-2">
+          {(['mine', 'shared'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className={`px-3 py-2 text-xs font-medium capitalize transition ${
+                activeTab === t ? 'border-b-2 border-[#C9A84C] text-[#C9A84C]' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {t === 'mine' ? 'My Reports' : 'Shared With Me'}
+            </button>
+          ))}
+        </div>
+
+        {dupError && (
+          <p className="mx-3 mt-2 rounded-lg bg-red-900/30 px-3 py-2 text-xs text-red-400">{dupError}</p>
+        )}
+
+        <div className="max-h-72 overflow-y-auto p-3">
+          {activeTab === 'mine' && (
+            docs.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">No reports yet.</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {docs.map((doc) => (
+                  <div key={doc.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 transition ${currentId === doc.id ? 'border-[#C9A84C]/40 bg-[#C9A84C]/5' : 'border-white/10 hover:bg-white/5'}`}>
+                    <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(doc)}>
+                      <p className="truncate text-sm font-medium text-white">{doc.name || 'Untitled'}</p>
+                      <p className="text-xs text-slate-500">{formatDate(doc.updatedAt)}</p>
+                    </button>
+                    {currentId === doc.id && <span className="shrink-0 text-[10px] text-[#C9A84C]">Current</span>}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDuplicate(doc.id) }}
+                      disabled={!!duplicatingId}
+                      title="Duplicate report"
+                      className="shrink-0 rounded p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-slate-200 disabled:opacity-40"
+                    >
+                      {duplicatingId === doc.id ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border border-slate-400 border-t-transparent" />
+                      ) : (
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                  {currentId === doc.id && <span className="ml-2 shrink-0 text-[10px] text-[#C9A84C]">Current</span>}
-                </button>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {activeTab === 'shared' && (
+            loadingShared ? (
+              <div className="flex justify-center py-6">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#C9A84C] border-t-transparent" />
+              </div>
+            ) : sharedDocs.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">No shared reports yet.</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {sharedDocs.map((doc) => (
+                  <div
+                    key={doc.docId}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 transition ${
+                      currentId === doc.docId ? 'border-[#C9A84C]/40 bg-[#C9A84C]/5' : 'border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    <button className="min-w-0 flex-1 text-left" onClick={() => onOpenShared?.(doc.docId)}>
+                      <p className="truncate text-sm font-medium text-white">{doc.name || 'Untitled'}</p>
+                      <p className="text-xs text-slate-500">By {doc.ownerEmail}</p>
+                    </button>
+                    <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400">
+                      {doc.role}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDuplicate(doc.docId) }}
+                      disabled={!!duplicatingId}
+                      title="Duplicate to my reports"
+                      className="shrink-0 rounded p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-slate-200 disabled:opacity-40"
+                    >
+                      {duplicatingId === doc.docId ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border border-slate-400 border-t-transparent" />
+                      ) : (
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </div>
+
         <div className="border-t border-white/10 p-3">
           <button onClick={onNew} className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 py-2.5 text-sm font-medium text-slate-400 transition hover:border-[#C9A84C] hover:text-[#C9A84C]">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>

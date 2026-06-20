@@ -12,6 +12,8 @@ import { createResume, getResume, listResumes, saveResume, type ResumeDoc } from
 import Sidebar from './Sidebar'
 import ResumePreview from './ResumePreview'
 import DocumentsPanel from './DocumentsPanel'
+import ShareModal from './ShareModal'
+import VersionHistoryModal from './VersionHistoryModal'
 
 const STORAGE_KEY = 'cvb-accent-color'
 
@@ -48,6 +50,8 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
   const [pickerState, setPickerState] = useState<PickerState>('loading')
   const [pickerDocs, setPickerDocs] = useState<ResumeDoc[]>([])
   const [isPdfLoading, setIsPdfLoading] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   // Hydrate accent color from localStorage on first mount.
@@ -388,6 +392,30 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
             </svg>
             <span className="hidden sm:inline">Save Progress</span>
           </button>
+          {currentDocId && (
+            <button
+              onClick={() => setShowShare(true)}
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+              title="Share"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span className="hidden sm:inline">Share</span>
+            </button>
+          )}
+          {currentDocId && (
+            <button
+              onClick={() => setShowVersionHistory(true)}
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+              title="Version History"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="hidden sm:inline">History</span>
+            </button>
+          )}
           <button
             onClick={() => setShowDocs(true)}
             className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
@@ -532,6 +560,44 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           onOpen={handleOpenDoc}
           onClose={() => setShowDocs(false)}
           onCreateNew={handleNew}
+          onOpenShared={(docId) => {
+            getResume(docId).then((doc) => {
+              setResume({ ...DEFAULT_RESUME, ...doc.resume, pageSize: doc.resume.pageSize ?? 'A4' })
+              setCurrentDocId(doc.id)
+              setCurrentDocName(doc.name || 'Untitled Resume')
+              setShowDocs(false)
+              setSaveState('saved')
+              setIsDirty(false)
+              router.replace(`/resume/${doc.id}`)
+              window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+            }).catch((err) => console.error('Failed to open shared resume:', err))
+          }}
+        />
+      )}
+
+      {showShare && currentDocId && (
+        <ShareModal
+          docId={currentDocId}
+          docName={currentDocName}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {showVersionHistory && currentDocId && (
+        <VersionHistoryModal
+          docId={currentDocId}
+          docName={currentDocName}
+          canEdit={true}
+          onClose={() => setShowVersionHistory(false)}
+          onRestored={() => {
+            getResume(currentDocId).then((doc) => {
+              setResume({ ...DEFAULT_RESUME, ...doc.resume, pageSize: doc.resume.pageSize ?? 'A4' })
+              setCurrentDocName(doc.name || 'Untitled Resume')
+              setIsDirty(false)
+              setSaveState('saved')
+              window.setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500)
+            }).catch(() => {})
+          }}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { authOptions } from '@/lib/auth-options'
 import { adminDb } from '@/lib/firebase-admin'
 import { saveReportBlob } from '@/lib/report-storage'
+import { createCollabRecord } from '@/lib/document-permissions'
 import type { ReportData } from '@/types/report'
 
 const MAX_REPORT_BYTES = 10 * 1024 * 1024 // 10 MB
@@ -51,6 +52,16 @@ export async function POST(req: Request) {
     })
 
     await saveReportBlob(docRef.collection('blob'), report)
+
+    // Create collaboration record for this new document
+    await createCollabRecord(
+      docRef.id,
+      'report',
+      session.user.id,
+      session.user.email ?? '',
+      session.user.name ?? '',
+      name,
+    ).catch(() => {}) // non-blocking
 
     return NextResponse.json({ id: docRef.id })
   } catch (err) {

@@ -23,6 +23,15 @@ export async function getReport(id: string): Promise<ReportData> {
   return data.report
 }
 
+export async function getReportDoc(id: string): Promise<{ id: string; name: string; report: ReportData; canEdit: boolean; myRole: string }> {
+  const res = await fetch(`/api/reports/${id}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to load report.')
+  }
+  return res.json() as Promise<{ id: string; name: string; report: ReportData; canEdit: boolean; myRole: string }>
+}
+
 export async function createReport(name: string, report: ReportData): Promise<string> {
   const res = await fetch('/api/reports', {
     method: 'POST',
