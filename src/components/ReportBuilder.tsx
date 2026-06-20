@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useReactToPrint } from 'react-to-print'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -23,9 +24,11 @@ import {
   type ImageBlock, type KpiBlock, type DividerBlock, type SpacerBlock,
   type ChartBlock, type ChartDataset, type TocBlock,
   type CalloutBlock, type QuoteBlock, type StatusBlock, type ProgressBlock,
+  type ColumnsBlock,
   type StatusItem, type ProgressItem, type PageStyle,
   type ShapeItem, type ShapeType, type ShapeTemplate,
   type ReportBranding,
+  type CellBorder, type TableBorders,
 } from '@/types/report'
 
 const CHART_PALETTE = ['#2D7DD2','#0D9080','#DC2626','#C9A84C','#a855f7','#f97316','#10b981','#f43f5e']
@@ -123,6 +126,8 @@ function createBlock(type: ReportBlockType, dp: DesignPack): ReportBlock {
           { id: uuidv4(), label: 'Customer NPS', value: 91, color: '#059669' },
         ],
       }
+    case 'columns':
+      return { id, type: 'columns', split: '50-50', leftBlocks: [], rightBlocks: [], gap: 16 }
   }
 }
 
@@ -205,7 +210,6 @@ export default function ReportBuilder() {
   const [showImport, setShowImport] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
-  const [isDocxLoading, setIsDocxLoading] = useState(false)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
@@ -573,15 +577,64 @@ export default function ReportBuilder() {
     onAfterPrint: () => setIsPdfLoading(false),
   })
 
-  async function handleDocxExport() {
-    setIsDocxLoading(true)
+  async function handleAndroidPdf() {
+    if (!printRef.current) return
+    setIsPdfLoading(true)
     try {
-      const { exportToDocx } = await import('@/lib/docx-export')
-      await exportToDocx(report, docName)
+      const html2pdf = (await import('html2pdf.js')).default
+      const el = printRef.current
+
+      const prev = { left: el.style.left, top: el.style.top, opacity: el.style.opacity }
+      el.style.left = '0'
+      el.style.top = '0'
+      el.style.opacity = '0'
+
+      const pdfDoc = await html2pdf()
+        .from(el)
+        .set({
+          margin: 0,
+          filename: docName + '.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            allowTaint: true,
+            windowWidth: el.scrollWidth,
+            windowHeight: el.scrollHeight,
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: report.pageSize === 'Letter' ? 'letter' : 'a4',
+            orientation: 'portrait',
+          },
+        })
+        .toPdf()
+        .get('pdf')
+
+      el.style.left = prev.left
+      el.style.top = prev.top
+      el.style.opacity = prev.opacity
+
+      const base64 = pdfDoc.output('datauristring').split('base64,')[1]
+      ;(window as any).AndroidBridge.savePdf(base64)
     } catch (e) {
-      console.error('DOCX export failed', e)
+      console.error('Android PDF export failed:', e)
+      if (printRef.current) {
+        printRef.current.style.left = '-99999px'
+        printRef.current.style.top = '0'
+        printRef.current.style.opacity = ''
+      }
     } finally {
-      setIsDocxLoading(false)
+      setIsPdfLoading(false)
+    }
+  }
+
+  function handleDownload() {
+    if (typeof window !== 'undefined' && (window as any).AndroidBridge) {
+      handleAndroidPdf()
+    } else {
+      handlePrint()
     }
   }
 
@@ -718,23 +771,9 @@ export default function ReportBuilder() {
             <span>Share</span>
           </button>
 
-          {/* DOCX export */}
-          <button
-            onClick={handleDocxExport}
-            disabled={isDocxLoading}
-            className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-60"
-            title="Export as Word document"
-          >
-            {isDocxLoading
-              ? <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-              : <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            }
-            <span>DOCX</span>
-          </button>
-
           {/* PDF export */}
           <button
-            onClick={handlePrint}
+            onClick={handleDownload}
             disabled={isPdfLoading}
             className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:opacity-60"
             style={{ background: '#C9A84C' }}
@@ -1045,6 +1084,7 @@ function LeftPanel({
   const BLOCK_TYPES: { type: ReportBlockType; icon: string; label: string; group?: string }[] = [
     { type: 'heading',  icon: 'H',  label: 'Heading' },
     { type: 'text',     icon: 'T',  label: 'Text' },
+    { type: 'columns',  icon: '⊟',  label: '2 Columns' },
     { type: 'table',    icon: '⊞',  label: 'Table' },
     { type: 'chart',    icon: '📈', label: 'Chart' },
     { type: 'kpi',      icon: '📊', label: 'KPI Cards' },
@@ -1591,9 +1631,22 @@ function ReportPageView({
   const [showInsert, setShowInsert] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Canvas dimensions proportional to the selected page size so the preview
+  // matches the exported PDF layout exactly.
+  const PAGE_MM = report.pageSize === 'A4'
+    ? { w: 210, h: 297 }
+    : { w: 215.9, h: 279.4 }
+  const CANVAS_W_PX = 760
+  const scale = CANVAS_W_PX / PAGE_MM.w        // px per mm at this canvas width
+  const canvasHeightPx = Math.round(PAGE_MM.h * scale)   // full page height in px
+  const contentPadPx   = Math.round(20 * scale)          // 20 mm margin → px
+  // Gap between header band and content on first page matches the print 8 mm
+  const headerGapPx    = Math.round(8 * scale)
+
   const BLOCK_TYPES: { type: ReportBlockType; label: string }[] = [
     { type: 'heading',  label: 'Heading' },
     { type: 'text',     label: 'Text' },
+    { type: 'columns',  label: 'Two Columns' },
     { type: 'table',    label: 'Table' },
     { type: 'chart',    label: 'Chart' },
     { type: 'kpi',      label: 'KPI Cards' },
@@ -1619,7 +1672,7 @@ function ReportPageView({
         background: page.style?.backgroundImage
           ? `url(${page.style.backgroundImage}) center/cover`
           : page.style?.backgroundColor || '#FFFFFF',
-        minHeight: '600px',
+        minHeight: `${canvasHeightPx}px`,
       }}
     >
       {/* Background pattern overlay */}
@@ -1637,11 +1690,22 @@ function ReportPageView({
         return <div style={patternStyle} />
       })()}
 
+      {/* Page-height guide — dashed line showing where the first physical page ends */}
+      <div
+        className="no-print pointer-events-none absolute left-0 right-0 z-20"
+        style={{ top: `${canvasHeightPx}px`, borderTop: '2px dashed rgba(201,168,76,0.35)' }}
+        title="Page break — content below this line flows to the next exported page"
+      />
+
       {/* Page header band */}
       {report.headerFooter.showHeader && renderHeaderBand(report.headerFooter, dp, false)}
 
       {/* Page content */}
-      <div className="px-12 py-8">
+      <div style={{
+        padding: `${contentPadPx}px`,
+        paddingTop: report.headerFooter.showHeader ? `${headerGapPx}px` : `${contentPadPx}px`,
+        paddingBottom: report.headerFooter.showFooter ? `${headerGapPx}px` : `${contentPadPx}px`,
+      }}>
         {/* Page title chip */}
         <div className="mb-6 flex items-center justify-between">
           <span className="text-xs font-medium uppercase tracking-widest" style={{ color: dp.accentColor }}>
@@ -1935,15 +1999,34 @@ function BlockContent({ block, dp, report, isSelected, onUpdate }: {
     case 'table': {
       const headerBg = block.headerBg || dp.tableHeaderBg
       const headerText = block.headerText || dp.tableHeaderText
+      const brd = block.borders
+      const numCols = block.headers.length
+      const totalRows = 1 + block.rows.length  // header row + body rows
+      const globalBrd = (absRow: number, ci: number): React.CSSProperties => {
+        if (brd) return computeTableCellBorders(brd, absRow === 0, absRow === totalRows - 1, ci === 0, ci === numCols - 1)
+        const b = block.bordered ? (absRow === 0 ? `1px solid ${headerBg}30` : '1px solid #E5E7EB') : 'none'
+        return { borderTop: b, borderBottom: b, borderLeft: b, borderRight: b }
+      }
+      const cellBrd = (absRow: number, ci: number, cell?: TableCell): React.CSSProperties => {
+        const g = globalBrd(absRow, ci)
+        const sb = cell?.sideBorders
+        if (!sb) return g
+        return {
+          borderTop:    sb.top    !== undefined ? sb.top    : g.borderTop,
+          borderBottom: sb.bottom !== undefined ? sb.bottom : g.borderBottom,
+          borderLeft:   sb.left   !== undefined ? sb.left   : g.borderLeft,
+          borderRight:  sb.right  !== undefined ? sb.right  : g.borderRight,
+        }
+      }
       return (
         <div>
           {block.caption && <p className="mb-1.5 text-xs text-gray-500 italic">{block.caption}</p>}
           <table className="w-full" style={{ fontFamily: dp.fontFamily, borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed', wordBreak: 'break-word' }}>
             <thead>
               <tr>
-                {block.headers.map((h, i) => (
-                  <th key={i} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
-                    style={{ background: headerBg, color: headerText, border: block.bordered ? `1px solid ${headerBg}30` : 'none', overflowWrap: 'break-word' }}>
+                {block.headers.map((h, ci) => (
+                  <th key={ci} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
+                    style={{ background: headerBg, color: headerText, overflowWrap: 'break-word', ...cellBrd(0, ci) }}>
                     {h}
                   </th>
                 ))}
@@ -1957,9 +2040,9 @@ function BlockContent({ block, dp, report, isSelected, onUpdate }: {
                       textAlign: cell.align, fontWeight: cell.bold ? 600 : 400,
                       fontStyle: cell.italic ? 'italic' : 'normal', textDecoration: cell.underline ? 'underline' : 'none',
                       color: cell.color || dp.textColor, background: cell.bgColor || 'transparent',
-                      border: block.bordered ? '1px solid #E5E7EB' : 'none',
                       paddingTop: '6px', paddingBottom: '6px',
                       paddingLeft: `${((cell.indentLevel || 0) * 16) + 12}px`, paddingRight: '12px', overflowWrap: 'break-word',
+                      ...cellBrd(1 + rIdx, cIdx, cell),
                     }}>
                       {formatCellContent(cell)}
                     </td>
@@ -2240,9 +2323,206 @@ function BlockContent({ block, dp, report, isSelected, onUpdate }: {
       )
     }
 
+    case 'columns':
+      return (
+        <ColumnsBlockView block={block as ColumnsBlock} dp={dp} isSelected={isSelected} onUpdate={onUpdate} />
+      )
+
     default:
       return null
   }
+}
+
+// ── Two-Column Layout Block ────────────────────────────────────────────────
+
+const INNER_BLOCK_TYPES: { type: ReportBlockType; label: string }[] = [
+  { type: 'heading',  label: 'Heading' },
+  { type: 'text',     label: 'Text' },
+  { type: 'table',    label: 'Table' },
+  { type: 'chart',    label: 'Chart' },
+  { type: 'kpi',      label: 'KPI Cards' },
+  { type: 'image',    label: 'Image' },
+  { type: 'divider',  label: 'Divider' },
+  { type: 'spacer',   label: 'Spacer' },
+  { type: 'callout',  label: 'Callout' },
+  { type: 'quote',    label: 'Quote' },
+  { type: 'status',   label: 'Status' },
+  { type: 'progress', label: 'Progress' },
+]
+
+function ColumnsBlockView({ block, dp, isSelected, onUpdate }: {
+  block: ColumnsBlock
+  dp: DesignPack
+  isSelected: boolean
+  onUpdate?: (updates: Record<string, unknown>) => void
+}) {
+  const [innerSelected, setInnerSelected] = useState<{ col: 'left' | 'right'; id: string } | null>(null)
+  const [addingTo, setAddingTo] = useState<'left' | 'right' | null>(null)
+
+  const splitWidths: Record<string, [string, string]> = {
+    '50-50': ['50%', '50%'],
+    '33-67': ['33.333%', '66.667%'],
+    '67-33': ['66.667%', '33.333%'],
+    '25-75': ['25%', '75%'],
+    '75-25': ['75%', '25%'],
+  }
+  const [leftW, rightW] = splitWidths[block.split] ?? ['50%', '50%']
+
+  function addInnerBlock(col: 'left' | 'right', type: ReportBlockType) {
+    const newBlock = createBlock(type, dp)
+    const key = col === 'left' ? 'leftBlocks' : 'rightBlocks'
+    const current = col === 'left' ? block.leftBlocks : block.rightBlocks
+    onUpdate?.({ [key]: [...current, newBlock] })
+    setInnerSelected({ col, id: newBlock.id })
+    setAddingTo(null)
+  }
+
+  function deleteInnerBlock(col: 'left' | 'right', id: string) {
+    const key = col === 'left' ? 'leftBlocks' : 'rightBlocks'
+    const current = col === 'left' ? block.leftBlocks : block.rightBlocks
+    onUpdate?.({ [key]: current.filter((b) => b.id !== id) })
+    if (innerSelected?.id === id) setInnerSelected(null)
+  }
+
+  function moveInnerBlock(col: 'left' | 'right', id: string, dir: 'up' | 'down') {
+    const key = col === 'left' ? 'leftBlocks' : 'rightBlocks'
+    const current = [...(col === 'left' ? block.leftBlocks : block.rightBlocks)]
+    const idx = current.findIndex((b) => b.id === id)
+    if (idx < 0) return
+    const newIdx = dir === 'up' ? idx - 1 : idx + 1
+    if (newIdx < 0 || newIdx >= current.length) return
+    ;[current[idx], current[newIdx]] = [current[newIdx], current[idx]]
+    onUpdate?.({ [key]: current })
+  }
+
+  function updateInnerBlock(col: 'left' | 'right', id: string, updates: Record<string, unknown>) {
+    const key = col === 'left' ? 'leftBlocks' : 'rightBlocks'
+    const current = col === 'left' ? block.leftBlocks : block.rightBlocks
+    onUpdate?.({ [key]: current.map((b) => b.id !== id ? b : { ...b, ...updates }) })
+  }
+
+  function renderColumn(col: 'left' | 'right', blocks: ReportBlock[], width: string) {
+    const isAdding = addingTo === col
+    return (
+      <div
+        style={{ width, minWidth: 0, flexShrink: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Column header */}
+        <div className="mb-2 flex items-center gap-1.5">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+            {col === 'left' ? 'Left Column' : 'Right Column'}
+          </span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        {/* Blocks */}
+        <div className="flex flex-col gap-2 min-h-[60px]">
+          {blocks.length === 0 && (
+            <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-6 text-xs text-gray-400">
+              Empty — add a block below
+            </div>
+          )}
+          {blocks.map((innerBlock, idx) => {
+            const isInnerSelected = innerSelected?.col === col && innerSelected.id === innerBlock.id
+            return (
+              <div
+                key={innerBlock.id}
+                className={`group/inner relative rounded transition-all ${
+                  isInnerSelected
+                    ? 'outline outline-2 outline-blue-400 outline-offset-1'
+                    : 'hover:outline hover:outline-1 hover:outline-gray-200 hover:outline-offset-1'
+                }`}
+                onClick={(e) => { e.stopPropagation(); setInnerSelected({ col, id: innerBlock.id }) }}
+              >
+                {/* Inner block controls */}
+                <div
+                  className={`absolute -right-1 -top-1 z-10 flex items-center gap-0.5 rounded-md border border-gray-200 bg-white p-0.5 shadow-sm ${isInnerSelected ? 'flex' : 'hidden group-hover/inner:flex'}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => moveInnerBlock(col, innerBlock.id, 'up')}
+                    disabled={idx === 0}
+                    className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                    title="Move up"
+                  >
+                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                  </button>
+                  <button
+                    onClick={() => moveInnerBlock(col, innerBlock.id, 'down')}
+                    disabled={idx === blocks.length - 1}
+                    className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                    title="Move down"
+                  >
+                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  <button
+                    onClick={() => deleteInnerBlock(col, innerBlock.id)}
+                    className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:text-red-500"
+                    title="Delete"
+                  >
+                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+
+                <BlockContent
+                  block={innerBlock}
+                  dp={dp}
+                  isSelected={isInnerSelected}
+                  onUpdate={(updates) => updateInnerBlock(col, innerBlock.id, updates)}
+                />
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Add block to column */}
+        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+          {isAdding ? (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-1.5">
+              <div className="flex flex-wrap gap-1">
+                {INNER_BLOCK_TYPES.map(({ type, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => addInnerBlock(col, type)}
+                    className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] text-gray-600 transition hover:border-gray-400 hover:text-gray-900"
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button onClick={() => setAddingTo(null)} className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingTo(col)}
+              className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-gray-200 py-1.5 text-[10px] text-gray-400 transition hover:border-gray-400 hover:text-gray-600"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              Add block
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={`rounded-lg border-2 p-3 transition-all ${
+        isSelected ? 'border-blue-300 bg-blue-50/30' : 'border-gray-100 bg-gray-50/50'
+      }`}
+      onClick={(e) => { e.stopPropagation(); setInnerSelected(null) }}
+    >
+      <div className="flex" style={{ gap: `${block.gap}px`, alignItems: 'flex-start' }}>
+        {renderColumn('left', block.leftBlocks, leftW)}
+        {/* Column divider */}
+        <div className="mt-7 w-px self-stretch bg-gray-200" />
+        {renderColumn('right', block.rightBlocks, rightW)}
+      </div>
+    </div>
+  )
 }
 
 // ── Inline Table Block View ─────────────────────────────────────────────────
@@ -2279,6 +2559,10 @@ interface TableFormatAPI {
   applyFinancialFormat: () => void
   rowCount: number
   colCount: number
+  // Cell-level border API
+  applyBorderPreset: (presetApply: (b: CellBorder) => TableBorders, b: CellBorder) => void
+  applyBorderToggle: (side: keyof TableBorders, b: CellBorder) => void
+  activeSides: Record<keyof TableBorders, boolean>
 }
 
 function TableBlockView({
@@ -2423,6 +2707,82 @@ function TableBlockView({
         )
         onUpdate({ rows, bordered: true })
       },
+      // ── Cell-level border methods ────────────────────────────────────────────
+      applyBorderPreset: (presetApply, activeBorder) => {
+        if (!onUpdate || selectedCells.size === 0) return
+        const selArr = [...selectedCells].map((k) => k.split(',').map(Number) as [number, number])
+        const minR = Math.min(...selArr.map(([r]) => r))
+        const maxR = Math.max(...selArr.map(([r]) => r))
+        const minC = Math.min(...selArr.map(([, c]) => c))
+        const maxC = Math.max(...selArr.map(([, c]) => c))
+        const applied = presetApply(activeBorder)
+        const isNone = Object.values(applied).every((v) => v === null)
+        const rows = block.rows.map((row, ri) =>
+          row.map((cell, ci) => {
+            if (!selectedCells.has(cellKey(ri, ci))) return cell
+            if (isNone) return { ...cell, sideBorders: undefined }
+            const isTopEdge = ri === minR, isBottomEdge = ri === maxR
+            const isLeftEdge = ci === minC, isRightEdge = ci === maxC
+            const sides: Record<string, string> = {}
+            if (applied.top    && isTopEdge)    sides.top    = fmtBorder(applied.top)
+            if (isBottomEdge  && applied.bottom) sides.bottom = fmtBorder(applied.bottom)
+            else if (!isBottomEdge && applied.innerH) sides.bottom = fmtBorder(applied.innerH)
+            if (applied.left   && isLeftEdge)   sides.left   = fmtBorder(applied.left)
+            if (isRightEdge   && applied.right)  sides.right  = fmtBorder(applied.right)
+            else if (!isRightEdge && applied.innerV)  sides.right  = fmtBorder(applied.innerV)
+            return { ...cell, sideBorders: Object.keys(sides).length ? sides : undefined }
+          })
+        )
+        onUpdate({ rows })
+      },
+      applyBorderToggle: (side, activeBorder) => {
+        if (!onUpdate || selectedCells.size === 0) return
+        const selArr = [...selectedCells].map((k) => k.split(',').map(Number) as [number, number])
+        const minR = Math.min(...selArr.map(([r]) => r))
+        const maxR = Math.max(...selArr.map(([r]) => r))
+        const minC = Math.min(...selArr.map(([, c]) => c))
+        const maxC = Math.max(...selArr.map(([, c]) => c))
+        type CS = 'top' | 'bottom' | 'left' | 'right'
+        const sideMap: Record<keyof TableBorders, { filter: (r: number, c: number) => boolean; css: CS }> = {
+          top:    { filter: (r) => r === minR,    css: 'top' },
+          bottom: { filter: (r) => r === maxR,    css: 'bottom' },
+          left:   { filter: (_, c) => c === minC, css: 'left' },
+          right:  { filter: (_, c) => c === maxC, css: 'right' },
+          innerH: { filter: (r) => r !== maxR,    css: 'bottom' },
+          innerV: { filter: (_, c) => c !== maxC, css: 'right' },
+        }
+        const { filter, css } = sideMap[side]
+        const affected = selArr.filter(([r, c]) => filter(r, c))
+        const isActive = affected.length > 0 && affected.every(([r, c]) => !!(block.rows[r]?.[c]?.sideBorders as Record<string, string> | undefined)?.[css])
+        const rows = block.rows.map((row, ri) =>
+          row.map((cell, ci) => {
+            if (!selectedCells.has(cellKey(ri, ci)) || !filter(ri, ci)) return cell
+            const sb = { ...(cell.sideBorders || {}) }
+            if (isActive) delete (sb as Record<string, string>)[css]
+            else (sb as Record<string, string>)[css] = fmtBorder(activeBorder)
+            return { ...cell, sideBorders: Object.keys(sb).length ? sb : undefined }
+          })
+        )
+        onUpdate({ rows })
+      },
+      activeSides: (() => {
+        const selArr = [...selectedCells].map((k) => k.split(',').map(Number) as [number, number])
+        if (!selArr.length) return { top: false, bottom: false, left: false, right: false, innerH: false, innerV: false }
+        const minR = Math.min(...selArr.map(([r]) => r))
+        const maxR = Math.max(...selArr.map(([r]) => r))
+        const minC = Math.min(...selArr.map(([, c]) => c))
+        const maxC = Math.max(...selArr.map(([, c]) => c))
+        const allHave = (cells: [number, number][], cssSide: string) =>
+          cells.length > 0 && cells.every(([r, c]) => !!(block.rows[r]?.[c]?.sideBorders as Record<string, string> | undefined)?.[cssSide])
+        return {
+          top:    allHave(selArr.filter(([r]) => r === minR),    'top'),
+          bottom: allHave(selArr.filter(([r]) => r === maxR),    'bottom'),
+          left:   allHave(selArr.filter(([, c]) => c === minC),  'left'),
+          right:  allHave(selArr.filter(([, c]) => c === maxC),  'right'),
+          innerH: allHave(selArr.filter(([r]) => r !== maxR),    'bottom'),
+          innerV: allHave(selArr.filter(([, c]) => c !== maxC),  'right'),
+        }
+      })(),
     }
     onFormatAPIChange(api)
   }, [isSelected, selectedCells, block.rows, block.headers, block.rows.length, block.headers.length, anchorCell]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2545,6 +2905,27 @@ function TableBlockView({
   const headerBg = block.headerBg || dp.tableHeaderBg
   const headerText = block.headerText || dp.tableHeaderText
 
+  // Border helpers — same logic as BlockContent and print renderer
+  const tvwBrd = block.borders
+  const tvwCols = block.headers.length
+  const tvwTotalRows = 1 + block.rows.length
+  const tvwGlobalBrd = (absRow: number, ci: number): React.CSSProperties => {
+    if (tvwBrd) return computeTableCellBorders(tvwBrd, absRow === 0, absRow === tvwTotalRows - 1, ci === 0, ci === tvwCols - 1)
+    const b = block.bordered ? (absRow === 0 ? `1px solid ${headerBg}30` : '1px solid #E5E7EB') : 'none'
+    return { borderTop: b, borderBottom: b, borderLeft: b, borderRight: b }
+  }
+  const tvwCellBrd = (absRow: number, ci: number, cell?: TableCell): React.CSSProperties => {
+    const g = tvwGlobalBrd(absRow, ci)
+    const sb = cell?.sideBorders
+    if (!sb) return g
+    return {
+      borderTop:    sb.top    !== undefined ? sb.top    : g.borderTop,
+      borderBottom: sb.bottom !== undefined ? sb.bottom : g.borderBottom,
+      borderLeft:   sb.left   !== undefined ? sb.left   : g.borderLeft,
+      borderRight:  sb.right  !== undefined ? sb.right  : g.borderRight,
+    }
+  }
+
   return (
     <div onClick={(e) => e.stopPropagation()}>
       {/* Caption */}
@@ -2597,9 +2978,9 @@ function TableBlockView({
                   className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
                   style={{
                     background: headerBg, color: headerText,
-                    border: block.bordered ? `1px solid ${headerBg}30` : 'none',
                     overflowWrap: 'break-word',
                     cursor: 'text',
+                    ...tvwCellBrd(0, i),
                   }}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -2678,7 +3059,7 @@ function TableBlockView({
                         textDecoration: cell.underline ? 'underline' : 'none',
                         color: cell.color || dp.textColor,
                         background: isEditing ? '#EFF6FF' : (isCellSel ? '#DBEAFE' : (cell.bgColor || 'transparent')),
-                        border: block.bordered ? '1px solid #E5E7EB' : 'none',
+                        ...tvwCellBrd(1 + rIdx, cIdx, cell),
                         outline: isEditing ? '2px solid #3B82F6' : (isCellSel && isSelected ? '1px solid #93C5FD' : 'none'),
                         outlineOffset: '-1px',
                         cursor: 'cell',
@@ -2752,6 +3133,23 @@ function FormatToolbar({
   onDelete?: () => void
   coverField?: CoverFieldFocus | null
 }) {
+  // Border picker state — always declared so hook order is stable
+  const [bStyle, setBStyle] = useState<CellBorder['style']>('solid')
+  const [bColor, setBColor] = useState('#374151')
+  const [bWidth, setBWidth] = useState<1 | 2 | 3>(1)
+  const [showBorderPanel, setShowBorderPanel] = useState(false)
+  const [borderPanelPos, setBorderPanelPos] = useState({ top: 0, left: 0 })
+  const borderBtnRef = useRef<HTMLButtonElement>(null)
+  const activeBorder: CellBorder = { style: bStyle, color: bColor, width: bWidth }
+
+  function openBorderPanel() {
+    if (borderBtnRef.current) {
+      const r = borderBtnRef.current.getBoundingClientRect()
+      setBorderPanelPos({ top: r.bottom + 4, left: r.left })
+    }
+    setShowBorderPanel((v) => !v)
+  }
+
   const sep = <div className="mx-1 h-5 w-px bg-white/15 shrink-0" />
   const btn = (active: boolean, onClick: () => void, title: string, children: React.ReactNode, key?: string | number) => (
     <button
@@ -2851,6 +3249,94 @@ function FormatToolbar({
           title="Auto-format: right-align numbers, bold totals, accounting format"
           className="flex h-7 items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition"
         >$ Financial</button>
+        {sep}
+
+        {/* Border picker */}
+        <div className="shrink-0">
+          <button
+            ref={borderBtnRef}
+            onClick={openBorderPanel}
+            title="Border options for selected cells"
+            className={`flex h-7 items-center gap-1.5 rounded px-2 text-[11px] transition ${showBorderPanel ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
+          >
+            <BdrIcon icon={{ top: true, bottom: true, left: true, right: true, innerH: true, innerV: true }} />
+            Borders ▾
+          </button>
+        </div>
+
+        {showBorderPanel && typeof document !== 'undefined' && createPortal(
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-[9998]" onClick={() => setShowBorderPanel(false)} />
+            {/* Panel — fixed so it escapes every overflow container */}
+            <div
+              className="fixed z-[9999] w-72 rounded-lg border border-white/15 bg-[#1A0C05] p-3 shadow-2xl"
+              style={{ top: borderPanelPos.top, left: borderPanelPos.left }}
+            >
+              {/* Line style + color */}
+              <div className="mb-2">
+                <span className="mb-1 block text-[9px] font-medium uppercase tracking-wide text-slate-500">Line style</span>
+                <div className="flex items-center gap-1">
+                  {(['solid','dashed','dotted','double'] as const).map((s) => (
+                    <button key={s} onClick={() => setBStyle(s)}
+                      className={`rounded px-2 py-0.5 text-[10px] transition ${bStyle === s ? 'bg-[#C9A84C] text-[#120B07]' : 'border border-white/10 text-slate-400 hover:border-[#C9A84C]/40'}`}>
+                      {s === 'solid' ? '—' : s === 'dashed' ? '- -' : s === 'dotted' ? '···' : '═'}
+                    </button>
+                  ))}
+                  <input type="color" value={bColor} onChange={(e) => setBColor(e.target.value)}
+                    className="ml-auto h-6 w-7 cursor-pointer rounded border border-white/10" title="Border color" />
+                </div>
+              </div>
+
+              {/* Weight */}
+              <div className="mb-3 flex gap-1">
+                {([1,2,3] as const).map((w) => (
+                  <button key={w} onClick={() => setBWidth(w)}
+                    className={`rounded px-2.5 py-0.5 text-[10px] transition ${bWidth === w ? 'bg-[#C9A84C] text-[#120B07]' : 'border border-white/10 text-slate-400 hover:border-[#C9A84C]/40'}`}>
+                    {w === 1 ? 'Thin' : w === 2 ? 'Medium' : 'Thick'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Preset grid */}
+              <div className="mb-3 grid grid-cols-5 gap-1">
+                {BORDER_PRESETS.map((preset) => (
+                  <button key={preset.label} title={preset.title}
+                    onClick={() => { tableFormatAPI?.applyBorderPreset(preset.apply, activeBorder); setShowBorderPanel(false) }}
+                    className="flex flex-col items-center gap-0.5 rounded border border-white/10 p-1.5 text-[8px] leading-tight text-slate-400 transition hover:border-[#C9A84C]/40 hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]">
+                    <BdrIcon icon={preset.icon} />
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Individual side toggles */}
+              <div>
+                <span className="mb-1 block text-[9px] font-medium uppercase tracking-wide text-slate-500">Toggle individual sides</span>
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    { side: 'top' as const,    label: 'Top' },
+                    { side: 'bottom' as const, label: 'Bottom' },
+                    { side: 'left' as const,   label: 'Left' },
+                    { side: 'right' as const,  label: 'Right' },
+                    { side: 'innerH' as const, label: 'Inner ↔' },
+                    { side: 'innerV' as const, label: 'Inner ↕' },
+                  ]).map(({ side, label }) => {
+                    const isActive = tableFormatAPI?.activeSides[side] ?? false
+                    return (
+                      <button key={side}
+                        onClick={() => tableFormatAPI?.applyBorderToggle(side, activeBorder)}
+                        className={`rounded border px-1 py-1 text-[9px] transition ${isActive ? 'border-[#C9A84C] bg-[#C9A84C]/10 text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:border-[#C9A84C]/40'}`}>
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
       </div>
     )
   }
@@ -3477,6 +3963,123 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
       return <StatusEditor block={block as StatusBlock} onUpdate={onUpdate} />
     case 'progress':
       return <ProgressEditor block={block as ProgressBlock} onUpdate={onUpdate} />
+    case 'columns': {
+      const cb = block as ColumnsBlock
+      return (
+        <div className="flex flex-col gap-3">
+          <div>
+            {label('Column Split')}
+            <div className="grid grid-cols-1 gap-1">
+              {([
+                ['50-50', '50% / 50%'],
+                ['33-67', '33% / 67%'],
+                ['67-33', '67% / 33%'],
+                ['25-75', '25% / 75%'],
+                ['75-25', '75% / 25%'],
+              ] as const).map(([val, lbl]) => (
+                <button
+                  key={val}
+                  onClick={() => onUpdate({ split: val })}
+                  className={`rounded border px-2 py-1.5 text-xs transition ${cb.split === val ? 'border-[#C9A84C] bg-[#C9A84C]/20 text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-0.5">
+                      <div className="h-3 rounded-sm bg-current opacity-70" style={{ width: `${parseInt(val.split('-')[0]) * 0.4}px` }} />
+                      <div className="h-3 rounded-sm bg-current opacity-40" style={{ width: `${parseInt(val.split('-')[1]) * 0.4}px` }} />
+                    </div>
+                    <span>{lbl}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            {label(`Gap: ${cb.gap}px`)}
+            <input type="range" min={0} max={48} step={4} value={cb.gap} onChange={(e) => onUpdate({ gap: Number(e.target.value) })} className="w-full" />
+          </div>
+          <div className="rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 py-2 text-[10px] leading-relaxed text-[#C9A84C]">
+            Click inside each column on the canvas to add and edit blocks independently.
+          </div>
+        </div>
+      )
+    }
+  }
+}
+
+// ── Table border helpers ───────────────────────────────────────────────────
+
+const EMPTY_BORDERS: TableBorders = { top: null, bottom: null, left: null, right: null, innerH: null, innerV: null }
+
+interface BorderPreset {
+  label: string
+  title: string
+  icon: { top?: boolean; bottom?: boolean; left?: boolean; right?: boolean; innerH?: boolean; innerV?: boolean; dblBottom?: boolean }
+  apply: (b: CellBorder) => TableBorders
+}
+
+const BORDER_PRESETS: BorderPreset[] = [
+  { label: 'None',         title: 'No borders',                   icon: {},                                                       apply: () => ({ ...EMPTY_BORDERS }) },
+  { label: 'All',          title: 'All borders',                  icon: { top:true,bottom:true,left:true,right:true,innerH:true,innerV:true }, apply: (b) => ({ top:b,bottom:b,left:b,right:b,innerH:b,innerV:b }) },
+  { label: 'Outside',      title: 'Outside borders only',         icon: { top:true,bottom:true,left:true,right:true },             apply: (b) => ({ ...EMPTY_BORDERS, top:b,bottom:b,left:b,right:b }) },
+  { label: 'Inside',       title: 'Inside borders only',          icon: { innerH:true,innerV:true },                              apply: (b) => ({ ...EMPTY_BORDERS, innerH:b,innerV:b }) },
+  { label: 'Top',          title: 'Top border only',              icon: { top:true },                                             apply: (b) => ({ ...EMPTY_BORDERS, top:b }) },
+  { label: 'Bottom',       title: 'Bottom border only',           icon: { bottom:true },                                          apply: (b) => ({ ...EMPTY_BORDERS, bottom:b }) },
+  { label: 'Left',         title: 'Left border only',             icon: { left:true },                                            apply: (b) => ({ ...EMPTY_BORDERS, left:b }) },
+  { label: 'Right',        title: 'Right border only',            icon: { right:true },                                           apply: (b) => ({ ...EMPTY_BORDERS, right:b }) },
+  { label: 'Top+Btm',      title: 'Top and bottom borders',       icon: { top:true,bottom:true },                                 apply: (b) => ({ ...EMPTY_BORDERS, top:b,bottom:b }) },
+  { label: 'Inner H',      title: 'Horizontal inner lines only',  icon: { innerH:true },                                          apply: (b) => ({ ...EMPTY_BORDERS, innerH:b }) },
+  { label: 'Inner V',      title: 'Vertical inner lines only',    icon: { innerV:true },                                          apply: (b) => ({ ...EMPTY_BORDERS, innerV:b }) },
+  { label: 'Thick Box',    title: 'Thick outside box border',     icon: { top:true,bottom:true,left:true,right:true },             apply: (b) => ({ ...EMPTY_BORDERS, top:{...b,width:3},bottom:{...b,width:3},left:{...b,width:3},right:{...b,width:3} }) },
+  { label: 'Dbl Btm',      title: 'Double bottom border',         icon: { bottom:true,dblBottom:true },                           apply: (b) => ({ ...EMPTY_BORDERS, bottom:{...b,style:'double'} }) },
+  { label: 'Top+Dbl Btm',  title: 'Top border + double bottom',   icon: { top:true,bottom:true,dblBottom:true },                  apply: (b) => ({ ...EMPTY_BORDERS, top:b,bottom:{...b,style:'double'} }) },
+  { label: 'All Double',   title: 'All borders as double lines',  icon: { top:true,bottom:true,left:true,right:true,innerH:true,innerV:true,dblBottom:true }, apply: (b) => { const d={...b,style:'double' as const}; return { top:d,bottom:d,left:d,right:d,innerH:d,innerV:d } } },
+]
+
+function BdrIcon({ icon }: { icon: BorderPreset['icon'] }) {
+  const S = 20
+  const M = S / 2
+  const ON = '#1e293b'
+  const OFF = '#e2e8f0'
+  return (
+    <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display: 'block', flexShrink: 0 }}>
+      {/* outer box bg */}
+      <rect x={1} y={1} width={S-2} height={S-2} fill="none" />
+      {/* top */}
+      <line x1={1} y1={1} x2={S-1} y2={1} stroke={icon.top ? ON : OFF} strokeWidth={icon.top ? 1.5 : 1} />
+      {/* bottom — double variant */}
+      {icon.dblBottom && icon.bottom
+        ? <><line x1={1} y1={S-3} x2={S-1} y2={S-3} stroke={ON} strokeWidth={1.2} /><line x1={1} y1={S-1} x2={S-1} y2={S-1} stroke={ON} strokeWidth={1.2} /></>
+        : <line x1={1} y1={S-1} x2={S-1} y2={S-1} stroke={icon.bottom ? ON : OFF} strokeWidth={icon.bottom ? 1.5 : 1} />}
+      {/* left */}
+      <line x1={1} y1={1} x2={1} y2={S-1} stroke={icon.left ? ON : OFF} strokeWidth={icon.left ? 1.5 : 1} />
+      {/* right */}
+      <line x1={S-1} y1={1} x2={S-1} y2={S-1} stroke={icon.right ? ON : OFF} strokeWidth={icon.right ? 1.5 : 1} />
+      {/* innerH */}
+      <line x1={2} y1={M} x2={S-2} y2={M} stroke={icon.innerH ? ON : OFF} strokeWidth={1} strokeDasharray={icon.innerH ? undefined : '2 1'} />
+      {/* innerV */}
+      <line x1={M} y1={2} x2={M} y2={S-2} stroke={icon.innerV ? ON : OFF} strokeWidth={1} strokeDasharray={icon.innerV ? undefined : '2 1'} />
+    </svg>
+  )
+}
+
+function fmtBorder(b: CellBorder | null): string {
+  if (!b) return 'none'
+  const px = b.style === 'double' ? ([3, 4, 6] as const)[b.width - 1] : b.width
+  return `${px}px ${b.style} ${b.color}`
+}
+
+function computeTableCellBorders(
+  borders: TableBorders,
+  isTopRow: boolean,
+  isBottomRow: boolean,
+  isLeftCol: boolean,
+  isRightCol: boolean,
+): React.CSSProperties {
+  return {
+    borderTop:    fmtBorder(isTopRow    ? borders.top    : null),
+    borderBottom: fmtBorder(isBottomRow ? borders.bottom : borders.innerH),
+    borderLeft:   fmtBorder(isLeftCol   ? borders.left   : null),
+    borderRight:  fmtBorder(isRightCol  ? borders.right  : borders.innerV),
   }
 }
 
@@ -3507,7 +4110,7 @@ function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPac
     <div className="flex flex-col gap-3">
       {/* Canvas edit hint */}
       <div className="rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 py-2 text-[10px] leading-relaxed text-[#C9A84C]">
-        Click any cell on the canvas to edit it. Use the toolbar above the table for bold, alignment, number format, and row/column operations.
+        Click cells to select them, then use the <strong>Borders ▾</strong> button in the top toolbar to apply borders.
       </div>
 
       <div>
@@ -3515,14 +4118,14 @@ function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPac
         <input value={block.caption} onChange={(e) => onUpdate({ caption: e.target.value })} className={inputCls} placeholder="Table caption…" />
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-1.5">
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400">
           <input type="checkbox" checked={block.striped} onChange={(e) => onUpdate({ striped: e.target.checked })} />
           Striped rows
         </label>
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400">
-          <input type="checkbox" checked={block.bordered} onChange={(e) => onUpdate({ bordered: e.target.checked })} />
-          Borders
+          <input type="checkbox" checked={block.allowBreak ?? false} onChange={(e) => onUpdate({ allowBreak: e.target.checked })} />
+          Allow rows to split across pages
         </label>
       </div>
 
@@ -4368,13 +4971,15 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
 // ── Print View (hidden, PDF target) ────────────────────────────────────────
 
 function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
-  const PAGE_STYLES: React.CSSProperties = {
-    width: report.pageSize === 'A4' ? '210mm' : '215.9mm',
-    minHeight: report.pageSize === 'A4' ? '297mm' : '279.4mm',
-    padding: '20mm',
+  const pageW = report.pageSize === 'A4' ? '210mm' : '215.9mm'
+  const pageH = report.pageSize === 'A4' ? '297mm' : '279.4mm'
+
+  // Outer div: keeps position:relative for shapes + watermark, and minHeight for the absolute-positioned footer
+  const PAGE_DIV: React.CSSProperties = {
+    width: pageW,
+    minHeight: pageH,
     background: '#FFFFFF',
     position: 'relative',
-    pageBreakBefore: 'always',
     boxSizing: 'border-box',
     fontFamily: dp.fontFamily,
   }
@@ -4397,7 +5002,7 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
              { top: '16mm', left: '16mm' }),
         }
         return (
-          <div style={{ ...PAGE_STYLES, background: cpBg, padding: '40mm 20mm 20mm', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ ...PAGE_DIV, background: cpBg, padding: '40mm 20mm 20mm', position: 'relative', overflow: 'hidden' }}>
             {report.coverPage.backgroundImageUrl && (
               <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${report.coverPage.backgroundImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
             )}
@@ -4443,50 +5048,86 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
         )
       })()}
 
-      {report.pages.map((page, pageIdx) => (
-        <div key={page.id} style={{ ...PAGE_STYLES, pageBreakBefore: pageIdx === 0 && !report.coverPage.enabled ? 'avoid' : 'always' }}>
-          {/* Header — absolute so it spans the full page width without being constrained by the 20mm content padding */}
-          {report.headerFooter.showHeader && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 }}>
-              {renderHeaderBand(report.headerFooter, dp, true)}
-            </div>
-          )}
+      {report.pages.map((page, pageIdx) => {
+        const showHeader = report.headerFooter.showHeader
+        const showFooter = report.headerFooter.showFooter
+        return (
+          <div
+            key={page.id}
+            style={{
+              ...PAGE_DIV,
+              pageBreakBefore: pageIdx === 0 && !report.coverPage.enabled ? 'avoid' : 'always',
+            }}
+          >
+            {/* Shapes — absolute relative to this div */}
+            {(page.shapes || []).sort((a, b) => a.zIndex - b.zIndex).map((shape) => (
+              <div key={shape.id} style={{ position: 'absolute', left: `${shape.x}%`, top: `${shape.y}%`, width: `${shape.width}%`, height: `${shape.height}%`, opacity: shape.opacity, transform: `rotate(${shape.rotation}deg)`, transformOrigin: 'center', zIndex: shape.zIndex }}>
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+                  {getShapeElement(shape)}
+                </svg>
+              </div>
+            ))}
 
-          {/* Shapes */}
-          {(page.shapes || []).sort((a, b) => a.zIndex - b.zIndex).map((shape) => (
-            <div key={shape.id} style={{ position: 'absolute', left: `${shape.x}%`, top: `${shape.y}%`, width: `${shape.width}%`, height: `${shape.height}%`, opacity: shape.opacity, transform: `rotate(${shape.rotation}deg)`, transformOrigin: 'center', zIndex: shape.zIndex }}>
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-                {getShapeElement(shape)}
-              </svg>
-            </div>
-          ))}
+            {/* Watermark */}
+            {report.watermark.enabled && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}>
+                {report.watermark.imageUrl
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={report.watermark.imageUrl} alt="watermark" style={{ maxWidth: '60%', maxHeight: '60%', objectFit: 'contain' }} />
+                  : <span style={{ fontSize: '48pt', fontWeight: 900, color: report.watermark.color || '#888', letterSpacing: '8px' }}>{report.watermark.text}</span>
+                }
+              </div>
+            )}
 
-          {/* Watermark */}
-          {report.watermark.enabled && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}>
-              {report.watermark.imageUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={report.watermark.imageUrl} alt="watermark" style={{ maxWidth: '60%', maxHeight: '60%', objectFit: 'contain' }} />
-                : <span style={{ fontSize: '48pt', fontWeight: 900, color: report.watermark.color || '#888', letterSpacing: '8px' }}>{report.watermark.text}</span>
-              }
-            </div>
-          )}
-
-          {/* Blocks — breakInside: avoid prevents charts/tables/images from being sliced across pages */}
-          {page.blocks.map((block) => (
-            <div key={block.id} style={{ marginBottom: '12pt', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-              {renderPrintBlock(block, dp, report)}
-            </div>
-          ))}
-
-          {/* Footer — full page width, aligned at the bottom */}
-          {report.headerFooter.showFooter && (
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2 }}>
-              {renderFooterBand(report.headerFooter, dp, pageIdx + 1, true)}
-            </div>
-          )}
-        </div>
-      ))}
+            {/* Table — browser repeats <thead> at the top and <tfoot> at the bottom of every
+                physical page when the table spans multiple pages.
+                paddingBottom on <th> = gap after header; paddingTop on tfoot <td> = gap before footer. */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', position: 'relative', zIndex: 1 }}>
+              {showHeader && (
+                <thead>
+                  <tr>
+                    <th style={{ padding: 0, paddingBottom: '8mm', fontWeight: 'normal', textAlign: 'left' }}>
+                      {renderHeaderBand(report.headerFooter, dp, true)}
+                    </th>
+                  </tr>
+                </thead>
+              )}
+              {showFooter && (
+                <tfoot>
+                  <tr>
+                    <td style={{ padding: 0, paddingTop: '8mm' }}>
+                      {renderFooterBand(report.headerFooter, dp, pageIdx + 1, true)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+              <tbody>
+                <tr>
+                  <td style={{
+                    padding: '20mm',
+                    paddingTop: showHeader ? '0' : '20mm',
+                    paddingBottom: showFooter ? '0' : '20mm',
+                    verticalAlign: 'top',
+                  }}>
+                    {page.blocks.map((block) => {
+                      const canBreak = block.type === 'table' && (block as TableBlock).allowBreak
+                      return (
+                        <div key={block.id} style={{
+                          marginBottom: '12pt',
+                          breakInside: canBreak ? 'auto' : 'avoid',
+                          pageBreakInside: canBreak ? 'auto' : 'avoid',
+                        }}>
+                          {renderPrintBlock(block, dp, report)}
+                        </div>
+                      )
+                    })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -4507,14 +5148,33 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
     case 'table': {
       const hBg = block.headerBg || dp.tableHeaderBg
       const hTxt = block.headerText || dp.tableHeaderText
+      const brd = block.borders
+      const numCols = block.headers.length
+      const totalRows = 1 + block.rows.length
+      const globalPrintBrd = (absRow: number, ci: number): React.CSSProperties => {
+        if (brd) return computeTableCellBorders(brd, absRow === 0, absRow === totalRows - 1, ci === 0, ci === numCols - 1)
+        const b = block.bordered ? '1px solid #ccc' : 'none'
+        return { borderTop: b, borderBottom: b, borderLeft: b, borderRight: b }
+      }
+      const printCellBrd = (absRow: number, ci: number, cell?: TableCell): React.CSSProperties => {
+        const g = globalPrintBrd(absRow, ci)
+        const sb = cell?.sideBorders
+        if (!sb) return g
+        return {
+          borderTop:    sb.top    !== undefined ? sb.top    : g.borderTop,
+          borderBottom: sb.bottom !== undefined ? sb.bottom : g.borderBottom,
+          borderLeft:   sb.left   !== undefined ? sb.left   : g.borderLeft,
+          borderRight:  sb.right  !== undefined ? sb.right  : g.borderRight,
+        }
+      }
       return (
         <div>
           {block.caption && <p style={{ fontSize: '8pt', color: '#666', fontStyle: 'italic', marginBottom: '4pt' }}>{block.caption}</p>}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', fontFamily: dp.fontFamily, tableLayout: 'fixed', wordBreak: 'break-word' }}>
             <thead>
               <tr>
-                {block.headers.map((h, i) => (
-                  <th key={i} style={{ padding: '4pt 6pt', textAlign: 'left', background: hBg, color: hTxt, fontSize: '8pt', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', border: block.bordered ? '1px solid #ccc' : 'none', overflowWrap: 'break-word' }}>{h}</th>
+                {block.headers.map((h, ci) => (
+                  <th key={ci} style={{ padding: '4pt 6pt', textAlign: 'left', background: hBg, color: hTxt, fontSize: '8pt', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', overflowWrap: 'break-word', ...printCellBrd(0, ci) }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -4529,11 +5189,11 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
                       textDecoration: cell.underline ? 'underline' : 'none',
                       color: cell.color || dp.textColor,
                       background: cell.bgColor || 'transparent',
-                      border: block.bordered ? '1px solid #E5E7EB' : 'none',
                       paddingTop: '3pt', paddingBottom: '3pt',
                       paddingLeft: `${((cell.indentLevel || 0) * 12) + 6}pt`,
                       paddingRight: '6pt',
                       overflowWrap: 'break-word',
+                      ...printCellBrd(1 + rIdx, cIdx, cell),
                     }}>{formatCellContent(cell)}</td>
                   ))}
                 </tr>
@@ -4652,6 +5312,35 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
                 <div style={{ background: '#E2E8F0', borderRadius: '99pt', height: '8pt', overflow: 'hidden' }}>
                   <div style={{ width: `${item.value}%`, height: '100%', background: item.color || dp.accentColor, borderRadius: '99pt' }} />
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    case 'columns': {
+      const cb = block as ColumnsBlock
+      const splitMap: Record<string, [string, string]> = {
+        '50-50': ['50%', '50%'],
+        '33-67': ['33.333%', '66.667%'],
+        '67-33': ['66.667%', '33.333%'],
+        '25-75': ['25%', '75%'],
+        '75-25': ['75%', '25%'],
+      }
+      const [leftW, rightW] = splitMap[cb.split] ?? ['50%', '50%']
+      return (
+        <div style={{ display: 'flex', gap: `${cb.gap}pt`, alignItems: 'flex-start' }}>
+          <div style={{ width: leftW, minWidth: 0, flexShrink: 0 }}>
+            {cb.leftBlocks.map((b) => (
+              <div key={b.id} style={{ marginBottom: '8pt', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                {renderPrintBlock(b, dp, report)}
+              </div>
+            ))}
+          </div>
+          <div style={{ width: rightW, minWidth: 0, flexShrink: 0 }}>
+            {cb.rightBlocks.map((b) => (
+              <div key={b.id} style={{ marginBottom: '8pt', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                {renderPrintBlock(b, dp, report)}
               </div>
             ))}
           </div>
@@ -5401,24 +6090,147 @@ function ChartEditor({ block, onUpdate }: { block: ChartBlock; onUpdate: (u: Rec
 
 // ── File Import Modal ───────────────────────────────────────────────────────
 
-interface XlsxCellStyle {
-  font?: { bold?: boolean; italic?: boolean; underline?: boolean; color?: { rgb?: string } }
-  fill?: { fgColor?: { rgb?: string } }
-  alignment?: { horizontal?: string; indent?: number }
-  numFmt?: string
-}
-
-interface XlsxCell {
-  v?: unknown
-  t?: string
-  s?: XlsxCellStyle
-  z?: string
+interface XlsxStylesData {
+  fonts: Array<{ bold: boolean; italic: boolean; underline: boolean; color?: string }>
+  fills: Array<{ bgColor?: string }>
+  borders: Array<{
+    top?: { style: string; color: string }
+    bottom?: { style: string; color: string }
+    left?: { style: string; color: string }
+    right?: { style: string; color: string }
+  }>
+  cellXfs: Array<{
+    fontId: number; fillId: number; borderId: number; numFmtId: number
+    alignment?: { horizontal?: string; indent?: number }
+  }>
+  numFmts: Record<number, string>
 }
 
 interface ParsedSheet {
   name: string
   rows: unknown[][]
-  cellStyles: Record<string, XlsxCellStyle>
+  stylesData: XlsxStylesData | null
+  cellXfIndices: Record<string, number>   // cell addr → XF index in cellXfs
+}
+
+// Convert ARGB (8-char) or RGB (6-char) to #RRGGBB, skipping white.
+function parseArgbColor(argb: string | null | undefined): string | undefined {
+  if (!argb || !/^[0-9A-Fa-f]{6,8}$/.test(argb)) return undefined
+  const hex = argb.length === 8 ? argb.slice(2) : argb
+  if (/^[Ff]{6}$/.test(hex)) return undefined  // white → no color
+  return `#${hex.toUpperCase()}`
+}
+
+// Parse xl/styles.xml into typed style tables.
+function parseXlsxStylesXml(xml: string): XlsxStylesData {
+  const XMLNS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+  let doc: Document
+  try { doc = new DOMParser().parseFromString(xml, 'application/xml') }
+  catch { return { fonts: [], fills: [], borders: [], cellXfs: [], numFmts: {} } }
+
+  const getAll = (parent: Element | Document, tag: string): Element[] => {
+    const r = Array.from(parent.getElementsByTagNameNS(XMLNS, tag))
+    return r.length ? r : Array.from(parent.getElementsByTagName(tag))
+  }
+  const getFirst = (parent: Element | Document, tag: string) => getAll(parent, tag)[0]
+
+  // numFmts
+  const numFmts: Record<number, string> = {}
+  getAll(doc, 'numFmt').forEach(el => {
+    const id = parseInt(el.getAttribute('numFmtId') ?? '0', 10)
+    numFmts[id] = el.getAttribute('formatCode') ?? ''
+  })
+
+  // fonts
+  const fontsEl = getFirst(doc, 'fonts')
+  const fonts: XlsxStylesData['fonts'] = fontsEl
+    ? getAll(fontsEl, 'font').map(f => {
+        const bEl = getFirst(f, 'b')
+        const iEl = getFirst(f, 'i')
+        const uEl = getFirst(f, 'u')
+        const cEl = getFirst(f, 'color')
+        return {
+          bold:      !!bEl && bEl.getAttribute('val') !== '0',
+          italic:    !!iEl && iEl.getAttribute('val') !== '0',
+          underline: !!uEl && uEl.getAttribute('val') !== 'none',
+          color: parseArgbColor(cEl?.getAttribute('rgb')),
+        }
+      })
+    : []
+
+  // fills (indices 0 and 1 are always the reserved none/gray125)
+  const fillsEl = getFirst(doc, 'fills')
+  const fills: XlsxStylesData['fills'] = fillsEl
+    ? getAll(fillsEl, 'fill').map(f => {
+        const pf = getFirst(f, 'patternFill')
+        const pt = pf?.getAttribute('patternType') ?? 'none'
+        if (pt === 'none' || pt === 'gray125') return {}
+        const fg = getFirst(f, 'fgColor')
+        return { bgColor: parseArgbColor(fg?.getAttribute('rgb')) }
+      })
+    : []
+
+  // borders
+  const bordersEl = getFirst(doc, 'borders')
+  const borders: XlsxStylesData['borders'] = bordersEl
+    ? getAll(bordersEl, 'border').map(b => {
+        const side = (tag: string) => {
+          const el = getFirst(b, tag)
+          const sty = el?.getAttribute('style')
+          if (!el || !sty || sty === 'none') return undefined
+          const cEl = getFirst(el, 'color')
+          return { style: sty, color: parseArgbColor(cEl?.getAttribute('rgb')) ?? '#000000' }
+        }
+        return { top: side('top'), bottom: side('bottom'), left: side('left'), right: side('right') }
+      })
+    : []
+
+  // cellXfs
+  const cellXfsEl = getFirst(doc, 'cellXfs')
+  const cellXfs: XlsxStylesData['cellXfs'] = cellXfsEl
+    ? getAll(cellXfsEl, 'xf').map(xf => {
+        const aEl = getFirst(xf, 'alignment')
+        return {
+          fontId:   parseInt(xf.getAttribute('fontId')   ?? '0', 10),
+          fillId:   parseInt(xf.getAttribute('fillId')   ?? '0', 10),
+          borderId: parseInt(xf.getAttribute('borderId') ?? '0', 10),
+          numFmtId: parseInt(xf.getAttribute('numFmtId') ?? '0', 10),
+          alignment: aEl ? {
+            horizontal: aEl.getAttribute('horizontal') ?? undefined,
+            indent: parseInt(aEl.getAttribute('indent') ?? '0', 10) || undefined,
+          } : undefined,
+        }
+      })
+    : []
+
+  return { fonts, fills, borders, cellXfs, numFmts }
+}
+
+// Parse xl/worksheets/sheet{n}.xml → map of cell addr → XF index.
+function parseSheetXfIndices(xml: string): Record<string, number> {
+  const result: Record<string, number> = {}
+  // Match <c ...> tags and capture r= and s= attributes regardless of order/namespace.
+  const re = /<[a-zA-Z0-9:]*c\s([^>]*\/?>)/g
+  let m
+  while ((m = re.exec(xml)) !== null) {
+    const attrs = m[1]
+    const rM = /\br="([A-Z]+\d+)"/.exec(attrs)
+    const sM = /\bs="(\d+)"/.exec(attrs)
+    if (rM && sM) result[rM[1]] = parseInt(sM[1], 10)
+  }
+  return result
+}
+
+// Convert a parsed border side to a CSS border string.
+function xlsxBorderSideToCss(side?: { style: string; color: string }): string | undefined {
+  if (!side) return undefined
+  const { style: sty, color } = side
+  if (sty === 'thin' || sty === 'hair') return `1px solid ${color}`
+  if (sty === 'medium') return `2px solid ${color}`
+  if (sty === 'thick') return `3px solid ${color}`
+  if (sty === 'double') return `3px double ${color}`
+  if (sty === 'dotted') return `1px dotted ${color}`
+  return `1px dashed ${color}`  // dashed / dashDot / mediumDashed / etc.
 }
 
 function extractXlsxNumFormat(numFmtStr: string): TableCell['numberFormat'] {
@@ -5456,19 +6268,40 @@ function FileImportModal({
     try {
       const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
-      const wb = XLSX.read(new Uint8Array(buffer), { type: 'array', cellStyles: true, cellNF: true })
-      const parsed: ParsedSheet[] = wb.SheetNames.map((name) => {
+      const uint8 = new Uint8Array(buffer)
+
+      // Use SheetJS for cell values and sheet names
+      const wb = XLSX.read(uint8, { type: 'array', cellNF: true })
+
+      // For XLSX/XLSM: parse the ZIP directly for complete style information.
+      // SheetJS 0.18.x only exposes fill data via cell.s; font/border data is lost
+      // during its internal parsing, so we must read styles.xml + sheet XMLs ourselves.
+      let stylesData: XlsxStylesData | null = null
+      const sheetXfMaps: Record<number, Record<string, number>> = {}
+
+      if (/\.xlsx[m]?$/i.test(file.name)) {
+        try {
+          const { unzipSync, strFromU8 } = await import('fflate')
+          const zipFiles = unzipSync(uint8)
+
+          const stylesBytes = zipFiles['xl/styles.xml']
+          if (stylesBytes) stylesData = parseXlsxStylesXml(strFromU8(stylesBytes))
+
+          // Map each sheet index to its XF index table.
+          // Standard Excel always names sheets sheet1.xml, sheet2.xml, … in order.
+          wb.SheetNames.forEach((_, idx) => {
+            const bytes = zipFiles[`xl/worksheets/sheet${idx + 1}.xml`]
+            if (bytes) sheetXfMaps[idx] = parseSheetXfIndices(strFromU8(bytes))
+          })
+        } catch { /* ZIP parse failure — continue without style data */ }
+      }
+
+      const parsed: ParsedSheet[] = wb.SheetNames.map((name, idx) => {
         const ws = wb.Sheets[name]
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
-        // Extract cell styles for formatting preservation
-        const cellStyles: Record<string, XlsxCellStyle> = {}
-        Object.keys(ws).forEach((addr) => {
-          if (addr.startsWith('!')) return
-          const cell = ws[addr] as XlsxCell
-          if (cell?.s) cellStyles[addr] = cell.s
-        })
-        return { name, rows, cellStyles }
+        return { name, rows, stylesData, cellXfIndices: sheetXfMaps[idx] ?? {} }
       })
+
       setSheets(parsed)
       setFileName(file.name)
       setCaption(file.name.replace(/\.[^.]+$/, ''))
@@ -5491,57 +6324,89 @@ function FileImportModal({
     if (!sheet || sheet.rows.length === 0) return
 
     if (importAs === 'table') {
-      const XLSX_encode_cell = (r: number, c: number) => {
-        const col = String.fromCharCode(65 + c)
+      // Proper multi-letter column encoder (A–Z, AA–AZ, ...)
+      function encodeCellAddr(r: number, c: number): string {
+        let col = ''
+        let n = c
+        do { col = String.fromCharCode(65 + (n % 26)) + col; n = Math.floor(n / 26) - 1 } while (n >= 0)
         return `${col}${r + 1}`
       }
+
+      const sd = sheet.stylesData
+
+      // Look up a cell's resolved style from the pre-parsed style tables.
+      function cellStyle(absRow: number, col: number) {
+        const addr = encodeCellAddr(absRow, col)
+        const xfIdx = sheet.cellXfIndices[addr]
+        if (xfIdx === undefined || !sd) return null
+        const xf = sd.cellXfs[xfIdx]
+        if (!xf) return null
+        return {
+          font:      sd.fonts[xf.fontId],
+          fill:      sd.fills[xf.fillId],
+          border:    sd.borders[xf.borderId],
+          alignment: xf.alignment,
+          numFmtId:  xf.numFmtId,
+        }
+      }
+
       const [headerRow, ...dataRows] = sheet.rows
       const headers = (headerRow as unknown[]).map(String)
 
+      // Header row styling: pick up background + text color from first header cell
+      const hSt = cellStyle(0, 0)
+      const headerBgDetected   = hSt?.fill?.bgColor
+      const headerTextDetected = hSt?.font?.color
+
       const rows: TableCell[][] = dataRows.map((row, rIdx) =>
         (row as unknown[]).map((cellVal, cIdx) => {
-          const addr = XLSX_encode_cell(rIdx + 1, cIdx)
-          const style = sheet.cellStyles[addr]
-          const font = style?.font
-          const alignment = style?.alignment
-          const fill = style?.fill
+          const st = cellStyle(rIdx + 1, cIdx)
+          const font      = st?.font
+          const fill      = st?.fill
+          const border    = st?.border
+          const alignment = st?.alignment
 
-          const bold = font?.bold === true
-          const italic = font?.italic === true
-          const underline = font?.underline === true
+          const bold      = font?.bold      ?? false
+          const italic    = font?.italic    ?? false
+          const underline = font?.underline ?? false
+          const color     = font?.color   // already #RRGGBB or undefined
+          const bgColor   = fill?.bgColor  // already #RRGGBB or undefined
+
           const horz = alignment?.horizontal
           const align: 'left' | 'center' | 'right' = horz === 'right' ? 'right' : horz === 'center' ? 'center' : 'left'
-          const indentLevel = alignment?.indent || 0
+          const indentLevel = alignment?.indent ?? 0
 
-          const numFmtStr = style?.numFmt || ''
+          const numFmtStr = (sd && st) ? (sd.numFmts[st.numFmtId] ?? '') : ''
           const numberFormat = extractXlsxNumFormat(numFmtStr)
 
-          let bgColor: string | undefined
-          const fgRgb = fill?.fgColor?.rgb
-          if (fgRgb && !/^FF?FF?FF?$/.test(fgRgb) && /^[0-9A-Fa-f]{6}$/.test(fgRgb)) {
-            bgColor = `#${fgRgb}`
-          }
-
-          let color: string | undefined
-          const fontRgb = font?.color?.rgb
-          if (fontRgb && !/^00?00?00?$/.test(fontRgb) && /^[0-9A-Fa-f]{6}$/.test(fontRgb)) {
-            color = `#${fontRgb}`
-          }
+          const bTop    = xlsxBorderSideToCss(border?.top)
+          const bBottom = xlsxBorderSideToCss(border?.bottom)
+          const bLeft   = xlsxBorderSideToCss(border?.left)
+          const bRight  = xlsxBorderSideToCss(border?.right)
+          const sideBorders = (bTop || bBottom || bLeft || bRight) ? {
+            ...(bTop    ? { top: bTop }       : {}),
+            ...(bBottom ? { bottom: bBottom } : {}),
+            ...(bLeft   ? { left: bLeft }     : {}),
+            ...(bRight  ? { right: bRight }   : {}),
+          } : undefined
 
           return {
             content: String(cellVal ?? ''),
             bold, italic, underline, align,
             ...(indentLevel > 0 ? { indentLevel } : {}),
-            ...(numberFormat ? { numberFormat } : {}),
-            ...(bgColor ? { bgColor } : {}),
-            ...(color ? { color } : {}),
+            ...(numberFormat   ? { numberFormat } : {}),
+            ...(bgColor        ? { bgColor }      : {}),
+            ...(color          ? { color }         : {}),
+            ...(sideBorders    ? { sideBorders }   : {}),
           }
         })
       )
 
       const block: TableBlock = {
         id: uuidv4(), type: 'table', caption,
-        headers, rows, striped: false, bordered: true, headerBg: '', headerText: '',
+        headers, rows, striped: false, bordered: false,
+        headerBg:   headerBgDetected  ?? '',
+        headerText: headerTextDetected ?? '',
       }
       onImport(currentPageId, block)
     } else {

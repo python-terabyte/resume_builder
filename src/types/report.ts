@@ -86,6 +86,25 @@ export interface TableCell {
   bgColor?: string
   numberFormat?: 'general' | 'number' | 'currency' | 'percentage' | 'accounting'
   indentLevel?: number
+  // Cell-level border overrides — formatted CSS border strings, e.g. "1px solid #333"
+  sideBorders?: { top?: string; bottom?: string; left?: string; right?: string }
+}
+
+export type CellBorderStyle = 'solid' | 'dashed' | 'dotted' | 'double'
+
+export interface CellBorder {
+  style: CellBorderStyle
+  color: string
+  width: 1 | 2 | 3  // thin / medium / thick
+}
+
+export interface TableBorders {
+  top: CellBorder | null
+  bottom: CellBorder | null
+  left: CellBorder | null
+  right: CellBorder | null
+  innerH: CellBorder | null  // horizontal lines between rows
+  innerV: CellBorder | null  // vertical lines between columns
 }
 
 export interface TableBlock {
@@ -99,6 +118,8 @@ export interface TableBlock {
   headerBg: string
   headerText: string
   bgColor?: string
+  allowBreak?: boolean  // allow table rows to split across PDF pages
+  borders?: TableBorders  // granular per-side border config; overrides `bordered`
 }
 
 export interface ImageBlock {
@@ -232,6 +253,16 @@ export interface ProgressBlock {
   bgColor?: string
 }
 
+export interface ColumnsBlock {
+  id: string
+  type: 'columns'
+  split: '50-50' | '33-67' | '67-33' | '25-75' | '75-25'
+  leftBlocks: ReportBlock[]
+  rightBlocks: ReportBlock[]
+  gap: number
+  bgColor?: string
+}
+
 export type ReportBlock =
   | HeadingBlock
   | TextBlock
@@ -246,6 +277,7 @@ export type ReportBlock =
   | QuoteBlock
   | StatusBlock
   | ProgressBlock
+  | ColumnsBlock
 
 export type ReportBlockType = ReportBlock['type']
 
