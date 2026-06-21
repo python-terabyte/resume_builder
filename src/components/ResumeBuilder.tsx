@@ -358,10 +358,10 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2 overflow-x-auto max-w-[calc(100%-180px)] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           <button
             onClick={goWorkspace}
-            className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
             title="Back to Workspace"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -375,7 +375,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
               updateResume((prev) => ({ ...prev, pageSize: e.target.value as PageSize }))
             }
             title="Page size"
-            className="hidden sm:inline rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
+            className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
           >
             {PAGE_SIZES.map((s) => (
               <option key={s.id} value={s.id} className="bg-[#2D1B11]">{s.label}</option>
@@ -395,7 +395,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           {currentDocId && (
             <button
               onClick={() => setShowShare(true)}
-              className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+              className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
               title="Share"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -407,7 +407,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           {currentDocId && (
             <button
               onClick={() => setShowVersionHistory(true)}
-              className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+              className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
               title="Version History"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -418,7 +418,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           )}
           <button
             onClick={() => setShowDocs(true)}
-            className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
             title="My Resumes"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -428,7 +428,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           </button>
           <Link
             href="/report"
-            className="hidden sm:flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
             title="Report Builder"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
