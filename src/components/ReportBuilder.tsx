@@ -2813,6 +2813,37 @@ function TableBlockView({
     setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 0)
   }
 
+  function deleteRowAt(rIdx: number) {
+    if (!onUpdate || block.rows.length <= 1) return
+    onUpdate({ rows: block.rows.filter((_, i) => i !== rIdx) })
+    setSelectedCells(new Set()); setEditingCell(null)
+  }
+
+  function deleteColAt(ci: number) {
+    if (!onUpdate || block.headers.length <= 1) return
+    onUpdate({
+      headers: block.headers.filter((_, i) => i !== ci),
+      rows: block.rows.map((row) => row.filter((_, i) => i !== ci)),
+    })
+    setSelectedCells(new Set()); setEditingCell(null)
+  }
+
+  function addRowAt(pos: number) {
+    if (!onUpdate) return
+    const newRow: TableCell[] = block.headers.map(() => ({ content: '', bold: false, align: 'left' as const }))
+    const rows = [...block.rows]; rows.splice(pos, 0, newRow)
+    onUpdate({ rows })
+  }
+
+  function addColAt(pos: number) {
+    if (!onUpdate) return
+    const headers = [...block.headers]; headers.splice(pos, 0, `Col ${pos + 1}`)
+    const rows = block.rows.map((row) => {
+      const r = [...row]; r.splice(pos, 0, { content: '', bold: false, align: 'left' as const }); return r
+    })
+    onUpdate({ headers, rows })
+  }
+
   // Clear state when deselected
   useEffect(() => {
     if (!isSelected) {
@@ -3252,18 +3283,37 @@ function TableBlockView({
                   return (
                     <td key={ci}
                       onClick={(e) => handleColHeaderClick(ci, e)}
-                      title={`Select column ${ci + 1}`}
+                      title={`Select col · ✕ to delete`}
+                      className="group/colnum"
                       style={{
                         background: colFullySel ? '#BFDBFE' : '#F1F5F9',
                         border: '1px solid #CBD5E1',
                         cursor: 'pointer', textAlign: 'center',
                         fontSize: 10, color: colFullySel ? '#1D4ED8' : '#64748B',
                         fontWeight: colFullySel ? 700 : 400,
-                        padding: '2px 0', userSelect: 'none',
+                        padding: '2px 4px', userSelect: 'none', position: 'relative',
                       }}
-                    >{ci + 1}</td>
+                    >
+                      <span>{ci + 1}</span>
+                      {onUpdate && block.headers.length > 1 && (
+                        <button
+                          title={`Delete column ${ci + 1}`}
+                          onClick={(e) => { e.stopPropagation(); deleteColAt(ci) }}
+                          className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-400 text-[9px] opacity-0 group-hover/colnum:opacity-100 hover:bg-red-100 transition-opacity"
+                        >✕</button>
+                      )}
+                    </td>
                   )
                 })}
+                {/* Add column */}
+                {onUpdate && (
+                  <td
+                    onClick={() => addColAt(block.headers.length)}
+                    title="Add column"
+                    style={{ width: 22, background: '#F8FAFC', border: '1px dashed #CBD5E1', cursor: 'pointer', textAlign: 'center', fontSize: 13, color: '#94A3B8', padding: '2px 0', userSelect: 'none' }}
+                    className="hover:bg-blue-50 hover:text-blue-500 transition-colors"
+                  >+</td>
+                )}
               </tr>
             )}
             {/* Column header row */}
@@ -3348,7 +3398,8 @@ function TableBlockView({
                 {isSelected && (
                   <td
                     onClick={(e) => handleRowHeaderClick(rIdx, e)}
-                    title={`Select row ${rIdx + 1}`}
+                    title={`Select row · ✕ to delete`}
+                    className="group/rownum"
                     style={{
                       width: 28, minWidth: 28,
                       background: rowFullySel ? '#BFDBFE' : (resizingRow === rIdx ? '#BFDBFE' : '#F1F5F9'),
@@ -3360,7 +3411,14 @@ function TableBlockView({
                       position: 'relative',
                     }}
                   >
-                    {rIdx + 1}
+                    <span className="group-hover/rownum:opacity-0 transition-opacity">{rIdx + 1}</span>
+                    {onUpdate && block.rows.length > 1 && (
+                      <button
+                        title={`Delete row ${rIdx + 1}`}
+                        onClick={(e) => { e.stopPropagation(); deleteRowAt(rIdx) }}
+                        className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-400 text-[10px] opacity-0 group-hover/rownum:opacity-100 hover:bg-red-100 transition-opacity"
+                      >✕</button>
+                    )}
                     {/* Row resize handle */}
                     {onUpdate && (
                       <div
@@ -3431,6 +3489,19 @@ function TableBlockView({
               </tr>
               )
             })}
+            {/* Add row at bottom */}
+            {isSelected && onUpdate && (
+              <tr>
+                <td style={{ width: 28, background: '#F8FAFC', border: '1px dashed #CBD5E1' }} />
+                <td
+                  colSpan={block.headers.length}
+                  onClick={() => addRowAt(block.rows.length)}
+                  title="Add row"
+                  style={{ cursor: 'pointer', textAlign: 'center', padding: '3px', border: '1px dashed #CBD5E1', color: '#94A3B8', fontSize: 10, userSelect: 'none' }}
+                  className="hover:bg-blue-50 hover:text-blue-500 transition-colors"
+                >+ Add row</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -4441,29 +4512,11 @@ function computeTableCellBorders(
 function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPack; onUpdate: (u: Record<string, unknown>) => void }) {
   const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
 
-  function addRow() {
-    onUpdate({ rows: [...block.rows, block.headers.map(() => ({ content: '', bold: false, align: 'left' as const }))] })
-  }
-  function removeLastRow() {
-    if (block.rows.length <= 1) return
-    onUpdate({ rows: block.rows.slice(0, -1) })
-  }
-  function addCol() {
-    onUpdate({
-      headers: [...block.headers, `Col ${block.headers.length + 1}`],
-      rows: block.rows.map((row) => [...row, { content: '', bold: false, align: 'left' as const }]),
-    })
-  }
-  function removeLastCol() {
-    if (block.headers.length <= 1) return
-    onUpdate({ headers: block.headers.slice(0, -1), rows: block.rows.map((row) => row.slice(0, -1)) })
-  }
-
   return (
     <div className="flex flex-col gap-3">
       {/* Canvas edit hint */}
       <div className="rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 py-2 text-[10px] leading-relaxed text-[#C9A84C]">
-        Click cells to select them, then use the <strong>Borders ▾</strong> button in the top toolbar to apply borders.
+        Click cells to edit · Hover row/col numbers to delete (✕) · Click <strong>+</strong> at the end of any row/col to add · Drag header edge to resize
       </div>
 
       <div>
@@ -4496,24 +4549,9 @@ function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPac
         </div>
       </div>
 
-      <div>
-        <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Structure</label>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] text-slate-500">Rows: {block.rows.length}</span>
-            <div className="flex gap-1">
-              <button onClick={addRow} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition">+ Row</button>
-              <button onClick={removeLastRow} disabled={block.rows.length <= 1} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-red-400/50 hover:text-red-400 disabled:opacity-30 transition">− Row</button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] text-slate-500">Columns: {block.headers.length}</span>
-            <div className="flex gap-1">
-              <button onClick={addCol} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition">+ Col</button>
-              <button onClick={removeLastCol} disabled={block.headers.length <= 1} className="flex-1 rounded border border-white/10 py-1 text-xs text-slate-400 hover:border-red-400/50 hover:text-red-400 disabled:opacity-30 transition">− Col</button>
-            </div>
-          </div>
-        </div>
+      <div className="flex gap-4 text-[10px] text-slate-500">
+        <span>{block.rows.length} row{block.rows.length !== 1 ? 's' : ''}</span>
+        <span>{block.headers.length} column{block.headers.length !== 1 ? 's' : ''}</span>
       </div>
     </div>
   )
@@ -7175,17 +7213,17 @@ function FileImportModal({
         }
       }
 
-      const [headerRow, ...dataRows] = sheet.rows
-      const headers = (headerRow as unknown[]).map(String)
+      // All rows become data rows; column names auto-generated
+      const numImportCols = (sheet.rows[0] as unknown[])?.length ?? 0
+      const headers = Array.from({ length: numImportCols }, (_, i) => `Col ${i + 1}`)
+      const dataRows = sheet.rows
 
-      // Header row styling: pick up background + text color from first header cell
-      const hSt = cellStyle(0, 0)
-      const headerBgDetected   = hSt?.fill?.bgColor
-      const headerTextDetected = hSt?.font?.color
+      const headerBgDetected   = undefined
+      const headerTextDetected = undefined
 
       const rows: TableCell[][] = dataRows.map((row, rIdx) =>
         (row as unknown[]).map((cellVal, cIdx) => {
-          const st = cellStyle(rIdx + 1, cIdx)
+          const st = cellStyle(rIdx, cIdx)
           const font      = st?.font
           const fill      = st?.fill
           const border    = st?.border
