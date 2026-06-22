@@ -88,6 +88,9 @@ export interface TableCell {
   indentLevel?: number
   // Cell-level border overrides — formatted CSS border strings, e.g. "1px solid #333"
   sideBorders?: { top?: string; bottom?: string; left?: string; right?: string }
+  // Merge spans — origin cell carries colspan/rowspan; covered cells are skipped at render
+  colspan?: number
+  rowspan?: number
 }
 
 export type CellBorderStyle = 'solid' | 'dashed' | 'dotted' | 'double'
@@ -120,6 +123,8 @@ export interface TableBlock {
   bgColor?: string
   allowBreak?: boolean  // allow table rows to split across PDF pages
   borders?: TableBorders  // granular per-side border config; overrides `bordered`
+  colWidths?: number[]   // per-column pixel widths; undefined = equal distribution
+  rowHeights?: number[]  // per-row pixel heights; undefined = auto
 }
 
 export interface ImageBlock {

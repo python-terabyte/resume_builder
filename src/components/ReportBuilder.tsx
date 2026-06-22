@@ -2735,10 +2735,34 @@ interface TableFormatAPI {
   applyFinancialFormat: () => void
   rowCount: number
   colCount: number
+  // Cell merge API
+  canMerge: boolean
+  canUnmerge: boolean
+  merge: () => void
+  unmerge: () => void
   // Cell-level border API
   applyBorderPreset: (presetApply: (b: CellBorder) => TableBorders, b: CellBorder) => void
   applyBorderToggle: (side: keyof TableBorders, b: CellBorder) => void
   activeSides: Record<keyof TableBorders, boolean>
+}
+
+// Returns a Set of "row,col" keys that are covered by a spanning cell's colspan/rowspan
+function buildSpanMap(rows: TableCell[][]): Set<string> {
+  const covered = new Set<string>()
+  rows.forEach((row, rIdx) => {
+    row.forEach((cell, cIdx) => {
+      if (covered.has(`${rIdx},${cIdx}`)) return
+      const cs = cell.colspan ?? 1
+      const rs = cell.rowspan ?? 1
+      for (let dr = 0; dr < rs; dr++) {
+        for (let dc = 0; dc < cs; dc++) {
+          if (dr === 0 && dc === 0) continue
+          covered.add(`${rIdx + dr},${cIdx + dc}`)
+        }
+      }
+    })
+  })
+  return covered
 }
 
 function TableBlockView({
@@ -2758,6 +2782,11 @@ function TableBlockView({
   const [pendingHeaderFocus, setPendingHeaderFocus] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const headerInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  // Column/row resize
+  const [resizingCol, setResizingCol] = useState<number | null>(null)
+  const [resizingRow, setResizingRow] = useState<number | null>(null)
+  const resizingColRef = useRef<{ col: number; startX: number; startWidth: number; allWidths: number[] } | null>(null)
+  const resizingRowRef = useRef<{ row: number; startY: number; startHeight: number; allHeights: number[] } | null>(null)
 
   const cellKey = (r: number, c: number) => `${r},${c}`
 
@@ -2794,6 +2823,42 @@ function TableBlockView({
       onFormatAPIChange?.(null)
     }
   }, [isSelected]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Column resize drag
+  useEffect(() => {
+    if (resizingCol === null) return
+    const onMouseMove = (e: MouseEvent) => {
+      const rc = resizingColRef.current
+      if (!rc || !onUpdate) return
+      const delta = e.clientX - rc.startX
+      const newWidth = Math.max(40, rc.startWidth + delta)
+      const newWidths = [...rc.allWidths]
+      newWidths[rc.col] = Math.round(newWidth)
+      onUpdate({ colWidths: newWidths })
+    }
+    const onMouseUp = () => { resizingColRef.current = null; setResizingCol(null) }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp) }
+  }, [resizingCol]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Row resize drag
+  useEffect(() => {
+    if (resizingRow === null) return
+    const onMouseMove = (e: MouseEvent) => {
+      const rr = resizingRowRef.current
+      if (!rr || !onUpdate) return
+      const delta = e.clientY - rr.startY
+      const newHeight = Math.max(20, rr.startHeight + delta)
+      const newHeights = [...rr.allHeights]
+      newHeights[rr.row] = Math.round(newHeight)
+      onUpdate({ rowHeights: newHeights })
+    }
+    const onMouseUp = () => { resizingRowRef.current = null; setResizingRow(null) }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp) }
+  }, [resizingRow]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus a header input once the block becomes selected
   useEffect(() => {
@@ -2882,6 +2947,54 @@ function TableBlockView({
           })
         )
         onUpdate({ rows, bordered: true })
+      },
+      // ── Cell merge methods ───────────────────────────────────────────────────
+      canMerge: (() => {
+        if (selectedCells.size < 2) return false
+        const selArr = [...selectedCells].map((k) => k.split(',').map(Number) as [number, number])
+        const minR = Math.min(...selArr.map(([r]) => r))
+        const maxR = Math.max(...selArr.map(([r]) => r))
+        const minC = Math.min(...selArr.map(([, c]) => c))
+        const maxC = Math.max(...selArr.map(([, c]) => c))
+        return selArr.length === (maxR - minR + 1) * (maxC - minC + 1)
+      })(),
+      canUnmerge: [...selectedCells].some((k) => {
+        const [r, c] = k.split(',').map(Number)
+        const cell = block.rows[r]?.[c]
+        return !!cell && ((cell.colspan ?? 1) > 1 || (cell.rowspan ?? 1) > 1)
+      }),
+      merge: () => {
+        if (!onUpdate || selectedCells.size < 2) return
+        const selArr = [...selectedCells].map((k) => k.split(',').map(Number) as [number, number])
+        const minR = Math.min(...selArr.map(([r]) => r))
+        const maxR = Math.max(...selArr.map(([r]) => r))
+        const minC = Math.min(...selArr.map(([, c]) => c))
+        const maxC = Math.max(...selArr.map(([, c]) => c))
+        if (selArr.length !== (maxR - minR + 1) * (maxC - minC + 1)) return
+        const rows = block.rows.map((row, ri) =>
+          row.map((cell, ci) => {
+            if (ri === minR && ci === minC) return { ...cell, colspan: maxC - minC + 1, rowspan: maxR - minR + 1 }
+            return cell
+          })
+        )
+        onUpdate({ rows })
+        setSelectedCells(new Set([cellKey(minR, minC)]))
+        setAnchorCell({ row: minR, col: minC })
+      },
+      unmerge: () => {
+        if (!onUpdate) return
+        const rows = block.rows.map((row, ri) =>
+          row.map((cell, ci) => {
+            if (!selectedCells.has(cellKey(ri, ci))) return cell
+            if ((cell.colspan ?? 1) > 1 || (cell.rowspan ?? 1) > 1) {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { colspan: _cs, rowspan: _rs, ...rest } = cell
+              return rest as TableCell
+            }
+            return cell
+          })
+        )
+        onUpdate({ rows })
       },
       // ── Cell-level border methods ────────────────────────────────────────────
       applyBorderPreset: (presetApply, activeBorder) => {
@@ -3102,8 +3215,12 @@ function TableBlockView({
     }
   }
 
+  const spanMap = buildSpanMap(block.rows)
+  const DEFAULT_COL_WIDTH = 120
+  const DEFAULT_ROW_HEIGHT = 32
+
   return (
-    <div onClick={(e) => e.stopPropagation()}>
+    <div onClick={(e) => e.stopPropagation()} style={{ cursor: resizingCol !== null ? 'col-resize' : resizingRow !== null ? 'row-resize' : undefined, userSelect: resizingCol !== null || resizingRow !== null ? 'none' : undefined }}>
       {/* Caption */}
       {block.caption && <p className="mb-1.5 text-xs text-gray-500 italic">{block.caption}</p>}
 
@@ -3113,6 +3230,13 @@ function TableBlockView({
           className="w-full"
           style={{ fontFamily: dp.fontFamily, borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed', wordBreak: 'break-word' }}
         >
+          {/* Column widths */}
+          {block.colWidths && (
+            <colgroup>
+              {isSelected && <col style={{ width: 28 }} />}
+              {block.colWidths.map((w, ci) => <col key={ci} style={{ width: w }} />)}
+            </colgroup>
+          )}
           <thead>
             {/* Column number row — only in edit mode */}
             {isSelected && (
@@ -3153,9 +3277,11 @@ function TableBlockView({
                   key={i}
                   className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide"
                   style={{
-                    background: headerBg, color: headerText,
+                    background: resizingCol === i ? '#BFDBFE' : headerBg,
+                    color: headerText,
                     overflowWrap: 'break-word',
                     cursor: 'text',
+                    position: 'relative',
                     ...tvwCellBrd(0, i),
                   }}
                   onClick={(e) => {
@@ -3195,6 +3321,19 @@ function TableBlockView({
                   ) : (
                     <span style={{ minWidth: 40, display: 'inline-block' }}>{h || `Col ${i + 1}`}</span>
                   )}
+                  {/* Column resize handle */}
+                  {isSelected && onUpdate && (
+                    <div
+                      title="Drag to resize column"
+                      style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 5, cursor: 'col-resize', zIndex: 10 }}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); e.stopPropagation()
+                        const allWidths = block.colWidths?.slice() ?? block.headers.map(() => DEFAULT_COL_WIDTH)
+                        resizingColRef.current = { col: i, startX: e.clientX, startWidth: allWidths[i], allWidths }
+                        setResizingCol(i)
+                      }}
+                    />
+                  )}
                 </th>
               ))}
             </tr>
@@ -3202,32 +3341,54 @@ function TableBlockView({
           <tbody>
             {block.rows.map((row, rIdx) => {
               const rowFullySel = block.headers.every((_, ci) => selectedCells.has(cellKey(rIdx, ci)))
+              const rowH = block.rowHeights?.[rIdx]
               return (
-              <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white' }}>
-                {/* Row number */}
+              <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white', height: rowH }}>
+                {/* Row number + row resize handle */}
                 {isSelected && (
                   <td
                     onClick={(e) => handleRowHeaderClick(rIdx, e)}
                     title={`Select row ${rIdx + 1}`}
                     style={{
                       width: 28, minWidth: 28,
-                      background: rowFullySel ? '#BFDBFE' : '#F1F5F9',
+                      background: rowFullySel ? '#BFDBFE' : (resizingRow === rIdx ? '#BFDBFE' : '#F1F5F9'),
                       border: '1px solid #CBD5E1',
                       cursor: 'pointer', textAlign: 'center',
                       fontSize: 10, color: rowFullySel ? '#1D4ED8' : '#64748B',
                       fontWeight: rowFullySel ? 700 : 400,
                       padding: '4px 0', userSelect: 'none',
+                      position: 'relative',
                     }}
-                  >{rIdx + 1}</td>
+                  >
+                    {rIdx + 1}
+                    {/* Row resize handle */}
+                    {onUpdate && (
+                      <div
+                        title="Drag to resize row"
+                        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 4, cursor: 'row-resize', zIndex: 10 }}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); e.stopPropagation()
+                          const allHeights = block.rowHeights?.slice() ?? block.rows.map(() => DEFAULT_ROW_HEIGHT)
+                          resizingRowRef.current = { row: rIdx, startY: e.clientY, startHeight: allHeights[rIdx], allHeights }
+                          setResizingRow(rIdx)
+                        }}
+                      />
+                    )}
+                  </td>
                 )}
                 {row.map((cell, cIdx) => {
                   const key = cellKey(rIdx, cIdx)
+                  if (spanMap.has(key)) return null  // covered by a spanning cell
                   const isEditing = editingCell?.row === rIdx && editingCell?.col === cIdx
                   const isCellSel = selectedCells.has(key)
                   const pLeft = `${((cell.indentLevel || 0) * 16) + 12}px`
+                  const cs = cell.colspan ?? 1
+                  const rs = cell.rowspan ?? 1
                   return (
                     <td
                       key={cIdx}
+                      colSpan={cs > 1 ? cs : undefined}
+                      rowSpan={rs > 1 ? rs : undefined}
                       style={{
                         textAlign: cell.align,
                         fontWeight: cell.bold ? 600 : 400,
@@ -3277,7 +3438,7 @@ function TableBlockView({
       {/* Keyboard hint */}
       {isSelected && !editingCell && (
         <p className="mt-1 text-center text-[9px] text-gray-400">
-          Click cell to edit · Row/col numbers to select row/col · ▣ to select all · Shift/Ctrl+click to extend · Tab/Enter to navigate
+          Click cell to edit · Row/col numbers to select row/col · ▣ to select all · Shift/Ctrl+click to extend · Tab/Enter to navigate · Drag header edge to resize
         </p>
       )}
       {!isSelected && (
@@ -3348,7 +3509,8 @@ function FormatToolbar({
   if (tableFormatAPI && tableFormatAPI.selectedCells.size > 0) {
     const { selectedCells, firstCell, selectionAllHas, applyToSelected,
             addRow, deleteSelectedRows, addCol, deleteSelectedCols,
-            applyFinancialFormat, rowCount, colCount } = tableFormatAPI
+            applyFinancialFormat, rowCount, colCount,
+            canMerge, canUnmerge, merge, unmerge } = tableFormatAPI
     return (
       <div className="no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-[#1A0C05] px-3 toolbar-scroll">
         {/* Context label */}
@@ -3417,6 +3579,21 @@ function FormatToolbar({
         <button title="Add column right" onClick={() => addCol('right')} className="flex h-7 items-center gap-0.5 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 transition">→ Col</button>
         <button title="Delete column(s)" onClick={deleteSelectedCols} disabled={colCount <= 1}
           className="flex h-7 items-center rounded px-1.5 text-[11px] text-red-400 hover:bg-red-500/10 disabled:opacity-30 transition">− Col</button>
+        {sep}
+
+        {/* Merge / Unmerge */}
+        <button
+          onClick={merge}
+          disabled={!canMerge}
+          title="Merge selected cells (select a rectangular range first)"
+          className="flex h-7 items-center gap-1 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 disabled:opacity-30 transition"
+        >⊞ Merge</button>
+        <button
+          onClick={unmerge}
+          disabled={!canUnmerge}
+          title="Unmerge cell"
+          className="flex h-7 items-center gap-1 rounded px-1.5 text-[11px] text-slate-300 hover:bg-white/10 disabled:opacity-30 transition"
+        >⊟ Unmerge</button>
         {sep}
 
         {/* Financial preset */}
@@ -5598,10 +5775,16 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
           borderRight:  sb.right  !== undefined ? sb.right  : g.borderRight,
         }
       }
+      const printSpanMap = buildSpanMap(block.rows)
       return (
         <div>
           {block.caption && <p style={{ fontSize: '8pt', color: '#666', fontStyle: 'italic', marginBottom: '4pt' }}>{block.caption}</p>}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', fontFamily: dp.fontFamily, tableLayout: 'fixed', wordBreak: 'break-word' }}>
+            {block.colWidths && (
+              <colgroup>
+                {block.colWidths.map((w, ci) => <col key={ci} style={{ width: w }} />)}
+              </colgroup>
+            )}
             <thead>
               <tr>
                 {block.headers.map((h, ci) => (
@@ -5611,22 +5794,30 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
             </thead>
             <tbody>
               {block.rows.map((row, rIdx) => (
-                <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                  {row.map((cell, cIdx) => (
-                    <td key={cIdx} style={{
-                      textAlign: cell.align,
-                      fontWeight: cell.bold ? 600 : 400,
-                      fontStyle: cell.italic ? 'italic' : 'normal',
-                      textDecoration: cell.underline ? 'underline' : 'none',
-                      color: cell.color || dp.textColor,
-                      background: cell.bgColor || 'transparent',
-                      paddingTop: '3pt', paddingBottom: '3pt',
-                      paddingLeft: `${((cell.indentLevel || 0) * 12) + 6}pt`,
-                      paddingRight: '6pt',
-                      overflowWrap: 'break-word',
-                      ...printCellBrd(1 + rIdx, cIdx, cell),
-                    }}>{formatCellContent(cell)}</td>
-                  ))}
+                <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white', breakInside: 'avoid', pageBreakInside: 'avoid', height: block.rowHeights?.[rIdx] }}>
+                  {row.map((cell, cIdx) => {
+                    if (printSpanMap.has(`${rIdx},${cIdx}`)) return null
+                    const cs = cell.colspan ?? 1
+                    const rs = cell.rowspan ?? 1
+                    return (
+                      <td key={cIdx}
+                        colSpan={cs > 1 ? cs : undefined}
+                        rowSpan={rs > 1 ? rs : undefined}
+                        style={{
+                          textAlign: cell.align,
+                          fontWeight: cell.bold ? 600 : 400,
+                          fontStyle: cell.italic ? 'italic' : 'normal',
+                          textDecoration: cell.underline ? 'underline' : 'none',
+                          color: cell.color || dp.textColor,
+                          background: cell.bgColor || 'transparent',
+                          paddingTop: '3pt', paddingBottom: '3pt',
+                          paddingLeft: `${((cell.indentLevel || 0) * 12) + 6}pt`,
+                          paddingRight: '6pt',
+                          overflowWrap: 'break-word',
+                          ...printCellBrd(1 + rIdx, cIdx, cell),
+                        }}>{formatCellContent(cell)}</td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -6938,7 +7129,7 @@ function FileImportModal({
 
       setSheets(parsed)
       setFileName(file.name)
-      setCaption(file.name.replace(/\.[^.]+$/, ''))
+      setCaption('')
       setStep('configure')
     } catch {
       setError('Could not parse this file. Make sure it is a valid XLSX or CSV.')
