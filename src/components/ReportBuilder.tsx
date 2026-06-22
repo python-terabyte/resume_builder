@@ -3843,7 +3843,7 @@ function FormatToolbar({
             ref={borderBtnRef}
             onClick={openBorderPanel}
             title="Border options for selected cells"
-            className={`flex h-7 items-center gap-1.5 rounded px-2 text-[11px] transition ${showBorderPanel ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
+            className={`flex h-7 items-center gap-1.5 rounded px-2 text-[11px] transition ${showBorderPanel ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]'}`}
           >
             <BdrIcon icon={{ top: true, bottom: true, left: true, right: true, innerH: true, innerV: true }} />
             Borders ▾
@@ -4280,9 +4280,9 @@ function FormatToolbar({
 
   // Nothing selected
   return (
-    <div className="no-print flex h-[48px] shrink-0 items-center gap-3 border-b border-white/10 bg-[#1A0C05] px-4">
-      <span className="text-xs text-slate-600">Select a block to format it</span>
-      <span className="text-[10px] text-slate-700">· Click a table cell to access cell-level formatting</span>
+    <div className="no-print flex h-[48px] shrink-0 items-center gap-3 border-b border-[var(--rb-border)] bg-[var(--rb-panel)] px-4">
+      <span className="text-xs text-[var(--rb-text-3)]">Select a block to format it</span>
+      <span className="text-[10px] text-[var(--rb-text-3)] opacity-60">· Click a table cell to access cell-level formatting</span>
     </div>
   )
 }
@@ -4429,34 +4429,11 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
 
   switch (block.type) {
     case 'heading':
-      return (
-        <div className="flex flex-col gap-3">
-          <div>
-            {label('Level')}
-            <div className="flex gap-1">
-              {([1, 2, 3] as const).map((l) => (
-                <button key={l} onClick={() => onUpdate({ level: l })} className={`flex-1 rounded border py-1 text-xs font-bold transition ${block.level === l ? 'border-[var(--rb-gold)] bg-[var(--rb-gold)]/20 text-[var(--rb-gold)]' : 'border-[var(--rb-border)] text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'}`}>H{l}</button>
-              ))}
-            </div>
-          </div>
-          <div>{label('Align')}{alignBtns(block.align, (a) => onUpdate({ align: a }))}</div>
-          <div>{label('Color')}<input type="color" value={block.color || dp.headingColor} onChange={(e) => onUpdate({ color: e.target.value })} className="h-8 w-full cursor-pointer rounded" /></div>
-        </div>
-      )
     case 'text':
       return (
-        <div className="flex flex-col gap-3">
-          <div>
-            {label('Align')}
-            <div className="flex rounded-md border border-[var(--rb-border)] overflow-hidden">
-              {['left', 'center', 'right', 'justify'].map((a) => (
-                <button key={a} onClick={() => onUpdate({ align: a })} className={`flex-1 py-1 text-[10px] transition ${block.align === a ? 'bg-[var(--rb-gold)]/20 text-[var(--rb-gold)]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'}`}>
-                  {a === 'justify' ? 'J' : a[0].toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <p className="text-[11px] text-[var(--rb-text-3)] leading-relaxed">
+          Use the format toolbar above to set level, alignment, bold/italic, font size, and color.
+        </p>
       )
     case 'table':
       return <TableEditor block={block} dp={dp} onUpdate={onUpdate} />
@@ -4516,32 +4493,11 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
         </div>
       )
     case 'callout':
-      return (
-        <div className="flex flex-col gap-3">
-          <div>
-            {label('Variant')}
-            <div className="flex gap-1">
-              {(['info', 'success', 'warning', 'danger'] as const).map((v) => {
-                const colors: Record<string, string> = { info: '#3B82F6', success: '#10B981', warning: '#F59E0B', danger: '#EF4444' }
-                return (
-                  <button key={v} onClick={() => onUpdate({ variant: v })}
-                    className={`flex-1 rounded border py-1 text-[10px] capitalize transition ${(block as CalloutBlock).variant === v ? 'border-current font-semibold' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}
-                    style={{ color: colors[v], borderColor: (block as CalloutBlock).variant === v ? colors[v] : undefined }}>
-                    {v}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          <div>{label('Content')}<textarea value={(block as CalloutBlock).content} onChange={(e) => onUpdate({ content: e.target.value })} rows={4} className={`${inputCls} resize-none`} /></div>
-        </div>
-      )
     case 'quote':
       return (
-        <div className="flex flex-col gap-3">
-          <div>{label('Quote Text')}<textarea value={(block as QuoteBlock).content} onChange={(e) => onUpdate({ content: e.target.value })} rows={4} className={`${inputCls} resize-none`} /></div>
-          <div>{label('Attribution')}<input value={(block as QuoteBlock).attribution || ''} onChange={(e) => onUpdate({ attribution: e.target.value })} placeholder="— Author Name" className={inputCls} /></div>
-        </div>
+        <p className="text-[11px] text-[var(--rb-text-3)] leading-relaxed">
+          Click the block on the canvas to edit text inline. Use the format toolbar above for variant and styling.
+        </p>
       )
     case 'status':
       return <StatusEditor block={block as StatusBlock} onUpdate={onUpdate} />
@@ -4564,7 +4520,7 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
                 <button
                   key={val}
                   onClick={() => onUpdate({ split: val })}
-                  className={`rounded border px-2 py-1.5 text-xs transition ${cb.split === val ? 'border-[#C9A84C] bg-[#C9A84C]/20 text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}
+                  className={`rounded border px-2 py-1.5 text-xs transition ${cb.split === val ? 'border-[#C9A84C] bg-[#C9A84C]/20 text-[#C9A84C]' : 'border-[var(--rb-border)] text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'}`}
                 >
                   <div className="flex items-center gap-2">
                     <div className="flex gap-0.5">
@@ -4759,7 +4715,7 @@ function KpiEditor({ block, onUpdate }: { block: KpiBlock; onUpdate: (u: Record<
         </div>
         <div className="flex flex-col gap-2">
           {block.items.map((item) => (
-            <div key={item.id} className="rounded border border-white/10 p-2">
+            <div key={item.id} className="rounded border border-[var(--rb-border)] p-2">
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-[10px] text-slate-500">{item.label || 'Metric'}</span>
                 {block.items.length > 1 && (
@@ -4809,7 +4765,7 @@ function StatusEditor({ block, onUpdate }: { block: StatusBlock; onUpdate: (u: R
           {block.items.map((item) => (
             <div key={item.id} className="flex gap-1.5 items-center">
               <input value={item.label} onChange={(e) => updItem(item.id, 'label', e.target.value)} className={`${inputCls} flex-1`} />
-              <select value={item.status} onChange={(e) => updItem(item.id, 'status', e.target.value)} className="rounded border border-white/10 bg-[var(--rb-input)] px-1 py-1 text-[10px] text-white outline-none">
+              <select value={item.status} onChange={(e) => updItem(item.id, 'status', e.target.value)} className="rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1 py-1 text-[10px] text-[var(--rb-text)] outline-none">
                 <option value="done" className="bg-[var(--rb-surface)]">Done</option>
                 <option value="in-progress" className="bg-[var(--rb-surface)]">In Progress</option>
                 <option value="pending" className="bg-[var(--rb-surface)]">Pending</option>
@@ -4841,7 +4797,7 @@ function ProgressEditor({ block, onUpdate }: { block: ProgressBlock; onUpdate: (
         </div>
         <div className="flex flex-col gap-2">
           {block.items.map((item) => (
-            <div key={item.id} className="rounded border border-white/10 p-2">
+            <div key={item.id} className="rounded border border-[var(--rb-border)] p-2">
               <div className="mb-1.5 flex items-center justify-between">
                 <input value={item.label} onChange={(e) => updItem(item.id, 'label', e.target.value)} className={`${inputCls} flex-1 mr-1`} />
                 {block.items.length > 1 && <button onClick={() => onUpdate({ items: block.items.filter((i) => i.id !== item.id) })} className="shrink-0 text-slate-600 hover:text-red-400">✕</button>}
@@ -4882,7 +4838,7 @@ function PageStyleEditor({
         {label('Background Color')}
         <div className="flex gap-2">
           <input type="color" value={style.backgroundColor || '#ffffff'} onChange={(e) => onUpdatePage({ backgroundColor: e.target.value })} className="h-8 w-12 cursor-pointer rounded" />
-          <button onClick={() => onUpdatePage({ backgroundColor: undefined })} className="flex-1 rounded border border-white/10 py-1 text-[10px] text-slate-400 hover:bg-white/5">Reset</button>
+          <button onClick={() => onUpdatePage({ backgroundColor: undefined })} className="flex-1 rounded border border-[var(--rb-border)] py-1 text-[10px] text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]">Reset</button>
         </div>
       </div>
 
@@ -4924,11 +4880,11 @@ const QUICK_PRESETS = [
 function DesignStudioSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details open className="group">
-      <summary className="flex cursor-pointer items-center justify-between py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-white">
+      <summary className="flex cursor-pointer items-center justify-between py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--rb-text-3)] hover:text-[var(--rb-text)]">
         {title}
         <svg className="h-3 w-3 transition group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
       </summary>
-      <div className="mt-2 flex flex-col gap-3 pb-3 border-b border-white/5">{children}</div>
+      <div className="mt-2 flex flex-col gap-3 pb-3 border-b border-[var(--rb-border)]">{children}</div>
     </details>
   )
 }
@@ -5012,7 +4968,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
               <button
                 key={packId}
                 onClick={() => onUpdateReport((p) => ({ ...p, designPackId: packId }))}
-                className={`flex flex-col items-center gap-1 rounded-lg border py-2 text-[10px] transition ${active ? 'border-[#C9A84C] bg-[#C9A84C]/10 text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                className={`flex flex-col items-center gap-1 rounded-lg border py-2 text-[10px] transition ${active ? 'border-[#C9A84C] bg-[#C9A84C]/10 text-[#C9A84C]' : 'border-[var(--rb-border)] text-[var(--rb-text-3)] hover:bg-[var(--rb-hover)] hover:text-[var(--rb-text)]'}`}
               >
                 <div className="flex gap-0.5">
                   <div className="h-2.5 w-2.5 rounded-full" style={{ background: pack.primaryColor }} />
