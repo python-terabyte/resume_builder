@@ -5611,7 +5611,7 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
             </thead>
             <tbody>
               {block.rows.map((row, rIdx) => (
-                <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white' }}>
+                <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                   {row.map((cell, cIdx) => (
                     <td key={cIdx} style={{
                       textAlign: cell.align,
@@ -7041,6 +7041,7 @@ function FileImportModal({
         headers, rows, striped: false, bordered: false,
         headerBg:   headerBgDetected  ?? '',
         headerText: headerTextDetected ?? '',
+        allowBreak: true,
       }
       onImport(currentPageId, block)
     } else {
