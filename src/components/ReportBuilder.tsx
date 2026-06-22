@@ -2154,6 +2154,12 @@ function InlineField({ value, onChange, placeholder, className, style, isSelecte
   className?: string; style?: React.CSSProperties; isSelected: boolean; inline?: boolean
   onFocus?: () => void; editBg?: string
 }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const focusedRef = useRef(false)
+  // Sync DOM from outside (e.g. undo) when the input isn't focused
+  useEffect(() => {
+    if (!focusedRef.current && ref.current && ref.current.value !== value) ref.current.value = value
+  }, [value])
   if (!isSelected) {
     return (
       <span className={className} style={{ ...style, display: inline ? 'inline' : 'block' }}>
@@ -2163,12 +2169,14 @@ function InlineField({ value, onChange, placeholder, className, style, isSelecte
   }
   return (
     <input
-      value={value}
+      ref={ref}
+      defaultValue={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
-      onFocus={onFocus}
+      onFocus={() => { focusedRef.current = true; onFocus?.() }}
+      onBlur={() => { focusedRef.current = false }}
       className={className}
       style={{ ...FIELD_EDITING_STYLE, backgroundColor: editBg ?? 'transparent', display: inline ? 'inline' : 'block', width: inline ? 'auto' : '100%', minWidth: inline ? '1ch' : undefined, ...style }}
     />
@@ -2179,6 +2187,16 @@ function InlineArea({ value, onChange, placeholder, className, style, isSelected
   value: string; onChange: (v: string) => void; placeholder?: string
   className?: string; style?: React.CSSProperties; isSelected: boolean
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const focusedRef = useRef(false)
+  const [rows, setRows] = useState(Math.max(2, (value || '').split('\n').length + 1))
+  // Sync DOM from outside (e.g. undo) when the textarea isn't focused
+  useEffect(() => {
+    if (!focusedRef.current && ref.current && ref.current.value !== value) {
+      ref.current.value = value
+      setRows(Math.max(2, (value || '').split('\n').length + 1))
+    }
+  }, [value])
   if (!isSelected) {
     return (
       <div className={`whitespace-pre-wrap ${className || ''}`} style={style}>
@@ -2186,15 +2204,17 @@ function InlineArea({ value, onChange, placeholder, className, style, isSelected
       </div>
     )
   }
-  const lines = (value || '').split('\n').length
   return (
     <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      ref={ref}
+      defaultValue={value}
+      onChange={(e) => { onChange(e.target.value); setRows(Math.max(2, e.target.value.split('\n').length + 1)) }}
       placeholder={placeholder}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
-      rows={Math.max(2, lines + 1)}
+      onFocus={() => { focusedRef.current = true }}
+      onBlur={() => { focusedRef.current = false }}
+      rows={rows}
       className={className}
       style={{
         fontSize: 'inherit', fontFamily: 'inherit', fontWeight: 'inherit',
@@ -2959,8 +2979,17 @@ function TableBlockView({
   const [anchorCell, setAnchorCell] = useState<{ row: number; col: number } | null>(null)
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [pendingHeaderFocus, setPendingHeaderFocus] = useState<number | null>(null)
+  const [focusedHeaderIdx, setFocusedHeaderIdx] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const headerInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  // Sync header inputs from block when changed externally (e.g. undo) while not focused
+  useEffect(() => {
+    headerInputRefs.current.forEach((el, i) => {
+      if (el && focusedHeaderIdx !== i && el.value !== (block.headers[i] ?? '')) {
+        el.value = block.headers[i] ?? ''
+      }
+    })
+  }, [block.headers, focusedHeaderIdx])
   // Column/row resize
   const [resizingCol, setResizingCol] = useState<number | null>(null)
   const [resizingRow, setResizingRow] = useState<number | null>(null)
@@ -2973,7 +3002,8 @@ function TableBlockView({
     if (!onUpdate) return
     const row = r ?? editingCell?.row
     const col = c ?? editingCell?.col
-    const value = val ?? editValue
+    // Prefer explicit val, then DOM value (so native Ctrl+Z in uncontrolled input is captured), then React state
+    const value = val ?? inputRef.current?.value ?? editValue
     if (row === undefined || col === undefined) return
     const rows = block.rows.map((rr, ri) =>
       ri !== row ? rr : rr.map((cell, ci) => ci !== col ? cell : { ...cell, content: value })
@@ -3384,7 +3414,7 @@ function TableBlockView({
     const numCols = block.headers.length
     if (e.key === 'Tab') {
       e.preventDefault()
-      commitCurrentEdit(r, c, editValue)
+      commitCurrentEdit(r, c, inputRef.current?.value ?? editValue)
       setEditingCell(null)
       const nc = e.shiftKey ? c - 1 : c + 1
       if (nc >= 0 && nc < numCols) startEditing(r, nc)
@@ -3392,12 +3422,11 @@ function TableBlockView({
       else if (nc < 0 && r > 0) startEditing(r - 1, numCols - 1)
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      commitCurrentEdit(r, c, editValue)
+      commitCurrentEdit(r, c, inputRef.current?.value ?? editValue)
       setEditingCell(null)
       if (r + 1 < numRows) startEditing(r + 1, c)
     } else if (e.key === 'Escape') {
       setEditingCell(null)
-      setEditValue('')
     }
   }
 
@@ -3526,7 +3555,9 @@ function TableBlockView({
                   {isSelected && onUpdate ? (
                     <input
                       ref={(el) => { headerInputRefs.current[i] = el }}
-                      value={h}
+                      defaultValue={h}
+                      onFocus={() => setFocusedHeaderIdx(i)}
+                      onBlur={() => setFocusedHeaderIdx(null)}
                       onChange={(e) => { const headers = [...block.headers]; headers[i] = e.target.value; onUpdate({ headers }) }}
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => {
@@ -3646,9 +3677,9 @@ function TableBlockView({
                       {isEditing ? (
                         <input
                           ref={inputRef}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => { commitCurrentEdit(rIdx, cIdx, editValue); setEditingCell(null) }}
+                          key={`${rIdx}-${cIdx}`}
+                          defaultValue={editValue}
+                          onBlur={() => { commitCurrentEdit(rIdx, cIdx); setEditingCell(null) }}
                           onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
                           className="w-full border-none bg-transparent outline-none"
                           style={{
