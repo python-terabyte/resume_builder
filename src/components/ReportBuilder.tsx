@@ -1669,98 +1669,25 @@ function CoverPageView({
         </div>
       )}
 
-      {/* Main content area */}
+      {/* Cover content — fully block-driven */}
       <div className="relative flex flex-col justify-end p-12 pt-24" style={{ minHeight: '520px', color: fg, zIndex: 1 }}>
-        {/* Cover page inline-editable fields — fieldStyles stores per-field formatting */}
-        {(coverPage.companyName || isSelected) && (() => {
-          const s = coverPage.fieldStyles?.companyName ?? {}
-          return (
-            <InlineField
-              value={coverPage.companyName || ''}
-              onChange={(v) => onUpdateCoverPage({ companyName: v })}
-              placeholder="Company Name"
-              isSelected={isSelected}
-              onFocus={() => onCoverFieldFocus?.('companyName')}
-              editBg={bg}
-              className="mb-5 text-sm font-medium uppercase tracking-widest"
-              style={{
-                color: s.color || fg, opacity: s.color ? 1 : 0.7,
-                fontWeight: s.bold ? 700 : undefined,
-                fontStyle: s.italic ? 'italic' : undefined,
-                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
-                textAlign: s.align,
-                backgroundColor: s.bgColor,
-              }}
-            />
-          )
-        })()}
-        {(() => {
-          const s = coverPage.fieldStyles?.reportTitle ?? {}
-          return (
-            <InlineField
-              value={coverPage.reportTitle || ''}
-              onChange={(v) => onUpdateCoverPage({ reportTitle: v })}
-              placeholder="Report Title"
-              isSelected={isSelected}
-              onFocus={() => onCoverFieldFocus?.('reportTitle')}
-              editBg={bg}
-              className="mb-3 text-4xl font-bold leading-tight"
-              style={{
-                color: s.color || fg,
-                fontWeight: s.bold !== undefined ? (s.bold ? 700 : 400) : 700,
-                fontStyle: s.italic ? 'italic' : undefined,
-                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
-                textAlign: s.align,
-                backgroundColor: s.bgColor,
-              }}
-            />
-          )
-        })()}
-        {(coverPage.date || isSelected) && (() => {
-          const s = coverPage.fieldStyles?.date ?? {}
-          return (
-            <InlineField
-              value={coverPage.date || ''}
-              onChange={(v) => onUpdateCoverPage({ date: v })}
-              placeholder="Date (optional)"
-              isSelected={isSelected}
-              onFocus={() => onCoverFieldFocus?.('date')}
-              editBg={bg}
-              className="mt-4 text-sm"
-              style={{
-                color: s.color || fg, opacity: s.color ? 1 : 0.6,
-                fontWeight: s.bold ? 700 : undefined,
-                fontStyle: s.italic ? 'italic' : undefined,
-                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
-                textAlign: s.align,
-                backgroundColor: s.bgColor,
-              }}
-            />
-          )
-        })()}
-
-        {/* Cover blocks */}
-        {coverBlocks.length > 0 && (
-          <div className="mt-6" onClick={(e) => e.stopPropagation()}>
-            {coverBlocks.map((block, idx) => (
-              <BlockWrapper
-                key={block.id}
-                block={block}
-                dp={{ ...dp, textColor: fg, headingColor: fg }}
-                isSelected={selectedBlockId === block.id}
-                isFirst={idx === 0}
-                isLast={idx === coverBlocks.length - 1}
-                controlsInside
-                onSelect={() => onSelectBlock(block.id)}
-                onDelete={() => onDeleteCoverBlock(block.id)}
-                onMoveUp={() => onMoveCoverBlock(block.id, 'up')}
-                onMoveDown={() => onMoveCoverBlock(block.id, 'down')}
-                onQuickUpdate={(updates) => onUpdateCoverBlock(block.id, updates)}
-                onFormatAPIChange={onFormatAPIChange}
-              />
-            ))}
-          </div>
-        )}
+        {coverBlocks.map((block, idx) => (
+          <BlockWrapper
+            key={block.id}
+            block={block}
+            dp={{ ...dp, textColor: fg, headingColor: fg }}
+            isSelected={selectedBlockId === block.id}
+            isFirst={idx === 0}
+            isLast={idx === coverBlocks.length - 1}
+            controlsInside
+            onSelect={() => onSelectBlock(block.id)}
+            onDelete={() => onDeleteCoverBlock(block.id)}
+            onMoveUp={() => onMoveCoverBlock(block.id, 'up')}
+            onMoveDown={() => onMoveCoverBlock(block.id, 'down')}
+            onQuickUpdate={(updates) => onUpdateCoverBlock(block.id, updates)}
+            onFormatAPIChange={onFormatAPIChange}
+          />
+        ))}
 
         {/* Add block to cover */}
         {isSelected && (
