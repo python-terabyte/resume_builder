@@ -202,7 +202,6 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   const [docName, setDocName] = useState('Untitled Report')
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [selectedPageId, setSelectedPageId] = useState<string | null>(report.pages[0]?.id ?? null)
-  const [leftTab, setLeftTab] = useState<'pages' | 'insert'>('pages')
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
@@ -218,6 +217,15 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
+  const [rbTheme, setRbTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('rbTheme') as 'dark' | 'light') ?? 'dark'
+    return 'dark'
+  })
+  const toggleRbTheme = () => setRbTheme((t) => {
+    const next = t === 'dark' ? 'light' : 'dark'
+    if (typeof window !== 'undefined') localStorage.setItem('rbTheme', next)
+    return next
+  })
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
   const [selectedShapePageId, setSelectedShapePageId] = useState<string | null>(null)
   const [isCoverSelected, setIsCoverSelected] = useState(false)
@@ -864,7 +872,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
 
   if (pickerState === 'loading') {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#120B07]">
+      <div className="flex h-screen w-full items-center justify-center bg-[var(--rb-input)]" data-rb-theme="dark">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
           <p className="animate-pulse text-slate-400">Loading your reports...</p>
@@ -886,13 +894,13 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#120B07] font-sans">
+    <div className="flex h-screen flex-col font-sans bg-[var(--rb-bg)] text-[var(--rb-text)]" data-rb-theme={rbTheme}>
       {/* ── Top toolbar ── */}
-      <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#2D1B11] px-3">
+      <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--rb-border)] bg-[var(--rb-panel)] px-3">
         <div className="flex min-w-0 items-center gap-2">
           <button
             onClick={() => setLeftOpen((v) => !v)}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]"
             title="Toggle left panel"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -906,13 +914,13 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
             <input
               value={docName}
               onChange={(e) => { setDocName(e.target.value); setIsDirty(true) }}
-              className="min-w-0 max-w-[180px] rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none transition focus:bg-white/5"
+              className="min-w-0 max-w-[180px] rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-[var(--rb-text)] outline-none transition focus:bg-[var(--rb-hover)]"
               placeholder="Untitled Report"
             />
             {isDirty && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" title="Unsaved changes" />}
           </div>
-          {saveState === 'saving' && <span className="hidden text-xs text-slate-500 sm:inline">Saving…</span>}
-          {saveState === 'saved'  && <span className="hidden text-xs text-emerald-400 sm:inline">Saved</span>}
+          {saveState === 'saving' && <span className="hidden text-xs text-[var(--rb-text-3)] sm:inline">Saving…</span>}
+          {saveState === 'saved'  && <span className="hidden text-xs text-emerald-500 sm:inline">Saved</span>}
           {saveState === 'error'  && <span className="hidden text-xs text-red-400 sm:inline" title={saveError ?? ''}>Save failed</span>}
         </div>
 
@@ -920,7 +928,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           {/* Workspace switcher */}
           <Link
             href="/workspace"
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)]"
             title="Back to Workspace"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -935,7 +943,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
               onClick={undo}
               disabled={undoCount === 0}
               title="Undo (Ctrl+Z)"
-              className="flex h-7 w-7 items-center justify-center rounded border border-white/15 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+              className="flex h-7 w-7 items-center justify-center rounded border border-[var(--rb-border-md)] bg-[var(--rb-hover)] text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)] disabled:opacity-30"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 010 16H5m-2-6l-2-2 2-2" /></svg>
             </button>
@@ -943,7 +951,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
               onClick={redo}
               disabled={redoCount === 0}
               title="Redo (Ctrl+Y)"
-              className="flex h-7 w-7 items-center justify-center rounded border border-white/15 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+              className="flex h-7 w-7 items-center justify-center rounded border border-[var(--rb-border-md)] bg-[var(--rb-hover)] text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)] disabled:opacity-30"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 000 16h8m2-6l2-2-2-2" /></svg>
             </button>
@@ -952,7 +960,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           <button
             onClick={handleSave}
             disabled={!user || saveState === 'saving'}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text)] transition hover:bg-[var(--rb-hover-md)] disabled:opacity-50"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -962,7 +970,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
 
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text)] transition hover:bg-[var(--rb-hover-md)]"
             title="Import Excel / CSV file"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -973,7 +981,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
 
           <button
             onClick={() => setShowDocs(true)}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text)] transition hover:bg-[var(--rb-hover-md)]"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -985,7 +993,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           {docId && (
             <button
               onClick={() => setShowCollabShare(true)}
-              className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)]"
               title="Share with collaborators"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -998,7 +1006,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           {/* Public link share — read-only snapshot */}
           <button
             onClick={() => setShowShare(true)}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)]"
             title="Create public read-only link"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1011,7 +1019,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           {docId && (
             <button
               onClick={() => setShowVersionHistory(true)}
-              className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--rb-border-md)] bg-[var(--rb-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)]"
               title="Version History"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1025,8 +1033,8 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           <button
             onClick={handleDownload}
             disabled={isPdfLoading}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:opacity-60"
-            style={{ background: '#C9A84C' }}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+            style={{ background: 'var(--rb-gold)' }}
           >
             {isPdfLoading ? (
               <><svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg><span className="hidden sm:inline">Generating…</span></>
@@ -1035,9 +1043,22 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
             )}
           </button>
 
+          {/* Theme toggle */}
+          <button
+            onClick={toggleRbTheme}
+            className="rounded-md p-1.5 text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]"
+            title={rbTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {rbTheme === 'dark' ? (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+            )}
+          </button>
+
           <button
             onClick={() => setRightOpen((v) => !v)}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]"
             title="Toggle properties panel"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1095,14 +1116,12 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel */}
-        <div className={`no-print flex flex-col border-r border-white/10 bg-[#1C1008] transition-all duration-200 ${leftOpen ? 'w-[220px]' : 'w-0 overflow-hidden'}`}>
+        <div className={`no-print flex flex-col border-r border-[var(--rb-border)] bg-[var(--rb-surface)] transition-all duration-200 ${leftOpen ? 'w-[220px]' : 'w-0 overflow-hidden'}`}>
           {leftOpen && (
             <LeftPanel
               report={report}
               selectedPageId={selectedPageId}
               isCoverSelected={isCoverSelected}
-              leftTab={leftTab}
-              setLeftTab={setLeftTab}
               onSelectCover={() => {
                 setIsCoverSelected(true)
                 setSelectedPageId(null)
@@ -1122,10 +1141,6 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
               onDuplicatePage={duplicatePage}
               onMovePage={movePage}
               onUpdatePageTitle={updatePageTitle}
-              onAddBlock={(type) => {
-                const pageId = selectedPageId ?? report.pages[report.pages.length - 1]?.id
-                if (pageId) addBlock(pageId, type)
-              }}
               onAddShape={(type) => {
                 const pageId = selectedPageId ?? report.pages[report.pages.length - 1]?.id
                 if (pageId) addShape(pageId, type)
@@ -1136,14 +1151,14 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
         </div>
 
         {/* Canvas */}
-        <div className="relative flex-1 overflow-auto bg-[#2B2B2B] panel-scroll" onClick={(e) => {
+        <div className="relative flex-1 overflow-auto bg-[var(--rb-canvas)] panel-scroll" onClick={(e) => {
           if ((e.target as HTMLElement).closest('[data-block]')) return
           setSelectedBlockId(null)
           setTableFormatAPI(null)
         }}>
           <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
-            <div className="anim-orb absolute rounded-full" style={{ width: 400, height: 400, top: -100, right: -100, background: 'radial-gradient(circle, rgba(201,168,76,.06) 0%, transparent 70%)', filter: 'blur(40px)' }} />
-            <div className="anim-orb-slow absolute rounded-full" style={{ width: 300, height: 300, bottom: -80, left: -80, background: 'radial-gradient(circle, rgba(13,144,128,.05) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+            <div className="anim-orb absolute rounded-full" style={{ width: 400, height: 400, top: -100, right: -100, background: 'radial-gradient(circle, var(--rb-orb-gold) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+            <div className="anim-orb-slow absolute rounded-full" style={{ width: 300, height: 300, bottom: -80, left: -80, background: 'radial-gradient(circle, var(--rb-orb-teal) 0%, transparent 70%)', filter: 'blur(40px)' }} />
           </div>
           <div className="relative z-10 flex flex-col items-center py-8 px-4 gap-0">
             {report.coverPage.enabled && (
@@ -1166,12 +1181,12 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
                 />
                 {/* Page break after cover */}
                 <div className="no-print flex w-full max-w-[900px] items-center gap-3 py-3">
-                  <div className="flex-1 border-t border-dashed border-white/20" />
-                  <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-[#120B07] px-3 py-1 text-[10px] font-medium tracking-wide text-slate-500">
+                  <div className="flex-1 border-t border-dashed border-[var(--rb-border-md)]" />
+                  <span className="flex items-center gap-1.5 rounded-full border border-[var(--rb-border-md)] bg-[var(--rb-surface)] px-3 py-1 text-[10px] font-medium tracking-wide text-[var(--rb-text-3)]">
                     <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12M18 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12" /></svg>
                     Page 1
                   </span>
-                  <div className="flex-1 border-t border-dashed border-white/20" />
+                  <div className="flex-1 border-t border-dashed border-[var(--rb-border-md)]" />
                 </div>
               </>
             )}
@@ -1201,19 +1216,19 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
                 {/* Page break between pages */}
                 {pageIdx < report.pages.length - 1 && (
                   <div className="no-print flex w-full max-w-[900px] items-center gap-3 py-3">
-                    <div className="flex-1 border-t border-dashed border-white/20" />
-                    <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-[#120B07] px-3 py-1 text-[10px] font-medium tracking-wide text-slate-500">
+                    <div className="flex-1 border-t border-dashed border-[var(--rb-border-md)]" />
+                    <span className="flex items-center gap-1.5 rounded-full border border-[var(--rb-border-md)] bg-[var(--rb-surface)] px-3 py-1 text-[10px] font-medium tracking-wide text-[var(--rb-text-3)]">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12M18 2v4m0 0a2 2 0 100 4 2 2 0 000-4zm0 4v12" /></svg>
                       Page {pageIdx + 2}
                     </span>
-                    <div className="flex-1 border-t border-dashed border-white/20" />
+                    <div className="flex-1 border-t border-dashed border-[var(--rb-border-md)]" />
                   </div>
                 )}
               </React.Fragment>
             ))}
             <button
               onClick={addPage}
-              className="mt-6 flex items-center gap-2 rounded-xl border border-dashed border-white/20 px-6 py-3 text-sm font-medium text-slate-400 transition hover:border-[#C9A84C] hover:text-[#C9A84C]"
+              className="mt-6 flex items-center gap-2 rounded-xl border border-dashed border-[var(--rb-border-md)] px-6 py-3 text-sm font-medium text-[var(--rb-text-2)] transition hover:border-[var(--rb-gold)] hover:text-[var(--rb-gold)]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1224,7 +1239,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
         </div>
 
         {/* Right panel */}
-        <div className={`no-print flex-col border-l border-white/10 bg-[#1C1008] transition-all duration-200 overflow-hidden ${rightOpen ? 'flex w-[280px]' : 'w-0'}`}>
+        <div className={`no-print flex-col border-l border-[var(--rb-border)] bg-[var(--rb-surface)] transition-all duration-200 overflow-hidden ${rightOpen ? 'flex w-[280px]' : 'w-0'}`}>
           {rightOpen && (
             <RightPanel
               report={report}
@@ -1351,14 +1366,12 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
 // ── Left Panel ──────────────────────────────────────────────────────────────
 
 function LeftPanel({
-  report, selectedPageId, isCoverSelected, leftTab, setLeftTab,
-  onSelectPage, onSelectCover, onAddPage, onDeletePage, onDuplicatePage, onMovePage, onUpdatePageTitle, onAddBlock, onAddShape, onInsertToc,
+  report, selectedPageId, isCoverSelected,
+  onSelectPage, onSelectCover, onAddPage, onDeletePage, onDuplicatePage, onMovePage, onUpdatePageTitle, onAddShape, onInsertToc,
 }: {
   report: ReportData
   selectedPageId: string | null
   isCoverSelected: boolean
-  leftTab: 'pages' | 'insert'
-  setLeftTab: (t: 'pages' | 'insert') => void
   onSelectPage: (id: string) => void
   onSelectCover: () => void
   onAddPage: () => void
@@ -1366,32 +1379,15 @@ function LeftPanel({
   onDuplicatePage: (id: string) => void
   onMovePage: (id: string, dir: 'up' | 'down') => void
   onUpdatePageTitle: (id: string, title: string) => void
-  onAddBlock: (type: ReportBlockType) => void
   onAddShape: (type: ShapeType) => void
   onInsertToc: () => void
 }) {
   const [editingPageId, setEditingPageId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
-
-  const BLOCK_TYPES: { type: ReportBlockType; icon: string; label: string; group?: string }[] = [
-    { type: 'heading',  icon: 'H',  label: 'Heading' },
-    { type: 'text',     icon: 'T',  label: 'Text' },
-    { type: 'columns',  icon: '⊟',  label: '2 Columns' },
-    { type: 'table',    icon: '⊞',  label: 'Table' },
-    { type: 'chart',    icon: '📈', label: 'Chart' },
-    { type: 'kpi',      icon: '📊', label: 'KPI Cards' },
-    { type: 'image',    icon: '🖼',  label: 'Image' },
-    { type: 'divider',  icon: '─',  label: 'Divider' },
-    { type: 'spacer',   icon: '↕',  label: 'Spacer' },
-    { type: 'toc',      icon: '📋', label: 'Contents' },
-    { type: 'callout',  icon: '💬', label: 'Callout' },
-    { type: 'quote',    icon: '"',   label: 'Quote' },
-    { type: 'status',   icon: '✅', label: 'Status' },
-    { type: 'progress', icon: '▓',  label: 'Progress' },
-  ]
+  const [shapesOpen, setShapesOpen] = useState(false)
 
   const SHAPE_TYPES: { type: ShapeType; label: string; preview: string }[] = [
-    { type: 'rect',     label: 'Rectangle', preview: 'M2,2 h96 v96 h-96 Z' },
+    { type: 'rect',     label: 'Rect',      preview: 'M2,2 h96 v96 h-96 Z' },
     { type: 'circle',   label: 'Circle',    preview: 'M50,2 a48,48 0 1,1 0,96 a48,48 0 1,1 0,-96' },
     { type: 'triangle', label: 'Triangle',  preview: 'M50,2 L2,98 98,98 Z' },
     { type: 'diamond',  label: 'Diamond',   preview: 'M50,2 L98,50 50,98 2,50 Z' },
@@ -1402,172 +1398,128 @@ function LeftPanel({
   ]
 
   const [shapeTemplates, setShapeTemplates] = useState<ShapeTemplate[]>(() => getShapeTemplates())
-
   const refreshTemplates = () => setShapeTemplates(getShapeTemplates())
 
   return (
     <div className="flex h-full flex-col">
-      {/* Tabs */}
-      <div className="flex shrink-0 border-b border-white/10">
-        {(['pages', 'insert'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setLeftTab(t)}
-            className={`flex-1 py-2.5 text-xs font-medium capitalize transition ${
-              leftTab === t ? 'text-[#C9A84C] border-b-2 border-[#C9A84C]' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--rb-border)] px-3 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--rb-text-3)]">Pages</span>
+        <button
+          onClick={onAddPage}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-[var(--rb-gold)] transition hover:bg-[var(--rb-hover)]"
+          title="Add page"
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+          Add
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto panel-scroll p-2">
-        {leftTab === 'pages' ? (
-          <>
-            {report.coverPage.enabled && (
-              <div
-                className={`mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition ${isCoverSelected ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
-                onClick={onSelectCover}
-              >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#C9A84C]/20 text-[#C9A84C] text-[10px] font-bold">C</span>
-                Cover Page
-              </div>
+        {report.coverPage.enabled && (
+          <div
+            className={`mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition ${isCoverSelected ? 'bg-[var(--rb-active)] text-[var(--rb-text)]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)] hover:text-[var(--rb-text)]'}`}
+            onClick={onSelectCover}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--rb-gold)]/20 text-[var(--rb-gold)] text-[10px] font-bold">C</span>
+            Cover Page
+          </div>
+        )}
+        {report.pages.map((page, idx) => (
+          <div
+            key={page.id}
+            className={`group mb-0.5 flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition ${
+              selectedPageId === page.id ? 'bg-[var(--rb-active)] text-[var(--rb-text)]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'
+            }`}
+            onClick={() => onSelectPage(page.id)}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--rb-hover-md)] text-[10px] font-bold text-[var(--rb-text-3)]">
+              {idx + 1}
+            </span>
+            {editingPageId === page.id ? (
+              <input
+                autoFocus
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={() => { onUpdatePageTitle(page.id, editTitle || page.title); setEditingPageId(null) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { onUpdatePageTitle(page.id, editTitle || page.title); setEditingPageId(null) } }}
+                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--rb-text)] outline-none"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span className="min-w-0 flex-1 truncate text-xs">{page.title}</span>
             )}
-            {report.pages.map((page, idx) => (
-              <div
-                key={page.id}
-                className={`group mb-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition ${
-                  selectedPageId === page.id ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'
-                }`}
-                onClick={() => onSelectPage(page.id)}
-              >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white/10 text-[10px] font-bold text-slate-400">
-                  {idx + 1}
-                </span>
-                {editingPageId === page.id ? (
-                  <input
-                    autoFocus
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onBlur={() => { onUpdatePageTitle(page.id, editTitle || page.title); setEditingPageId(null) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { onUpdatePageTitle(page.id, editTitle || page.title); setEditingPageId(null) } }}
-                    className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span className="min-w-0 flex-1 truncate text-xs">{page.title}</span>
-                )}
-                <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
-                  <button onClick={(e) => { e.stopPropagation(); setEditTitle(page.title); setEditingPageId(page.id) }} className="rounded p-0.5 text-slate-500 hover:text-slate-200" title="Rename">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onMovePage(page.id, 'up') }} className="rounded p-0.5 text-slate-500 hover:text-slate-200" title="Move up" disabled={idx === 0}>
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onMovePage(page.id, 'down') }} className="rounded p-0.5 text-slate-500 hover:text-slate-200" title="Move down" disabled={idx === report.pages.length - 1}>
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onDuplicatePage(page.id) }} className="rounded p-0.5 text-slate-500 hover:text-slate-200" title="Duplicate">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                  </button>
-                  {report.pages.length > 1 && (
-                    <button onClick={(e) => { e.stopPropagation(); onDeletePage(page.id) }} className="rounded p-0.5 text-slate-500 hover:text-red-400" title="Delete">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  )}
-                </div>
+            <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+              <button onClick={(e) => { e.stopPropagation(); setEditTitle(page.title); setEditingPageId(page.id) }} className="rounded p-0.5 text-[var(--rb-text-3)] hover:text-[var(--rb-text)]" title="Rename">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onMovePage(page.id, 'up') }} className="rounded p-0.5 text-[var(--rb-text-3)] hover:text-[var(--rb-text)] disabled:opacity-30" title="Move up" disabled={idx === 0}>
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onMovePage(page.id, 'down') }} className="rounded p-0.5 text-[var(--rb-text-3)] hover:text-[var(--rb-text)] disabled:opacity-30" title="Move down" disabled={idx === report.pages.length - 1}>
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onDuplicatePage(page.id) }} className="rounded p-0.5 text-[var(--rb-text-3)] hover:text-[var(--rb-text)]" title="Duplicate">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              </button>
+              {report.pages.length > 1 && (
+                <button onClick={(e) => { e.stopPropagation(); onDeletePage(page.id) }} className="rounded p-0.5 text-[var(--rb-text-3)] hover:text-red-400" title="Delete">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer: ToC + Shapes */}
+      <div className="shrink-0 border-t border-[var(--rb-border)] p-2 flex flex-col gap-0.5">
+        <button
+          onClick={onInsertToc}
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover)] hover:text-[var(--rb-gold)]"
+        >
+          <span>📋</span>Insert Table of Contents
+        </button>
+        <button
+          onClick={() => setShapesOpen((v) => !v)}
+          className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover)]"
+        >
+          <span className="flex items-center gap-2">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="7" height="7" strokeWidth={2} rx="1"/><circle cx="17" cy="7" r="4" strokeWidth={2}/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21l4-8 4 8M14 21l3-5 3 5"/></svg>
+            Shapes
+          </span>
+          <svg className={`h-3 w-3 transition-transform ${shapesOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        {shapesOpen && (
+          <div className="flex flex-col gap-1.5 px-1 pb-1">
+            <div className="grid grid-cols-4 gap-1">
+              {SHAPE_TYPES.map(({ type, label, preview }) => (
+                <button
+                  key={type}
+                  onClick={() => onAddShape(type)}
+                  title={label}
+                  className="flex flex-col items-center gap-0.5 rounded-lg border border-[var(--rb-border)] bg-[var(--rb-hover)] py-1.5 text-[9px] text-[var(--rb-text-3)] transition hover:border-[var(--rb-gold)]/50 hover:text-[var(--rb-gold)]"
+                >
+                  <svg viewBox="0 0 100 100" className="h-5 w-5">
+                    {type === 'line'
+                      ? <line x1="2" y1="50" x2="98" y2="50" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+                      : <path d={preview} fill="currentColor" opacity={0.8} />
+                    }
+                  </svg>
+                </button>
+              ))}
+            </div>
+            {shapeTemplates.length > 0 && shapeTemplates.map((tpl) => (
+              <div key={tpl.id} className="flex items-center gap-1">
+                <button
+                  onClick={() => tpl.shapes.forEach((s) => onAddShape(s.type))}
+                  className="flex-1 rounded border border-[var(--rb-border)] px-2 py-1 text-left text-[10px] text-[var(--rb-text-2)] transition hover:text-[var(--rb-text)]"
+                >
+                  {tpl.name}
+                </button>
+                <button onClick={() => { deleteShapeTemplate(tpl.id); refreshTemplates() }} className="shrink-0 rounded p-0.5 text-[var(--rb-text-3)] hover:text-red-400">✕</button>
               </div>
             ))}
-            <button
-              onClick={onAddPage}
-              className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-white/15 px-2 py-1.5 text-xs text-slate-500 transition hover:border-[#C9A84C]/50 hover:text-[#C9A84C]"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              Add Page
-            </button>
-          </>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {/* ToC quick-insert */}
-            <button
-              onClick={onInsertToc}
-              className="flex items-center gap-2 rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 py-2 text-xs font-medium text-[#C9A84C] transition hover:bg-[#C9A84C]/10"
-            >
-              <span className="text-base leading-none">📋</span>
-              Insert Table of Contents page
-            </button>
-
-            {/* Blocks */}
-            <div>
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Blocks</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {BLOCK_TYPES.map(({ type, icon, label }) => (
-                  <button
-                    key={type}
-                    onClick={() => onAddBlock(type)}
-                    className="flex flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 py-3 text-xs text-slate-300 transition hover:border-[#C9A84C]/50 hover:bg-white/10 hover:text-white"
-                  >
-                    <span className="text-base leading-none">{icon}</span>
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Shapes */}
-            <div>
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Shapes</p>
-              <div className="grid grid-cols-4 gap-1.5">
-                {SHAPE_TYPES.map(({ type, label, preview }) => (
-                  <button
-                    key={type}
-                    onClick={() => onAddShape(type)}
-                    title={label}
-                    className="flex flex-col items-center gap-1 rounded-lg border border-white/10 bg-white/5 py-2 text-[9px] text-slate-400 transition hover:border-[#C9A84C]/50 hover:bg-white/10 hover:text-[#C9A84C]"
-                  >
-                    <svg viewBox="0 0 100 100" className="h-6 w-6">
-                      {type === 'line'
-                        ? <line x1="2" y1="50" x2="98" y2="50" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-                        : <path d={preview} fill="currentColor" opacity={0.8} />
-                      }
-                    </svg>
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Shape templates */}
-            {shapeTemplates.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Shape Templates</p>
-                <div className="flex flex-col gap-1">
-                  {shapeTemplates.map((tpl) => {
-                    const pageId = report.pages[0]?.id
-                    return (
-                      <div key={tpl.id} className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            if (!pageId) return
-                            // Apply template shapes to current page (re-ID them)
-                            tpl.shapes.forEach((s) => onAddShape(s.type))
-                          }}
-                          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left text-xs text-slate-300 transition hover:border-[#C9A84C]/50 hover:text-white"
-                        >
-                          {tpl.name}
-                        </button>
-                        <button
-                          onClick={() => { deleteShapeTemplate(tpl.id); refreshTemplates() }}
-                          className="shrink-0 rounded p-1 text-slate-600 hover:text-red-400"
-                          title="Delete template"
-                        >✕</button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -3768,20 +3720,20 @@ function FormatToolbar({
     setShowBorderPanel((v) => !v)
   }
 
-  const sep = <div className="mx-1 h-5 w-px bg-white/15 shrink-0" />
+  const sep = <div className="mx-1 h-5 w-px bg-[var(--rb-border-md)] shrink-0" />
   const btn = (active: boolean, onClick: () => void, title: string, children: React.ReactNode, key?: string | number) => (
     <button
       key={key}
       title={title}
       onClick={onClick}
       className={`flex h-7 min-w-[28px] items-center justify-center rounded px-1.5 text-sm transition ${
-        active ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+        active ? 'bg-[var(--rb-gold)]/20 text-[var(--rb-gold)]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]'
       }`}
     >{children}</button>
   )
   const iconBtn = (onClick: () => void, title: string, icon: React.ReactNode, cls = '') => (
     <button title={title} onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white ${cls}`}>
+      className={`flex h-7 w-7 items-center justify-center rounded text-[var(--rb-text-2)] transition hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)] ${cls}`}>
       {icon}
     </button>
   )
@@ -3793,7 +3745,7 @@ function FormatToolbar({
             applyFinancialFormat, rowCount, colCount,
             canMerge, canUnmerge, merge, unmerge } = tableFormatAPI
     return (
-      <div className="no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-[#1A0C05] px-3 toolbar-scroll">
+      <div className="no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--rb-border)] bg-[var(--rb-panel)] px-3 toolbar-scroll">
         {/* Context label */}
         <span className="mr-1 shrink-0 rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
           Table — {selectedCells.size} cell{selectedCells.size !== 1 ? 's' : ''}
@@ -3822,14 +3774,14 @@ function FormatToolbar({
         <select
           value={firstCell?.numberFormat || 'general'}
           onChange={(e) => applyToSelected({ numberFormat: e.target.value as TableCell['numberFormat'] })}
-          className="h-7 rounded border border-white/15 bg-[#120B07] px-1 text-[11px] text-slate-300 outline-none focus:border-[#C9A84C]"
+          className="h-7 rounded border border-[var(--rb-border-md)] bg-[var(--rb-input)] px-1 text-[11px] text-[var(--rb-text-2)] outline-none focus:border-[var(--rb-gold)]"
           title="Number format"
         >
-          <option value="general" className="bg-[#120B07]">General</option>
-          <option value="number" className="bg-[#120B07]">1,234</option>
-          <option value="currency" className="bg-[#120B07]">$ Currency</option>
-          <option value="accounting" className="bg-[#120B07]">() Acctg</option>
-          <option value="percentage" className="bg-[#120B07]">% Percent</option>
+          <option value="general" className="bg-[var(--rb-input)]">General</option>
+          <option value="number" className="bg-[var(--rb-input)]">1,234</option>
+          <option value="currency" className="bg-[var(--rb-input)]">$ Currency</option>
+          <option value="accounting" className="bg-[var(--rb-input)]">() Acctg</option>
+          <option value="percentage" className="bg-[var(--rb-input)]">% Percent</option>
         </select>
         {sep}
 
@@ -3904,7 +3856,7 @@ function FormatToolbar({
             <div className="fixed inset-0 z-[9998]" onClick={() => setShowBorderPanel(false)} />
             {/* Panel — fixed so it escapes every overflow container */}
             <div
-              className="fixed z-[9999] w-72 rounded-lg border border-white/15 bg-[#1A0C05] p-3 shadow-2xl"
+              className="fixed z-[9999] w-72 rounded-lg border border-[var(--rb-border-md)] bg-[var(--rb-panel)] p-3 shadow-2xl"
               style={{ top: borderPanelPos.top, left: borderPanelPos.left }}
             >
               {/* Line style + color */}
@@ -4008,12 +3960,12 @@ function FormatToolbar({
     const v = val || 13
     return (
       <div className="flex h-7 shrink-0 items-center gap-0" title="Font size">
-        <button onClick={() => onChange(Math.max(8, v - 1))} className="flex h-7 w-5 items-center justify-center rounded-l border border-white/15 bg-[#120B07] text-[11px] text-slate-400 hover:bg-white/10 hover:text-white">−</button>
+        <button onClick={() => onChange(Math.max(8, v - 1))} className="flex h-7 w-5 items-center justify-center rounded-l border border-[var(--rb-border-md)] bg-[var(--rb-input)] text-[11px] text-[var(--rb-text-2)] hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]">−</button>
         <input type="number" min={8} max={96} step={1} value={v}
           onChange={(e) => { const n = parseInt(e.target.value); if (!isNaN(n) && n >= 8 && n <= 96) onChange(n) }}
-          className="h-7 w-10 border-y border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-        <button onClick={() => onChange(Math.min(96, v + 1))} className="flex h-7 w-5 items-center justify-center rounded-r border border-white/15 bg-[#120B07] text-[11px] text-slate-400 hover:bg-white/10 hover:text-white">+</button>
-        <span className="ml-1 text-[9px] text-slate-600">px</span>
+          className="h-7 w-10 border-y border-[var(--rb-border-md)] bg-[var(--rb-input)] text-center text-[10px] text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        <button onClick={() => onChange(Math.min(96, v + 1))} className="flex h-7 w-5 items-center justify-center rounded-r border border-[var(--rb-border-md)] bg-[var(--rb-input)] text-[11px] text-[var(--rb-text-2)] hover:bg-[var(--rb-hover-md)] hover:text-[var(--rb-text)]">+</button>
+        <span className="ml-1 text-[9px] text-[var(--rb-text-3)]">px</span>
       </div>
     )
   }
@@ -4025,7 +3977,7 @@ function FormatToolbar({
     </>
   )
 
-  const row = 'no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-[#1A0C05] px-3'
+  const row = 'no-print flex h-[48px] shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--rb-border)] bg-[var(--rb-panel)] px-3'
 
   // ── Table selected but no cells ────────────────────────────────────────────
   if (selectedBlock?.type === 'table' && onQuickUpdate) {
@@ -4171,7 +4123,7 @@ function FormatToolbar({
           <span>Thick</span>
           <input type="number" min={1} max={8} step={1} value={db.thickness || 1}
             onChange={(e) => onQuickUpdate({ thickness: Number(e.target.value) })}
-            className="h-5 w-10 rounded border border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="h-5 w-10 rounded border border-white/15 bg-[var(--rb-input)] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <span className="text-[9px] text-slate-600">px</span>
         </label>
         {ops}
@@ -4190,7 +4142,7 @@ function FormatToolbar({
           <span>Height</span>
           <input type="number" min={4} max={400} step={4} value={sb.height || 24}
             onChange={(e) => onQuickUpdate({ height: Number(e.target.value) })}
-            className="h-5 w-14 rounded border border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="h-5 w-14 rounded border border-white/15 bg-[var(--rb-input)] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <span className="text-[9px] text-slate-600">px</span>
         </label>
         {ops}
@@ -4230,7 +4182,7 @@ function FormatToolbar({
           <span>H</span>
           <input type="number" min={80} max={600} step={20} value={cb.height || 200}
             onChange={(e) => onQuickUpdate({ height: Number(e.target.value) })}
-            className="h-5 w-14 rounded border border-white/15 bg-[#120B07] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="h-5 w-14 rounded border border-white/15 bg-[var(--rb-input)] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <span className="text-[9px] text-slate-600">px</span>
         </label>
         {sep}
@@ -4375,7 +4327,7 @@ function RightPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Tabs */}
-      <div className="flex shrink-0 border-b border-white/10">
+      <div className="flex shrink-0 border-b border-[var(--rb-border)]">
         {([
           { id: 'properties', label: 'Properties' },
           { id: 'style',      label: 'Style' },
@@ -4385,7 +4337,7 @@ function RightPanel({
             key={id}
             onClick={() => setRightTab(id)}
             className={`flex-1 py-2.5 text-xs font-medium transition ${
-              rightTab === id ? 'text-[#C9A84C] border-b-2 border-[#C9A84C]' : 'text-slate-400 hover:text-slate-200'
+              rightTab === id ? 'text-[var(--rb-gold)] border-b-2 border-[var(--rb-gold)]' : 'text-[var(--rb-text-2)] hover:text-[var(--rb-text)]'
             }`}
           >
             {label}
@@ -4393,7 +4345,7 @@ function RightPanel({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto panel-scroll p-3 text-xs text-slate-300">
+      <div className="flex-1 overflow-y-auto panel-scroll p-3 text-xs text-[var(--rb-text-2)]">
         {rightTab === 'properties' && (
           <>
             {isCoverSelected && !selectedBlock ? (
@@ -4430,10 +4382,10 @@ function RightPanel({
               />
             ) : (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <svg className="h-8 w-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-8 w-8 text-[var(--rb-text-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
                 </svg>
-                <p className="text-slate-500">Click a page or block to edit</p>
+                <p className="text-[var(--rb-text-3)]">Click a page or block to edit</p>
               </div>
             )}
           </>
@@ -4463,12 +4415,12 @@ function RightPanel({
 // ── Block Editor ────────────────────────────────────────────────────────────
 
 function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPack; onUpdate: (u: Record<string, unknown>) => void }) {
-  const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--rb-text-3)]">{t}</label>
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-2 py-1.5 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const alignBtns = (align: string, onChange: (a: string) => void) => (
-    <div className="flex rounded-md border border-white/10 overflow-hidden">
+    <div className="flex rounded-md border border-[var(--rb-border)] overflow-hidden">
       {['left', 'center', 'right'].map((a) => (
-        <button key={a} onClick={() => onChange(a)} className={`flex-1 py-1 text-[10px] transition ${align === a ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-slate-400 hover:bg-white/5'}`}>
+        <button key={a} onClick={() => onChange(a)} className={`flex-1 py-1 text-[10px] transition ${align === a ? 'bg-[var(--rb-gold)]/20 text-[var(--rb-gold)]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'}`}>
           {a[0].toUpperCase()}
         </button>
       ))}
@@ -4479,12 +4431,11 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
     case 'heading':
       return (
         <div className="flex flex-col gap-3">
-          <div>{label('Content')}<textarea value={block.content} onChange={(e) => onUpdate({ content: e.target.value })} rows={3} className={`${inputCls} resize-none`} /></div>
           <div>
             {label('Level')}
             <div className="flex gap-1">
               {([1, 2, 3] as const).map((l) => (
-                <button key={l} onClick={() => onUpdate({ level: l })} className={`flex-1 rounded border py-1 text-xs font-bold transition ${block.level === l ? 'border-[#C9A84C] bg-[#C9A84C]/20 text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>H{l}</button>
+                <button key={l} onClick={() => onUpdate({ level: l })} className={`flex-1 rounded border py-1 text-xs font-bold transition ${block.level === l ? 'border-[var(--rb-gold)] bg-[var(--rb-gold)]/20 text-[var(--rb-gold)]' : 'border-[var(--rb-border)] text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'}`}>H{l}</button>
               ))}
             </div>
           </div>
@@ -4495,12 +4446,11 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
     case 'text':
       return (
         <div className="flex flex-col gap-3">
-          <div>{label('Content')}<textarea value={block.content} onChange={(e) => onUpdate({ content: e.target.value })} rows={8} className={`${inputCls} resize-none`} /></div>
           <div>
             {label('Align')}
-            <div className="flex rounded-md border border-white/10 overflow-hidden">
+            <div className="flex rounded-md border border-[var(--rb-border)] overflow-hidden">
               {['left', 'center', 'right', 'justify'].map((a) => (
-                <button key={a} onClick={() => onUpdate({ align: a })} className={`flex-1 py-1 text-[10px] transition ${block.align === a ? 'bg-[#C9A84C]/20 text-[#C9A84C]' : 'text-slate-400 hover:bg-white/5'}`}>
+                <button key={a} onClick={() => onUpdate({ align: a })} className={`flex-1 py-1 text-[10px] transition ${block.align === a ? 'bg-[var(--rb-gold)]/20 text-[var(--rb-gold)]' : 'text-[var(--rb-text-2)] hover:bg-[var(--rb-hover)]'}`}>
                   {a === 'justify' ? 'J' : a[0].toUpperCase()}
                 </button>
               ))}
@@ -4521,7 +4471,7 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
           <div>
             {label('Width')}
             <select value={block.width} onChange={(e) => onUpdate({ width: e.target.value })} className={inputCls}>
-              {['full', 'large', 'medium', 'small'].map((w) => <option key={w} value={w} className="bg-[#1C1008]">{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
+              {['full', 'large', 'medium', 'small'].map((w) => <option key={w} value={w} className="bg-[var(--rb-surface)]">{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
             </select>
           </div>
           <div>{label('Align')}{alignBtns(block.align, (a) => onUpdate({ align: a }))}</div>
@@ -4533,7 +4483,7 @@ function BlockEditor({ block, dp, onUpdate }: { block: ReportBlock; dp: DesignPa
           <div>
             {label('Style')}
             <select value={block.style} onChange={(e) => onUpdate({ style: e.target.value })} className={inputCls}>
-              {['solid', 'dashed', 'double'].map((s) => <option key={s} value={s} className="bg-[#1C1008]">{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              {['solid', 'dashed', 'double'].map((s) => <option key={s} value={s} className="bg-[var(--rb-surface)]">{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
           </div>
           <div>{label('Color')}<input type="color" value={block.color || '#000000'} onChange={(e) => onUpdate({ color: e.target.value })} className="h-8 w-full cursor-pointer rounded" /></div>
@@ -4720,7 +4670,7 @@ function computeTableCellBorders(
 // ── Table Editor (Properties panel — configuration only) ─────────────────────
 
 function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPack; onUpdate: (u: Record<string, unknown>) => void }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
 
   return (
     <div className="flex flex-col gap-3">
@@ -4770,7 +4720,7 @@ function TableEditor({ block, dp, onUpdate }: { block: TableBlock; dp: DesignPac
 // ── KPI Editor ──────────────────────────────────────────────────────────────
 
 function KpiEditor({ block, onUpdate }: { block: KpiBlock; onUpdate: (u: Record<string, unknown>) => void }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
 
   function updItem(id: string, field: keyof KpiItem, val: unknown) {
     onUpdate({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
@@ -4825,9 +4775,9 @@ function KpiEditor({ block, onUpdate }: { block: KpiBlock; onUpdate: (u: Record<
                 </div>
                 <div className="flex gap-1">
                   <select value={item.trend} onChange={(e) => updItem(item.id, 'trend', e.target.value)} className={`${inputCls} flex-1`}>
-                    <option value="up" className="bg-[#1C1008]">↑ Up</option>
-                    <option value="down" className="bg-[#1C1008]">↓ Down</option>
-                    <option value="neutral" className="bg-[#1C1008]">→ Neutral</option>
+                    <option value="up" className="bg-[var(--rb-surface)]">↑ Up</option>
+                    <option value="down" className="bg-[var(--rb-surface)]">↓ Down</option>
+                    <option value="neutral" className="bg-[var(--rb-surface)]">→ Neutral</option>
                   </select>
                   <input value={item.trendValue} onChange={(e) => updItem(item.id, 'trendValue', e.target.value)} className={`${inputCls} w-16`} placeholder="+5%" />
                 </div>
@@ -4843,7 +4793,7 @@ function KpiEditor({ block, onUpdate }: { block: KpiBlock; onUpdate: (u: Record<
 // ── Status Editor ────────────────────────────────────────────────────────────
 
 function StatusEditor({ block, onUpdate }: { block: StatusBlock; onUpdate: (u: Record<string, unknown>) => void }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   function updItem(id: string, field: keyof StatusItem, val: unknown) {
     onUpdate({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
   }
@@ -4859,11 +4809,11 @@ function StatusEditor({ block, onUpdate }: { block: StatusBlock; onUpdate: (u: R
           {block.items.map((item) => (
             <div key={item.id} className="flex gap-1.5 items-center">
               <input value={item.label} onChange={(e) => updItem(item.id, 'label', e.target.value)} className={`${inputCls} flex-1`} />
-              <select value={item.status} onChange={(e) => updItem(item.id, 'status', e.target.value)} className="rounded border border-white/10 bg-[#120B07] px-1 py-1 text-[10px] text-white outline-none">
-                <option value="done" className="bg-[#1C1008]">Done</option>
-                <option value="in-progress" className="bg-[#1C1008]">In Progress</option>
-                <option value="pending" className="bg-[#1C1008]">Pending</option>
-                <option value="blocked" className="bg-[#1C1008]">Blocked</option>
+              <select value={item.status} onChange={(e) => updItem(item.id, 'status', e.target.value)} className="rounded border border-white/10 bg-[var(--rb-input)] px-1 py-1 text-[10px] text-white outline-none">
+                <option value="done" className="bg-[var(--rb-surface)]">Done</option>
+                <option value="in-progress" className="bg-[var(--rb-surface)]">In Progress</option>
+                <option value="pending" className="bg-[var(--rb-surface)]">Pending</option>
+                <option value="blocked" className="bg-[var(--rb-surface)]">Blocked</option>
               </select>
               {block.items.length > 1 && <button onClick={() => onUpdate({ items: block.items.filter((i) => i.id !== item.id) })} className="shrink-0 text-slate-600 hover:text-red-400">✕</button>}
             </div>
@@ -4877,7 +4827,7 @@ function StatusEditor({ block, onUpdate }: { block: StatusBlock; onUpdate: (u: R
 // ── Progress Editor ───────────────────────────────────────────────────────────
 
 function ProgressEditor({ block, onUpdate }: { block: ProgressBlock; onUpdate: (u: Record<string, unknown>) => void }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   function updItem(id: string, field: keyof ProgressItem, val: unknown) {
     onUpdate({ items: block.items.map((it) => it.id !== id ? it : { ...it, [field]: val }) })
   }
@@ -4918,7 +4868,7 @@ function PageStyleEditor({
   onUpdatePage: (style: Partial<PageStyle>) => void
   onApplyToAll: (style: Partial<PageStyle>) => void
 }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-2 py-1.5 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
   const style = page.style ?? {}
 
@@ -4939,7 +4889,7 @@ function PageStyleEditor({
       <div>
         {label('Background Pattern')}
         <select value={style.backgroundPattern || 'none'} onChange={(e) => onUpdatePage({ backgroundPattern: e.target.value as PageStyle['backgroundPattern'] })} className={inputCls}>
-          {['none', 'grid', 'dots', 'diagonal'].map((p) => <option key={p} value={p} className="bg-[#1C1008]">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+          {['none', 'grid', 'dots', 'diagonal'].map((p) => <option key={p} value={p} className="bg-[var(--rb-surface)]">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
         </select>
       </div>
 
@@ -4994,7 +4944,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
   })
   const [branding, setBranding] = useState(() => report.branding ?? {})
 
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-2 py-1.5 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
   const Section = DesignStudioSection
 
@@ -5110,7 +5060,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
           {showPackBuilder ? '✕ Close Builder' : '+ Create Custom Theme'}
         </button>
         {showPackBuilder && (
-          <div className="rounded-lg border border-white/10 bg-[#120B07] p-3 flex flex-col gap-2.5">
+          <div className="rounded-lg border border-white/10 bg-[var(--rb-input)] p-3 flex flex-col gap-2.5">
             <input value={newPack.name} onChange={(e) => setNewPack((p) => ({ ...p, name: e.target.value }))} className={inputCls} placeholder="Theme name" />
 
             {/* Layout colors */}
@@ -5149,8 +5099,8 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
             {/* Font family */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] text-slate-400">Font</span>
-              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none">
-                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none">
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
             </div>
 
@@ -5239,9 +5189,9 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
               <select
                 value={report.colorOverrides?.fontFamily || basePack.fontFamily}
                 onChange={(e) => onUpdateReport((p) => ({ ...p, colorOverrides: { ...(p.colorOverrides ?? {}), fontFamily: e.target.value } }))}
-                className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none"
+                className="w-32 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none"
               >
-                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
             </div>
           )
@@ -5276,7 +5226,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
             <div>
               {label('Brand Font')}
               <select value={branding.fontFamily || 'Inter'} onChange={(e) => setBranding((b) => ({ ...b, fontFamily: e.target.value }))} className={inputCls}>
-                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
             </div>
           </>
@@ -5462,7 +5412,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
                 <label className="text-[10px] text-slate-500">Background Color</label>
                 <input type="color" value={report.coverPage.primaryColor} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, primaryColor: e.target.value } }))} className="h-8 w-full cursor-pointer rounded" />
                 <select value={report.coverPage.pattern} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, pattern: e.target.value as 'none'|'grid'|'dots'|'diagonal' } }))} className={inputCls}>
-                  {['none', 'grid', 'dots', 'diagonal'].map((pat) => <option key={pat} value={pat} className="bg-[#1C1008]">{pat.charAt(0).toUpperCase() + pat.slice(1)}</option>)}
+                  {['none', 'grid', 'dots', 'diagonal'].map((pat) => <option key={pat} value={pat} className="bg-[var(--rb-surface)]">{pat.charAt(0).toUpperCase() + pat.slice(1)}</option>)}
                 </select>
                 <ImageUploadField value={report.coverPage.logoUrl} onChange={(url) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, logoUrl: url } }))} placeholder="Logo" />
                 {report.coverPage.logoUrl && (
@@ -5493,15 +5443,15 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
         <div>
           {label('Page Size')}
           <select value={report.pageSize} onChange={(e) => up('pageSize', e.target.value)} className={inputCls}>
-            <option value="A4" className="bg-[#1C1008]">A4 (210 × 297 mm)</option>
-            <option value="Letter" className="bg-[#1C1008]">Letter (8.5 × 11 in)</option>
+            <option value="A4" className="bg-[var(--rb-surface)]">A4 (210 × 297 mm)</option>
+            <option value="Letter" className="bg-[var(--rb-surface)]">Letter (8.5 × 11 in)</option>
           </select>
         </div>
         {advanced && (
           <div>
             {label('Document Type')}
             <select value={report.documentType} onChange={(e) => up('documentType', e.target.value)} className={inputCls}>
-              {DOCUMENT_TYPES.map(({ id, label: lbl }) => <option key={id} value={id} className="bg-[#1C1008]">{lbl}</option>)}
+              {DOCUMENT_TYPES.map(({ id, label: lbl }) => <option key={id} value={id} className="bg-[var(--rb-surface)]">{lbl}</option>)}
             </select>
           </div>
         )}
@@ -5546,7 +5496,7 @@ function DesignPanel({ report, onUpdateReport }: { report: ReportData; onUpdateR
     if (report.designPackId === id) onUpdateReport((p) => ({ ...p, designPackId: 'corporate-navy' }))
   }
 
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const colorRow = (label: string, key: keyof typeof newPack) => (
     <div className="flex items-center justify-between gap-2">
       <span className="text-[10px] text-slate-400 min-w-0 truncate">{label}</span>
@@ -5590,7 +5540,7 @@ function DesignPanel({ report, onUpdateReport }: { report: ReportData; onUpdateR
       </div>
 
       {showPackBuilder && (
-        <div className="rounded-lg border border-white/10 bg-[#120B07] p-3">
+        <div className="rounded-lg border border-white/10 bg-[var(--rb-input)] p-3">
           <p className="mb-3 text-[10px] font-medium uppercase tracking-wide text-slate-400">New Custom Pack</p>
           <div className="flex flex-col gap-2">
             <input value={newPack.name} onChange={(e) => setNewPack((p) => ({ ...p, name: e.target.value }))} className={inputCls} placeholder="Pack name" />
@@ -5600,8 +5550,8 @@ function DesignPanel({ report, onUpdateReport }: { report: ReportData; onUpdateR
             {colorRow('Table Header BG', 'tableHeaderBg')}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] text-slate-400">Font</span>
-              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]">
-                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]">
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
             </div>
             <button onClick={saveCustomPack} className="mt-1 w-full rounded-lg py-1.5 text-xs font-semibold text-white transition hover:brightness-110" style={{ background: '#C9A84C' }}>
@@ -5617,7 +5567,7 @@ function DesignPanel({ report, onUpdateReport }: { report: ReportData; onUpdateR
 // ── Document Panel ──────────────────────────────────────────────────────────
 
 function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdateReport: (u: (p: ReportData) => ReportData) => void }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-2 py-1.5 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const up = (field: string, val: unknown) => onUpdateReport((p) => ({ ...p, [field]: val }))
   const upCover = (field: string, val: unknown) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, [field]: val } }))
   const upHF = (field: string, val: unknown) => onUpdateReport((p) => ({ ...p, headerFooter: { ...p.headerFooter, [field]: val } }))
@@ -5629,8 +5579,8 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
       <div>
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Page Size</label>
         <select value={report.pageSize} onChange={(e) => up('pageSize', e.target.value)} className={inputCls}>
-          <option value="A4" className="bg-[#1C1008]">A4 (210 × 297 mm)</option>
-          <option value="Letter" className="bg-[#1C1008]">Letter (8.5 × 11 in)</option>
+          <option value="A4" className="bg-[var(--rb-surface)]">A4 (210 × 297 mm)</option>
+          <option value="Letter" className="bg-[var(--rb-surface)]">Letter (8.5 × 11 in)</option>
         </select>
       </div>
 
@@ -5638,7 +5588,7 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
       <div>
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">Document Type</label>
         <select value={report.documentType} onChange={(e) => up('documentType', e.target.value)} className={inputCls}>
-          {DOCUMENT_TYPES.map(({ id, label }) => <option key={id} value={id} className="bg-[#1C1008]">{label}</option>)}
+          {DOCUMENT_TYPES.map(({ id, label }) => <option key={id} value={id} className="bg-[var(--rb-surface)]">{label}</option>)}
         </select>
       </div>
 
@@ -5658,7 +5608,7 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
               <label className="text-[10px] text-slate-500">Background Color</label>
               <input type="color" value={report.coverPage.primaryColor} onChange={(e) => upCover('primaryColor', e.target.value)} className="h-8 w-full cursor-pointer rounded" />
               <select value={report.coverPage.pattern} onChange={(e) => upCover('pattern', e.target.value)} className={inputCls}>
-                {['none', 'grid', 'dots', 'diagonal'].map((p) => <option key={p} value={p} className="bg-[#1C1008]">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                {['none', 'grid', 'dots', 'diagonal'].map((p) => <option key={p} value={p} className="bg-[var(--rb-surface)]">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
               </select>
               <label className="text-[10px] text-slate-500">Logo Image</label>
               <ImageUploadField value={report.coverPage.logoUrl} onChange={(url) => upCover('logoUrl', url)} placeholder="Logo URL or upload" />
@@ -6258,7 +6208,7 @@ function ReportPicker({ docs, userName, onOpen, onNew, onDelete }: {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[var(--rb-input)] p-6 font-sans">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
         <div className="anim-orb absolute rounded-full" style={{ width: 600, height: 600, top: -180, right: -160, background: 'radial-gradient(circle, rgba(201,168,76,.14) 0%, transparent 70%)', filter: 'blur(40px)' }} />
         <div className="anim-orb-slow absolute rounded-full" style={{ width: 500, height: 500, bottom: -140, left: -140, background: 'radial-gradient(circle, rgba(13,144,128,.12) 0%, transparent 70%)', filter: 'blur(40px)' }} />
@@ -6273,7 +6223,7 @@ function ReportPicker({ docs, userName, onOpen, onNew, onDelete }: {
         </div>
         <div className="flex flex-col gap-2">
           {docs.map((doc) => (
-            <div key={doc.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#2D1B11] px-5 py-4 transition hover:border-[#C9A84C]/30">
+            <div key={doc.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--rb-panel)] px-5 py-4 transition hover:border-[#C9A84C]/30">
               <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(doc)}>
                 <p className="truncate text-sm font-semibold text-white">{doc.name || 'Untitled'}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{formatDate(doc.updatedAt)}</p>
@@ -6370,7 +6320,7 @@ function ReportDocsModal({ docs, currentId, onOpen, onNew, onDelete, onClose, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" data-rb-theme="dark" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <h2 className="text-sm font-semibold text-white">Reports</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
@@ -6515,13 +6465,13 @@ function UserMenu({ user, open, onToggle, onClose, onNew, onDocs }: {
   const initials = (user.name || user.email || '?').slice(0, 1).toUpperCase()
   return (
     <div className="relative">
-      <button onClick={onToggle} className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white transition hover:bg-white/10">
+      <button onClick={onToggle} className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[var(--rb-border-md)] bg-[var(--rb-hover)] text-xs font-semibold text-[var(--rb-text)] transition hover:bg-[var(--rb-hover-md)]">
         {user.image ? <img src={user.image} alt="" className="h-full w-full object-cover" /> : initials}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
-          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#2D1B11] py-1 shadow-2xl">
+          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#2D1B11] py-1 shadow-2xl" data-rb-theme="dark">
             <div className="border-b border-white/10 px-3 py-2">
               <div className="truncate text-sm font-semibold text-white">{user.name || user.email?.split('@')[0]}</div>
               {user.email && <div className="truncate text-xs text-slate-400">{user.email}</div>}
@@ -6720,7 +6670,7 @@ function AIPanel({
     navigator.clipboard.writeText(result).catch(() => {})
   }
 
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-2 py-1.5 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
 
   const hasTextBlock = selectedBlock?.type === 'text'
   const hasDataBlock = selectedBlock?.type === 'table' || selectedBlock?.type === 'chart' || selectedBlock?.type === 'kpi'
@@ -6800,7 +6750,7 @@ function AIPanel({
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">
             Preview {loading && '(streaming…)'}
           </label>
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-[#120B07] p-2.5 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-[var(--rb-input)] p-2.5 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
             {result || <span className="animate-pulse text-slate-600">▌</span>}
           </div>
         </div>
@@ -6854,7 +6804,7 @@ function ImageUploadField({ value, onChange, placeholder }: { value: string; onC
         <input
           value={value}
           onChange={(e) => { setSizeWarning(''); onChange(e.target.value) }}
-          className="flex-1 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]"
+          className="flex-1 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]"
           placeholder={placeholder ?? 'URL or upload'}
         />
         <button
@@ -7010,7 +6960,7 @@ function ChartBlockView({ block, dp, forPrint = false, isSelected, onUpdate }: {
                   onUpdate({ labels: next })
                 }}
                 onKeyDown={(e) => e.stopPropagation()}
-                className="rounded border border-white/20 bg-[#120B07] px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-blue-400"
+                className="rounded border border-white/20 bg-[var(--rb-input)] px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-blue-400"
                 style={{ minWidth: 0, width: `${Math.max(5, lbl.length + 1)}ch` }}
               />
             ))}
@@ -7049,7 +6999,7 @@ function ChartBlockView({ block, dp, forPrint = false, isSelected, onUpdate }: {
 // ── Chart Editor ────────────────────────────────────────────────────────────
 
 function ChartEditor({ block, onUpdate }: { block: ChartBlock; onUpdate: (u: Record<string, unknown>) => void }) {
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
 
   function updDataset(id: string, field: keyof ChartDataset, val: unknown) {
@@ -7509,7 +7459,7 @@ function FileImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" data-rb-theme="dark" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <h2 className="text-sm font-semibold text-white">Import File</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
@@ -7584,7 +7534,7 @@ function FileImportModal({
                 <div>
                   <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">Caption / Title</label>
                   <input value={caption} onChange={(e) => setCaption(e.target.value)}
-                    className="w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]" />
+                    className="w-full rounded border border-white/10 bg-[var(--rb-input)] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">Import As</label>
@@ -7671,7 +7621,7 @@ function ShareModal({ report, docName, onClose }: { report: ReportData; docName:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" data-rb-theme="dark" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-white">Share Report</h2>
@@ -7685,7 +7635,7 @@ function ShareModal({ report, docName, onClose }: { report: ReportData; docName:
         <div className="p-5">
           {status === 'idle' && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-lg border border-white/10 bg-[#120B07] p-4">
+              <div className="rounded-lg border border-white/10 bg-[var(--rb-input)] p-4">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C9A84C]/15 text-[#C9A84C]">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 010-5.656l4-4a4 4 0 015.656 5.656l-1.1 1.1" /></svg>
@@ -7728,7 +7678,7 @@ function ShareModal({ report, docName, onClose }: { report: ReportData; docName:
                   <input
                     readOnly
                     value={shareUrl}
-                    className="flex-1 rounded-lg border border-white/10 bg-[#120B07] px-3 py-2 text-xs text-slate-300 outline-none select-all"
+                    className="flex-1 rounded-lg border border-white/10 bg-[var(--rb-input)] px-3 py-2 text-xs text-slate-300 outline-none select-all"
                     onClick={(e) => (e.target as HTMLInputElement).select()}
                   />
                   <button
@@ -7847,7 +7797,7 @@ function ShapeEditor({ shape, pageShapes, onUpdate, onDelete, onReorder, onSaveT
 }) {
   const [tplName, setTplName] = useState('')
   const [showTplSave, setShowTplSave] = useState(false)
-  const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
+  const inputCls = 'w-full rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-2 py-1.5 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]'
   const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
   const shapeIdx = pageShapes.findIndex((s) => s.id === shape.id)
 
@@ -7981,7 +7931,7 @@ function TemplatePicker({ onSelect, onClose }: { onSelect: (t: ReportTemplate) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="flex w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-[#1C0D03] shadow-2xl" style={{ maxHeight: '90vh' }}>
+      <div className="flex w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-[#1C0D03] shadow-2xl" data-rb-theme="dark" style={{ maxHeight: '90vh' }}>
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
@@ -8014,7 +7964,7 @@ function TemplatePicker({ onSelect, onClose }: { onSelect: (t: ReportTemplate) =
             <button
               key={tpl.id}
               onClick={() => onSelect(tpl)}
-              className="group flex flex-col rounded-xl border border-white/10 bg-[#2D1B11] p-4 text-left transition hover:border-[#C9A84C]/50 hover:bg-[#2D1B11]/80 hover:shadow-lg"
+              className="group flex flex-col rounded-xl border border-white/10 bg-[var(--rb-panel)] p-4 text-left transition hover:border-[#C9A84C]/50 hover:bg-[var(--rb-panel)]/80 hover:shadow-lg"
             >
               <div className="mb-3 flex h-1.5 w-full overflow-hidden rounded-full gap-0.5">
                 {(() => {
