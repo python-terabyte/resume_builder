@@ -228,6 +228,19 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleTableFormatAPIChange = useCallback((api: TableFormatAPI | null) => setTableFormatAPI(api), [])
 
+  // Undo / Redo history
+  const undoStackRef = useRef<ReportData[]>([])
+  const redoStackRef = useRef<ReportData[]>([])
+  const [undoCount, setUndoCount] = useState(0)
+  const [redoCount, setRedoCount] = useState(0)
+  // Block clipboard (copy/paste)
+  const blockClipboardRef = useRef<ReportBlock | null>(null)
+
+  function clearHistory() {
+    undoStackRef.current = []; redoStackRef.current = []
+    setUndoCount(0); setRedoCount(0)
+  }
+
   const dp = { ...getDesignPack(report.designPackId), ...(report.colorOverrides ?? {}) } as DesignPack
 
   useEffect(() => {
@@ -296,10 +309,38 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   }, [user])
 
   function updateReport(updater: (prev: ReportData) => ReportData) {
+    undoStackRef.current = [...undoStackRef.current.slice(-99), report]
+    redoStackRef.current = []
+    setUndoCount(undoStackRef.current.length)
+    setRedoCount(0)
     const next = updater(report)
     setReport(next)
     setIsDirty(true)
     setSaveState('idle')
+    triggerAutoSave(next, docName, docId)
+  }
+
+  function undo() {
+    if (undoStackRef.current.length === 0) return
+    const prev = undoStackRef.current[undoStackRef.current.length - 1]
+    redoStackRef.current = [...redoStackRef.current.slice(-99), report]
+    undoStackRef.current = undoStackRef.current.slice(0, -1)
+    setUndoCount(undoStackRef.current.length)
+    setRedoCount(redoStackRef.current.length)
+    setReport(prev)
+    setIsDirty(true)
+    triggerAutoSave(prev, docName, docId)
+  }
+
+  function redo() {
+    if (redoStackRef.current.length === 0) return
+    const next = redoStackRef.current[redoStackRef.current.length - 1]
+    undoStackRef.current = [...undoStackRef.current.slice(-99), report]
+    redoStackRef.current = redoStackRef.current.slice(0, -1)
+    setUndoCount(undoStackRef.current.length)
+    setRedoCount(redoStackRef.current.length)
+    setReport(next)
+    setIsDirty(true)
     triggerAutoSave(next, docName, docId)
   }
 
@@ -325,6 +366,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   }
 
   function handleNew() {
+    clearHistory()
     setPickerState('hide')
     setShowDocs(false)
     setShowTemplatePicker(true)
@@ -374,6 +416,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
     setPickerState('loading')
     try {
       const reportData = await getReport(d.id)
+      clearHistory()
       setReport(reportData)
       setDocId(d.id)
       setDocName(d.name || 'Untitled Report')
@@ -483,6 +526,122 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
       }),
     }))
   }
+
+  // ── Keyboard shortcuts (Ctrl+Z/Y/C/X/V/D, Delete) ──────────────────────────
+
+  function findBlockLocation(blockId: string): { block: ReportBlock; pageId: string } | null {
+    const coverBlock = report.coverPage.coverBlocks?.find((b) => b.id === blockId)
+    if (coverBlock) return { block: coverBlock, pageId: '__cover__' }
+    for (const page of report.pages) {
+      const block = page.blocks.find((b) => b.id === blockId)
+      if (block) return { block, pageId: page.id }
+    }
+    return null
+  }
+
+  function duplicateBlock(blockId: string) {
+    const found = findBlockLocation(blockId)
+    if (!found) return
+    const { block, pageId } = found
+    const newBlock = { ...block, id: uuidv4() } as ReportBlock
+    if (pageId === '__cover__') {
+      updateReport((prev) => {
+        const blocks = [...(prev.coverPage.coverBlocks ?? [])]
+        const idx = blocks.findIndex((b) => b.id === blockId)
+        blocks.splice(idx + 1, 0, newBlock)
+        return { ...prev, coverPage: { ...prev.coverPage, coverBlocks: blocks } }
+      })
+    } else {
+      updateReport((prev) => ({
+        ...prev,
+        pages: prev.pages.map((p) => {
+          if (p.id !== pageId) return p
+          const idx = p.blocks.findIndex((b) => b.id === blockId)
+          const blocks = [...p.blocks]; blocks.splice(idx + 1, 0, newBlock)
+          return { ...p, blocks }
+        }),
+      }))
+    }
+    setSelectedBlockId(newBlock.id)
+  }
+
+  function pasteBlock(afterBlockId: string | null) {
+    const cb = blockClipboardRef.current
+    if (!cb || !selectedPageId) return
+    const newBlock = { ...cb, id: uuidv4() } as ReportBlock
+    const pageId = afterBlockId ? (findBlockLocation(afterBlockId)?.pageId ?? selectedPageId) : selectedPageId
+    if (pageId === '__cover__') {
+      updateReport((prev) => {
+        const blocks = [...(prev.coverPage.coverBlocks ?? [])]
+        const idx = afterBlockId ? blocks.findIndex((b) => b.id === afterBlockId) : blocks.length - 1
+        blocks.splice(idx + 1, 0, newBlock)
+        return { ...prev, coverPage: { ...prev.coverPage, coverBlocks: blocks } }
+      })
+    } else {
+      updateReport((prev) => ({
+        ...prev,
+        pages: prev.pages.map((p) => {
+          if (p.id !== pageId) return p
+          const idx = afterBlockId ? p.blocks.findIndex((b) => b.id === afterBlockId) : p.blocks.length - 1
+          const blocks = [...p.blocks]; blocks.splice(idx + 1, 0, newBlock)
+          return { ...p, blocks }
+        }),
+      }))
+    }
+    setSelectedBlockId(newBlock.id)
+  }
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+      const ctrl = e.ctrlKey || e.metaKey
+
+      // Undo / Redo — always, even when in input the browser handles its own text undo
+      if (ctrl && e.key === 'z' && !e.shiftKey) {
+        if (inInput) return
+        e.preventDefault(); undo(); return
+      }
+      if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        if (inInput) return
+        e.preventDefault(); redo(); return
+      }
+
+      // Ctrl+S — save
+      if (ctrl && e.key === 's') {
+        e.preventDefault(); handleSave(); return
+      }
+
+      if (inInput) return
+
+      // Block shortcuts — need a selected block
+      if (!selectedBlockId) return
+
+      if (ctrl && e.key === 'c') {
+        const found = findBlockLocation(selectedBlockId)
+        if (found) { e.preventDefault(); blockClipboardRef.current = { ...found.block } }
+      } else if (ctrl && e.key === 'x') {
+        const found = findBlockLocation(selectedBlockId)
+        if (found) {
+          e.preventDefault()
+          blockClipboardRef.current = { ...found.block }
+          deleteBlock(found.pageId, selectedBlockId)
+        }
+      } else if (ctrl && e.key === 'v') {
+        e.preventDefault(); pasteBlock(selectedBlockId)
+      } else if (ctrl && e.key === 'd') {
+        e.preventDefault(); duplicateBlock(selectedBlockId)
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        const found = findBlockLocation(selectedBlockId)
+        if (found) { e.preventDefault(); deleteBlock(found.pageId, selectedBlockId) }
+      } else if (e.key === 'Escape') {
+        setSelectedBlockId(null)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report, selectedBlockId, selectedPageId, undoCount, redoCount])
 
   // Page operations
   function addPage() {
@@ -769,6 +928,26 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
             </svg>
             <span className="hidden sm:inline">Workspace</span>
           </Link>
+
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={undo}
+              disabled={undoCount === 0}
+              title="Undo (Ctrl+Z)"
+              className="flex h-7 w-7 items-center justify-center rounded border border-white/15 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 010 16H5m-2-6l-2-2 2-2" /></svg>
+            </button>
+            <button
+              onClick={redo}
+              disabled={redoCount === 0}
+              title="Redo (Ctrl+Y)"
+              className="flex h-7 w-7 items-center justify-center rounded border border-white/15 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 000 16h8m2-6l2-2-2-2" /></svg>
+            </button>
+          </div>
 
           <button
             onClick={handleSave}
