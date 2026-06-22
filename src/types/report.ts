@@ -295,6 +295,7 @@ export interface ReportPage {
   blocks: ReportBlock[]
   shapes?: ShapeItem[]
   style?: PageStyle
+  noWatermark?: boolean
 }
 
 export type DesignPackId =
@@ -384,9 +385,20 @@ export interface ReportData {
     rotation: number
     imageUrl?: string
     color?: string
+    excludeCover?: boolean
   }
   status: ReportStatus
   branding?: ReportBranding
+  colorOverrides?: {
+    headingColor?: string
+    textColor?: string
+    accentColor?: string
+    primaryColor?: string
+    tableHeaderBg?: string
+    tableHeaderText?: string
+    kpiAccent?: string
+    fontFamily?: string
+  }
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────

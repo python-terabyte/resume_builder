@@ -228,7 +228,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleTableFormatAPIChange = useCallback((api: TableFormatAPI | null) => setTableFormatAPI(api), [])
 
-  const dp = getDesignPack(report.designPackId)
+  const dp = { ...getDesignPack(report.designPackId), ...(report.colorOverrides ?? {}) } as DesignPack
 
   useEffect(() => {
     if (!initialDocId) return
@@ -1800,7 +1800,7 @@ function CoverPageView({
       </div>
 
       {/* Watermark on cover */}
-      {watermark.enabled && (
+      {watermark.enabled && !watermark.excludeCover && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
           style={{ opacity: watermark.opacity, transform: `rotate(${watermark.rotation}deg)` }}>
           {watermark.imageUrl
@@ -2011,7 +2011,7 @@ function ReportPageView({
       )}
 
       {/* Watermark */}
-      {report.watermark.enabled && (report.watermark.text || report.watermark.imageUrl) && (
+      {report.watermark.enabled && !page.noWatermark && (report.watermark.text || report.watermark.imageUrl) && (
         <div
           className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
           style={{ opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}
@@ -4707,6 +4707,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
                   <div className="flex gap-1">
                     <div className="h-3 w-3 rounded-full" style={{ background: pack.primaryColor }} />
                     <div className="h-3 w-3 rounded-full" style={{ background: pack.accentColor }} />
+                    <div className="h-3 w-3 rounded-full border border-white/10" style={{ background: pack.textColor }} />
                   </div>
                   <span className={`text-xs ${report.designPackId === pack.id ? 'text-[#C9A84C]' : 'text-slate-300'}`}>{pack.name}</span>
                   {isCustom && <span className="ml-auto text-[9px] text-slate-600">Custom</span>}
@@ -4718,31 +4719,159 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
             )
           })}
         </div>
-        {advanced && (
-          <>
-            <button onClick={() => setShowPackBuilder((v) => !v)} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 py-2 text-xs text-slate-500 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition">
-              + Create Custom Theme
-            </button>
-            {showPackBuilder && (
-              <div className="rounded-lg border border-white/10 bg-[#120B07] p-3 flex flex-col gap-2">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">New Custom Theme</p>
-                <input value={newPack.name} onChange={(e) => setNewPack((p) => ({ ...p, name: e.target.value }))} className={inputCls} placeholder="Theme name" />
-                {(['primaryColor', 'accentColor', 'headingColor', 'tableHeaderBg'] as const).map((key) => (
-                  <div key={key} className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-slate-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                    <input type="color" value={newPack[key] as string} onChange={(e) => setNewPack((p) => ({ ...p, [key]: e.target.value }))} className="h-6 w-10 cursor-pointer rounded" />
-                  </div>
-                ))}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-slate-400">Font</span>
-                  <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none">
-                    {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
-                  </select>
+
+        {/* Custom theme builder — always accessible */}
+        <button
+          onClick={() => setShowPackBuilder((v) => !v)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 py-2 text-xs text-slate-500 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition"
+        >
+          {showPackBuilder ? '✕ Close Builder' : '+ Create Custom Theme'}
+        </button>
+        {showPackBuilder && (
+          <div className="rounded-lg border border-white/10 bg-[#120B07] p-3 flex flex-col gap-2.5">
+            <input value={newPack.name} onChange={(e) => setNewPack((p) => ({ ...p, name: e.target.value }))} className={inputCls} placeholder="Theme name" />
+
+            {/* Layout colors */}
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Layout Colors</p>
+            {([
+              { key: 'primaryColor',    lbl: 'Primary' },
+              { key: 'accentColor',     lbl: 'Accent' },
+              { key: 'tableHeaderBg',   lbl: 'Table Header Bg' },
+              { key: 'kpiAccent',       lbl: 'KPI Accent' },
+            ] as const).map(({ key, lbl }) => (
+              <div key={key} className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-slate-400">{lbl}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] text-slate-600">{newPack[key]}</span>
+                  <input type="color" value={newPack[key]} onChange={(e) => setNewPack((p) => ({ ...p, [key]: e.target.value }))} className="h-7 w-10 cursor-pointer rounded border border-white/10" />
                 </div>
-                <button onClick={saveCustomPack} className="w-full rounded-lg py-1.5 text-xs font-semibold text-white transition hover:brightness-110" style={{ background: '#C9A84C' }}>Save Theme</button>
               </div>
-            )}
-          </>
+            ))}
+
+            {/* Font colors */}
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Font Colors</p>
+            {([
+              { key: 'headingColor',    lbl: 'Headings' },
+              { key: 'textColor',       lbl: 'Body Text' },
+              { key: 'tableHeaderText', lbl: 'Table Header Text' },
+            ] as const).map(({ key, lbl }) => (
+              <div key={key} className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-slate-400">{lbl}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] text-slate-600">{newPack[key]}</span>
+                  <input type="color" value={newPack[key]} onChange={(e) => setNewPack((p) => ({ ...p, [key]: e.target.value }))} className="h-7 w-10 cursor-pointer rounded border border-white/10" />
+                </div>
+              </div>
+            ))}
+
+            {/* Font family */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-400">Font</span>
+              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none">
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+              </select>
+            </div>
+
+            {/* Live preview */}
+            <div className="rounded border border-white/10 p-2.5 flex flex-col gap-1.5" style={{ fontFamily: newPack.fontFamily }}>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600 mb-0.5">Preview</p>
+              <p style={{ color: newPack.headingColor, fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>Heading Text</p>
+              <p style={{ color: newPack.textColor, fontSize: 10 }}>Body paragraph text sample</p>
+              <div className="flex gap-1.5 mt-1">
+                <div className="flex-1 rounded px-2 py-1 text-center text-[10px]" style={{ background: newPack.primaryColor, color: '#fff' }}>Primary</div>
+                <div className="flex-1 rounded px-2 py-1 text-center text-[10px]" style={{ background: newPack.accentColor, color: '#fff' }}>Accent</div>
+              </div>
+              <div className="rounded px-2 py-1 text-[10px] mt-0.5" style={{ background: newPack.tableHeaderBg, color: newPack.tableHeaderText }}>Table Header</div>
+            </div>
+
+            <button onClick={saveCustomPack} className="w-full rounded-lg py-1.5 text-xs font-semibold text-white transition hover:brightness-110" style={{ background: '#C9A84C' }}>
+              Save Theme
+            </button>
+          </div>
+        )}
+      </Section>
+
+      {/* Font Colors — per-document overrides applied on top of the active theme */}
+      <Section title="Font Colors">
+        <p className="text-[9px] text-slate-600 leading-relaxed">Override specific colors from the active theme without creating a new one. Changes apply instantly to the whole document.</p>
+        {([
+          { key: 'headingColor',    lbl: 'Headings',          placeholder: 'Theme default' },
+          { key: 'textColor',       lbl: 'Body Text',          placeholder: 'Theme default' },
+          { key: 'accentColor',     lbl: 'Accent',             placeholder: 'Theme default' },
+          { key: 'primaryColor',    lbl: 'Primary',            placeholder: 'Theme default' },
+          { key: 'tableHeaderBg',   lbl: 'Table Header Bg',   placeholder: 'Theme default' },
+          { key: 'tableHeaderText', lbl: 'Table Header Text', placeholder: 'Theme default' },
+        ] as const).map(({ key, lbl }) => {
+          const basePack = getDesignPack(report.designPackId)
+          const overrideVal = report.colorOverrides?.[key]
+          const activeVal = overrideVal || (basePack as Record<string, string>)[key] || '#000000'
+          const isOverridden = !!overrideVal
+          return (
+            <div key={key} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className={`text-[10px] ${isOverridden ? 'text-[#C9A84C]' : 'text-slate-400'}`}>{lbl}</span>
+                {isOverridden && (
+                  <button
+                    onClick={() => onUpdateReport((p) => {
+                      const next = { ...(p.colorOverrides ?? {}) }
+                      delete next[key]
+                      return { ...p, colorOverrides: next }
+                    })}
+                    title="Reset to theme default"
+                    className="text-[8px] text-slate-600 hover:text-red-400 transition"
+                  >↺</button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[9px] text-slate-600">{activeVal}</span>
+                <input
+                  type="color"
+                  value={activeVal}
+                  onChange={(e) => onUpdateReport((p) => ({ ...p, colorOverrides: { ...(p.colorOverrides ?? {}), [key]: e.target.value } }))}
+                  className="h-7 w-10 cursor-pointer rounded border border-white/10"
+                />
+              </div>
+            </div>
+          )
+        })}
+        {/* Font family override */}
+        {(() => {
+          const basePack = getDesignPack(report.designPackId)
+          const isOverridden = !!report.colorOverrides?.fontFamily
+          return (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] ${isOverridden ? 'text-[#C9A84C]' : 'text-slate-400'}`}>Font Family</span>
+                {isOverridden && (
+                  <button
+                    onClick={() => onUpdateReport((p) => {
+                      const next = { ...(p.colorOverrides ?? {}) }
+                      delete next.fontFamily
+                      return { ...p, colorOverrides: next }
+                    })}
+                    title="Reset to theme default"
+                    className="text-[8px] text-slate-600 hover:text-red-400 transition"
+                  >↺</button>
+                )}
+              </div>
+              <select
+                value={report.colorOverrides?.fontFamily || basePack.fontFamily}
+                onChange={(e) => onUpdateReport((p) => ({ ...p, colorOverrides: { ...(p.colorOverrides ?? {}), fontFamily: e.target.value } }))}
+                className="w-32 rounded border border-white/10 bg-[#120B07] px-1.5 py-1 text-xs text-white outline-none"
+              >
+                {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[#1C1008]">{f}</option>)}
+              </select>
+            </div>
+          )
+        })()}
+        {/* Reset all overrides */}
+        {report.colorOverrides && Object.keys(report.colorOverrides).length > 0 && (
+          <button
+            onClick={() => onUpdateReport((p) => ({ ...p, colorOverrides: {} }))}
+            className="w-full rounded border border-white/10 py-1.5 text-[10px] text-slate-500 hover:border-red-400/40 hover:text-red-400 transition"
+          >
+            ↺ Reset all to theme defaults
+          </button>
         )}
       </Section>
 
@@ -4891,6 +5020,39 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
             <div>
               {label(`Opacity: ${Math.round(report.watermark.opacity * 100)}%`)}
               <input type="range" min={0.03} max={0.4} step={0.01} value={report.watermark.opacity} onChange={(e) => upWm('opacity', Number(e.target.value))} className="w-full" />
+            </div>
+            {/* Page selection */}
+            <div>
+              {label('Apply to pages')}
+              <div className="flex flex-col gap-1 mt-1">
+                {report.coverPage.enabled && (
+                  <label className="flex items-center gap-2 cursor-pointer rounded px-2 py-1 hover:bg-white/5 transition">
+                    <input
+                      type="checkbox"
+                      checked={!report.watermark.excludeCover}
+                      onChange={(e) => upWm('excludeCover', !e.target.checked)}
+                      className="accent-[#C9A84C]"
+                    />
+                    <span className="text-[10px] text-slate-400">Cover Page</span>
+                  </label>
+                )}
+                {report.pages.map((page, idx) => (
+                  <label key={page.id} className="flex items-center gap-2 cursor-pointer rounded px-2 py-1 hover:bg-white/5 transition">
+                    <input
+                      type="checkbox"
+                      checked={!page.noWatermark}
+                      onChange={(e) => onUpdateReport((p) => ({
+                        ...p,
+                        pages: p.pages.map((pg) => pg.id === page.id ? { ...pg, noWatermark: !e.target.checked } : pg),
+                      }))}
+                      className="accent-[#C9A84C]"
+                    />
+                    <span className="text-[10px] text-slate-400 truncate">
+                      <span className="text-slate-600">P{idx + 1} </span>{page.title}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
             {/* Fine rotation in advanced mode */}
             {advanced && (
@@ -5237,6 +5399,29 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
               <input type="range" min={0.03} max={0.4} step={0.01} value={report.watermark.opacity} onChange={(e) => upWm('opacity', Number(e.target.value))} className="w-full" />
               <label className="text-[10px] text-slate-500">Fine rotation: {report.watermark.rotation}°</label>
               <input type="range" min={-90} max={90} value={report.watermark.rotation} onChange={(e) => upWm('rotation', Number(e.target.value))} className="w-full" />
+              <label className="text-[10px] text-slate-500">Apply to pages</label>
+              <div className="flex flex-col gap-0.5">
+                {report.coverPage.enabled && (
+                  <label className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-white/5">
+                    <input type="checkbox" checked={!report.watermark.excludeCover} onChange={(e) => upWm('excludeCover', !e.target.checked)} className="accent-[#C9A84C]" />
+                    <span className="text-[10px] text-slate-400">Cover Page</span>
+                  </label>
+                )}
+                {report.pages.map((page, idx) => (
+                  <label key={page.id} className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-white/5">
+                    <input
+                      type="checkbox"
+                      checked={!page.noWatermark}
+                      onChange={(e) => onUpdateReport((p) => ({
+                        ...p,
+                        pages: p.pages.map((pg) => pg.id === page.id ? { ...pg, noWatermark: !e.target.checked } : pg),
+                      }))}
+                      className="accent-[#C9A84C]"
+                    />
+                    <span className="text-[10px] text-slate-400 truncate"><span className="text-slate-600">P{idx + 1} </span>{page.title}</span>
+                  </label>
+                ))}
+              </div>
             </>
           )}
         </div>
@@ -5312,7 +5497,7 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
                 <div key={b.id} style={{ marginTop: '8pt' }}>{renderPrintBlock(b, dp)}</div>
               ))}
             </div>
-            {report.watermark.enabled && (
+            {report.watermark.enabled && !report.watermark.excludeCover && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}>
                 {report.watermark.imageUrl
                   // eslint-disable-next-line @next/next/no-img-element
@@ -5346,7 +5531,7 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
             ))}
 
             {/* Watermark */}
-            {report.watermark.enabled && (
+            {report.watermark.enabled && !page.noWatermark && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: report.watermark.opacity, transform: `rotate(${report.watermark.rotation}deg)` }}>
                 {report.watermark.imageUrl
                   // eslint-disable-next-line @next/next/no-img-element
