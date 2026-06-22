@@ -1001,6 +1001,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
                   onDeleteShape={(shapeId) => deleteShape(page.id, shapeId)}
                   onReorderShape={(shapeId, dir) => reorderShape(page.id, shapeId, dir)}
                   onFormatAPIChange={handleTableFormatAPIChange}
+                  onUpdateHF={(field, val) => updateReport((prev) => ({ ...prev, headerFooter: { ...prev.headerFooter, [field]: val } }))}
                 />
                 {/* Page break between pages */}
                 {pageIdx < report.pages.length - 1 && (
@@ -1378,6 +1379,50 @@ function LeftPanel({
   )
 }
 
+// ── Inline Editable ──────────────────────────────────────────────────────────
+
+function InlineEditable({ value, onChange, placeholder, style }: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  style?: React.CSSProperties
+}) {
+  const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) inputRef.current?.select() }, [editing])
+  useEffect(() => { if (!editing) setLocal(value) }, [value, editing])
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => { onChange(local); setEditing(false) }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { onChange(local); setEditing(false) }
+          if (e.key === 'Escape') { setLocal(value); setEditing(false) }
+          e.stopPropagation()
+        }}
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'transparent', border: 'none', outline: '1px solid rgba(201,168,76,0.6)', borderRadius: 2, padding: '0 2px', minWidth: 40, font: 'inherit', color: 'inherit', ...style }}
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+      title="Click to edit"
+      style={{ cursor: 'text', borderBottom: '1px dotted rgba(201,168,76,0.5)', ...style }}
+    >
+      {value || <span style={{ opacity: 0.4 }}>{placeholder ?? 'Click to edit'}</span>}
+    </span>
+  )
+}
+
 // ── Header / Footer Renderers ────────────────────────────────────────────────
 
 type HFSettings = ReportData['headerFooter']
@@ -1452,6 +1497,84 @@ function renderFooterBand(hf: HFSettings, dp: DesignPack, pageNum: number, isPri
     <><span>{hf.footerLeft}</span><div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><span>{hf.footerRight}</span>{pageEl && <span style={{ color: bg }}>{pageEl}</span>}</div></>,
     { borderTop: `1px solid ${bg}30`, color: dp.textColor }
   )
+}
+
+// ── Interactive (canvas-mode) header/footer bands ────────────────────────────
+
+type OnUpdateHF = (field: 'headerLeft' | 'headerRight' | 'footerLeft' | 'footerRight', value: string) => void
+
+function CanvasHeaderBand({ hf, dp, onUpdate }: { hf: HFSettings; dp: DesignPack; onUpdate: OnUpdateHF }) {
+  const style = hf.headerStyle || 'line'
+  const bg = hf.headerBg || dp.primaryColor
+  const px = '2rem'
+  const py = '0.5rem'
+
+  const left = <InlineEditable value={hf.headerLeft} onChange={(v) => onUpdate('headerLeft', v)} placeholder="Header left" style={{ fontWeight: 600 }} />
+  const right = <InlineEditable value={hf.headerRight} onChange={(v) => onUpdate('headerRight', v)} placeholder="Header right" />
+
+  const row = (children: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: px, paddingRight: px, paddingTop: py, paddingBottom: py, ...extraStyle }}>
+      {children}
+    </div>
+  )
+
+  if (style === 'band' || style === 'accent-band') {
+    return row(<>{left}{right}</>, { background: bg, color: '#fff' })
+  }
+  if (style === 'double') {
+    return (
+      <div style={{ borderTop: `3px solid ${bg}`, borderBottom: `1px solid ${bg}`, color: bg }}>
+        {row(<>{left}{right}</>)}
+      </div>
+    )
+  }
+  if (style === 'gradient') {
+    return row(<>{left}{right}</>, { background: `linear-gradient(90deg, ${bg} 0%, ${bg}44 100%)`, color: '#fff' })
+  }
+  if (style === 'minimal') {
+    return row(<>{left}{right}</>, { color: dp.textColor, opacity: 0.6 })
+  }
+  return row(<>{left}{right}</>, { borderBottom: `2px solid ${bg}`, color: bg })
+}
+
+function CanvasFooterBand({ hf, dp, pageNum, onUpdate }: { hf: HFSettings; dp: DesignPack; pageNum: number; onUpdate: OnUpdateHF }) {
+  const style = hf.footerStyle || 'line'
+  const bg = hf.footerBg || dp.primaryColor
+  const px = '2rem'
+  const py = '0.5rem'
+  const pageEl = hf.showPageNumbers ? <span style={{ fontWeight: 600 }}>{pageNum}</span> : null
+
+  const leftEl = <InlineEditable value={hf.footerLeft} onChange={(v) => onUpdate('footerLeft', v)} placeholder="Footer left" />
+  const rightEl = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <InlineEditable value={hf.footerRight} onChange={(v) => onUpdate('footerRight', v)} placeholder="Footer right" />
+      {pageEl}
+    </div>
+  )
+
+  const row = (children: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: px, paddingRight: px, paddingTop: py, paddingBottom: py, ...extraStyle }}>
+      {children}
+    </div>
+  )
+
+  if (style === 'band' || style === 'accent-band') {
+    return row(<>{leftEl}{rightEl}</>, { background: bg, color: '#fff' })
+  }
+  if (style === 'double') {
+    return (
+      <div style={{ borderTop: `1px solid ${bg}`, borderBottom: `3px solid ${bg}`, color: bg }}>
+        {row(<>{leftEl}{rightEl}</>)}
+      </div>
+    )
+  }
+  if (style === 'gradient') {
+    return row(<>{leftEl}{rightEl}</>, { background: `linear-gradient(90deg, ${bg}44 0%, ${bg} 100%)`, color: '#fff' })
+  }
+  if (style === 'minimal') {
+    return row(<>{leftEl}{rightEl}</>, { color: dp.textColor, opacity: 0.5 })
+  }
+  return row(<>{leftEl}{rightEl}</>, { borderTop: `1px solid ${bg}30`, color: dp.textColor })
 }
 
 // ── Cover Page View ─────────────────────────────────────────────────────────
@@ -1702,7 +1825,7 @@ function CoverPageView({
 function ReportPageView({
   page, pageNum, dp, report, isSelectedPage, selectedBlockId, selectedShapeId,
   onSelectPage, onSelectBlock, onSelectShape, onDeleteBlock, onMoveBlock, onAddBlock, onUpdateBlock,
-  onUpdateShape, onDeleteShape, onReorderShape, onFormatAPIChange,
+  onUpdateShape, onDeleteShape, onReorderShape, onFormatAPIChange, onUpdateHF,
 }: {
   page: ReportPage
   pageNum: number
@@ -1722,6 +1845,7 @@ function ReportPageView({
   onDeleteShape: (id: string) => void
   onReorderShape: (id: string, dir: 'up' | 'down') => void
   onFormatAPIChange?: (api: TableFormatAPI | null) => void
+  onUpdateHF: OnUpdateHF
 }) {
   const [showInsert, setShowInsert] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -1793,7 +1917,7 @@ function ReportPageView({
       />
 
       {/* Page header band */}
-      {report.headerFooter.showHeader && renderHeaderBand(report.headerFooter, dp, false)}
+      {report.headerFooter.showHeader && <CanvasHeaderBand hf={report.headerFooter} dp={dp} onUpdate={onUpdateHF} />}
 
       {/* Page content */}
       <div style={{
@@ -1868,7 +1992,7 @@ function ReportPageView({
       </div>
 
       {/* Page footer band */}
-      {report.headerFooter.showFooter && renderFooterBand(report.headerFooter, dp, pageNum)}
+      {report.headerFooter.showFooter && <CanvasFooterBand hf={report.headerFooter} dp={dp} pageNum={pageNum} onUpdate={onUpdateHF} />}
 
       {/* Shape overlay */}
       {(page.shapes || []).length > 0 && (
@@ -4465,6 +4589,18 @@ const QUICK_PRESETS = [
   { label: 'Pro Blue',  packId: 'professional-blue' },
 ]
 
+function DesignStudioSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details open className="group">
+      <summary className="flex cursor-pointer items-center justify-between py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-white">
+        {title}
+        <svg className="h-3 w-3 transition group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </summary>
+      <div className="mt-2 flex flex-col gap-3 pb-3 border-b border-white/5">{children}</div>
+    </details>
+  )
+}
+
 function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdateReport: (u: (p: ReportData) => ReportData) => void }) {
   const [packs, setPacks] = useState<DesignPack[]>(() => getAllDesignPacks())
   const [showPackBuilder, setShowPackBuilder] = useState(false)
@@ -4478,15 +4614,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
 
   const inputCls = 'w-full rounded border border-white/10 bg-[#120B07] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C9A84C]'
   const label = (t: string) => <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">{t}</label>
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <details open className="group">
-      <summary className="flex cursor-pointer items-center justify-between py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-white">
-        {title}
-        <svg className="h-3 w-3 transition group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-      </summary>
-      <div className="mt-2 flex flex-col gap-3 pb-3 border-b border-white/5">{children}</div>
-    </details>
-  )
+  const Section = DesignStudioSection
 
   function saveCustomPack() {
     const id = `custom-${Date.now()}`
@@ -4720,20 +4848,56 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
         </label>
         {report.watermark.enabled && (
           <>
-            <input value={report.watermark.text} onChange={(e) => upWm('text', e.target.value)} className={inputCls} placeholder="CONFIDENTIAL" />
+            {/* Text */}
+            <div>
+              {label('Text')}
+              <div className="flex gap-2">
+                <input
+                  value={report.watermark.text}
+                  onChange={(e) => upWm('text', e.target.value)}
+                  className={`${inputCls} flex-1 ${report.watermark.imageUrl ? 'opacity-40' : ''}`}
+                  placeholder="CONFIDENTIAL"
+                />
+                <input type="color" value={report.watermark.color || '#888888'} onChange={(e) => upWm('color', e.target.value)} className="h-[30px] w-9 cursor-pointer rounded border border-white/10" title="Text color" />
+              </div>
+            </div>
+            {/* Image */}
+            <div>
+              {label('Image (overrides text)')}
+              <ImageUploadField value={report.watermark.imageUrl || ''} onChange={(url) => upWm('imageUrl', url)} placeholder="Upload or paste image URL" />
+              {report.watermark.imageUrl && (
+                <button onClick={() => upWm('imageUrl', '')} className="mt-1 text-[9px] text-slate-500 hover:text-red-400 transition">✕ Remove image</button>
+              )}
+            </div>
+            {/* Angle toggle */}
+            <div>
+              {label('Angle')}
+              <div className="flex gap-1">
+                <button
+                  onClick={() => upWm('rotation', 0)}
+                  className={`flex-1 rounded border py-1.5 text-[10px] font-medium transition ${report.watermark.rotation === 0 ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:border-white/30 hover:text-slate-200'}`}
+                >
+                  — Straight
+                </button>
+                <button
+                  onClick={() => { if (report.watermark.rotation === 0) upWm('rotation', -45) }}
+                  className={`flex-1 rounded border py-1.5 text-[10px] font-medium transition ${report.watermark.rotation !== 0 ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:border-white/30 hover:text-slate-200'}`}
+                >
+                  ⟋ Diagonal
+                </button>
+              </div>
+            </div>
+            {/* Opacity */}
+            <div>
+              {label(`Opacity: ${Math.round(report.watermark.opacity * 100)}%`)}
+              <input type="range" min={0.03} max={0.4} step={0.01} value={report.watermark.opacity} onChange={(e) => upWm('opacity', Number(e.target.value))} className="w-full" />
+            </div>
+            {/* Fine rotation in advanced mode */}
             {advanced && (
-              <>
-                <input type="color" value={report.watermark.color || '#888888'} onChange={(e) => upWm('color', e.target.value)} className="h-8 w-full cursor-pointer rounded" />
-                <ImageUploadField value={report.watermark.imageUrl || ''} onChange={(url) => upWm('imageUrl', url)} placeholder="Image watermark (overrides text)" />
-                <div>
-                  <label className="mb-1 block text-[10px] text-slate-500">Opacity: {Math.round(report.watermark.opacity * 100)}%</label>
-                  <input type="range" min={0.03} max={0.4} step={0.01} value={report.watermark.opacity} onChange={(e) => upWm('opacity', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] text-slate-500">Rotation: {report.watermark.rotation}°</label>
-                  <input type="range" min={-90} max={90} value={report.watermark.rotation} onChange={(e) => upWm('rotation', Number(e.target.value))} className="w-full" />
-                </div>
-              </>
+              <div>
+                {label(`Fine rotation: ${report.watermark.rotation}°`)}
+                <input type="range" min={-90} max={90} value={report.watermark.rotation} onChange={(e) => upWm('rotation', Number(e.target.value))} className="w-full" />
+              </div>
             )}
           </>
         )}
@@ -5044,16 +5208,34 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
           </label>
           {report.watermark.enabled && (
             <>
-              <label className="text-[10px] text-slate-500">Text watermark</label>
-              <input value={report.watermark.text} onChange={(e) => upWm('text', e.target.value)} className={inputCls} placeholder="CONFIDENTIAL" />
-              <label className="text-[10px] text-slate-500">Text color</label>
-              <input type="color" value={report.watermark.color || '#888888'} onChange={(e) => upWm('color', e.target.value)} className="h-8 w-full cursor-pointer rounded" />
-              <label className="text-[10px] text-slate-500">— or — Image watermark</label>
-              <ImageUploadField value={report.watermark.imageUrl || ''} onChange={(url) => upWm('imageUrl', url)} placeholder="Image URL or upload" />
-              <p className="text-[9px] text-slate-600">Image watermark overrides text when set.</p>
+              <label className="text-[10px] text-slate-500">Text</label>
+              <div className="flex gap-2">
+                <input value={report.watermark.text} onChange={(e) => upWm('text', e.target.value)} className={`${inputCls} flex-1 ${report.watermark.imageUrl ? 'opacity-40' : ''}`} placeholder="CONFIDENTIAL" />
+                <input type="color" value={report.watermark.color || '#888888'} onChange={(e) => upWm('color', e.target.value)} className="h-[30px] w-9 cursor-pointer rounded border border-white/10" title="Text color" />
+              </div>
+              <label className="text-[10px] text-slate-500">Image (overrides text)</label>
+              <ImageUploadField value={report.watermark.imageUrl || ''} onChange={(url) => upWm('imageUrl', url)} placeholder="Upload or paste image URL" />
+              {report.watermark.imageUrl && (
+                <button onClick={() => upWm('imageUrl', '')} className="text-[9px] text-slate-500 hover:text-red-400 transition">✕ Remove image</button>
+              )}
+              <label className="text-[10px] text-slate-500">Angle</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => upWm('rotation', 0)}
+                  className={`flex-1 rounded border py-1 text-[10px] font-medium transition ${report.watermark.rotation === 0 ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:border-white/30 hover:text-slate-200'}`}
+                >
+                  — Straight
+                </button>
+                <button
+                  onClick={() => { if (report.watermark.rotation === 0) upWm('rotation', -45) }}
+                  className={`flex-1 rounded border py-1 text-[10px] font-medium transition ${report.watermark.rotation !== 0 ? 'border-[#C9A84C] text-[#C9A84C]' : 'border-white/10 text-slate-400 hover:border-white/30 hover:text-slate-200'}`}
+                >
+                  ⟋ Diagonal
+                </button>
+              </div>
               <label className="text-[10px] text-slate-500">Opacity: {Math.round(report.watermark.opacity * 100)}%</label>
               <input type="range" min={0.03} max={0.4} step={0.01} value={report.watermark.opacity} onChange={(e) => upWm('opacity', Number(e.target.value))} className="w-full" />
-              <label className="text-[10px] text-slate-500">Rotation: {report.watermark.rotation}°</label>
+              <label className="text-[10px] text-slate-500">Fine rotation: {report.watermark.rotation}°</label>
               <input type="range" min={-90} max={90} value={report.watermark.rotation} onChange={(e) => upWm('rotation', Number(e.target.value))} className="w-full" />
             </>
           )}
