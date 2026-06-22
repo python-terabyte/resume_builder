@@ -4804,7 +4804,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
         ] as const).map(({ key, lbl }) => {
           const basePack = getDesignPack(report.designPackId)
           const overrideVal = report.colorOverrides?.[key]
-          const activeVal = overrideVal || (basePack as Record<string, string>)[key] || '#000000'
+          const activeVal = overrideVal || (basePack[key as keyof DesignPack] as string) || '#000000'
           const isOverridden = !!overrideVal
           return (
             <div key={key} className="flex items-center justify-between gap-2">
