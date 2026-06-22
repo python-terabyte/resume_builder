@@ -30,22 +30,22 @@
   --rb-orb-teal:  rgba(13,144,128,.05);
 }
 [data-rb-theme="light"] {
-  --rb-bg:        #F0EDE8;
-  --rb-surface:   #FAFAF8;
-  --rb-panel:     #FFFFFF;
-  --rb-canvas:    #E2DED7;
-  --rb-border:    rgba(0,0,0,0.09);
-  --rb-border-md: rgba(0,0,0,0.14);
-  --rb-text:      #1C1008;
-  --rb-text-2:    #6B5E4A;
-  --rb-text-3:    #9C8C78;
-  --rb-input:     #FFFFFF;
-  --rb-gold:      #B8922E;
-  --rb-hover:     rgba(0,0,0,0.04);
-  --rb-hover-md:  rgba(0,0,0,0.08);
-  --rb-active:    rgba(0,0,0,0.08);
-  --rb-orb-gold:  rgba(201,168,76,.05);
-  --rb-orb-teal:  rgba(13,144,128,.04);
+  --rb-bg:        #EDE8E2;
+  --rb-surface:   #F5F2EE;
+  --rb-panel:     #FDFCFB;
+  --rb-canvas:    #D8D3CB;
+  --rb-border:    rgba(0,0,0,0.12);
+  --rb-border-md: rgba(0,0,0,0.20);
+  --rb-text:      #120B07;
+  --rb-text-2:    #3D2B1F;
+  --rb-text-3:    #6B5040;
+  --rb-input:     #FDFCFB;
+  --rb-gold:      #A67C20;
+  --rb-hover:     rgba(0,0,0,0.05);
+  --rb-hover-md:  rgba(0,0,0,0.10);
+  --rb-active:    rgba(0,0,0,0.10);
+  --rb-orb-gold:  rgba(201,168,76,.06);
+  --rb-orb-teal:  rgba(13,144,128,.05);
 }
 
 * {

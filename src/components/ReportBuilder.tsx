@@ -4123,7 +4123,7 @@ function FormatToolbar({
           <span>Thick</span>
           <input type="number" min={1} max={8} step={1} value={db.thickness || 1}
             onChange={(e) => onQuickUpdate({ thickness: Number(e.target.value) })}
-            className="h-5 w-10 rounded border border-white/15 bg-[var(--rb-input)] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="h-5 w-10 rounded border border-[var(--rb-border-md)] bg-[var(--rb-input)] text-center text-[10px] text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <span className="text-[9px] text-slate-600">px</span>
         </label>
         {ops}
@@ -4142,7 +4142,7 @@ function FormatToolbar({
           <span>Height</span>
           <input type="number" min={4} max={400} step={4} value={sb.height || 24}
             onChange={(e) => onQuickUpdate({ height: Number(e.target.value) })}
-            className="h-5 w-14 rounded border border-white/15 bg-[var(--rb-input)] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="h-5 w-14 rounded border border-[var(--rb-border-md)] bg-[var(--rb-input)] text-center text-[10px] text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <span className="text-[9px] text-slate-600">px</span>
         </label>
         {ops}
@@ -4182,7 +4182,7 @@ function FormatToolbar({
           <span>H</span>
           <input type="number" min={80} max={600} step={20} value={cb.height || 200}
             onChange={(e) => onQuickUpdate({ height: Number(e.target.value) })}
-            className="h-5 w-14 rounded border border-white/15 bg-[var(--rb-input)] text-center text-[10px] text-white outline-none focus:border-[#C9A84C] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="h-5 w-14 rounded border border-[var(--rb-border-md)] bg-[var(--rb-input)] text-center text-[10px] text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <span className="text-[9px] text-slate-600">px</span>
         </label>
         {sep}
@@ -5055,7 +5055,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
             {/* Font family */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] text-slate-400">Font</span>
-              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none">
+              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none">
                 {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
             </div>
@@ -5145,7 +5145,7 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
               <select
                 value={report.colorOverrides?.fontFamily || basePack.fontFamily}
                 onChange={(e) => onUpdateReport((p) => ({ ...p, colorOverrides: { ...(p.colorOverrides ?? {}), fontFamily: e.target.value } }))}
-                className="w-32 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none"
+                className="w-32 rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none"
               >
                 {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
@@ -5506,7 +5506,7 @@ function DesignPanel({ report, onUpdateReport }: { report: ReportData; onUpdateR
             {colorRow('Table Header BG', 'tableHeaderBg')}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] text-slate-400">Font</span>
-              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]">
+              <select value={newPack.fontFamily} onChange={(e) => setNewPack((p) => ({ ...p, fontFamily: e.target.value }))} className="w-32 rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]">
                 {['Inter', 'Georgia', 'Roboto', 'Open Sans', 'Montserrat', 'Playfair Display'].map((f) => <option key={f} value={f} className="bg-[var(--rb-surface)]">{f}</option>)}
               </select>
             </div>
@@ -6173,16 +6173,16 @@ function ReportPicker({ docs, userName, onOpen, onNew, onDelete }: {
         <div className="mb-8 flex items-center gap-4">
           <Image src="/logoface.png" alt="BrandFox" width={44} height={44} className="h-11 w-11 shrink-0 object-contain" />
           <div>
-            <h1 className="text-2xl font-bold text-white">Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}!</h1>
-            <p className="mt-0.5 text-sm text-slate-400">Open an existing report or start a new one.</p>
+            <h1 className="text-2xl font-bold text-[var(--rb-text)]">Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}!</h1>
+            <p className="mt-0.5 text-sm text-[var(--rb-text-2)]">Open an existing report or start a new one.</p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
           {docs.map((doc) => (
-            <div key={doc.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--rb-panel)] px-5 py-4 transition hover:border-[#C9A84C]/30">
+            <div key={doc.id} className="flex items-center gap-2 rounded-xl border border-[var(--rb-border)] bg-[var(--rb-panel)] px-5 py-4 transition hover:border-[#C9A84C]/30">
               <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(doc)}>
-                <p className="truncate text-sm font-semibold text-white">{doc.name || 'Untitled'}</p>
-                <p className="mt-0.5 text-xs text-slate-500">{formatDate(doc.updatedAt)}</p>
+                <p className="truncate text-sm font-semibold text-[var(--rb-text)]">{doc.name || 'Untitled'}</p>
+                <p className="mt-0.5 text-xs text-[var(--rb-text-3)]">{formatDate(doc.updatedAt)}</p>
               </button>
               <span className="shrink-0 text-xs font-medium text-[#C9A84C]">Open →</span>
               {confirmId === doc.id ? (
@@ -6195,7 +6195,7 @@ function ReportPicker({ docs, userName, onOpen, onNew, onDelete }: {
                   >
                     {deletingId === doc.id ? '…' : 'Yes'}
                   </button>
-                  <button onClick={() => setConfirmId(null)} className="rounded px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:text-white">No</button>
+                  <button onClick={() => setConfirmId(null)} className="rounded px-1.5 py-0.5 text-[10px] text-[var(--rb-text-3)] transition hover:text-[var(--rb-text)]">No</button>
                 </div>
               ) : (
                 <button
@@ -6760,7 +6760,7 @@ function ImageUploadField({ value, onChange, placeholder }: { value: string; onC
         <input
           value={value}
           onChange={(e) => { setSizeWarning(''); onChange(e.target.value) }}
-          className="flex-1 rounded border border-white/10 bg-[var(--rb-input)] px-1.5 py-1 text-xs text-white outline-none focus:border-[#C9A84C]"
+          className="flex-1 rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-1 text-xs text-[var(--rb-text)] outline-none focus:border-[var(--rb-gold)]"
           placeholder={placeholder ?? 'URL or upload'}
         />
         <button
@@ -6916,7 +6916,7 @@ function ChartBlockView({ block, dp, forPrint = false, isSelected, onUpdate }: {
                   onUpdate({ labels: next })
                 }}
                 onKeyDown={(e) => e.stopPropagation()}
-                className="rounded border border-white/20 bg-[var(--rb-input)] px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-blue-400"
+                className="rounded border border-[var(--rb-border)] bg-[var(--rb-input)] px-1.5 py-0.5 text-[11px] text-[var(--rb-text)] outline-none focus:border-blue-400"
                 style={{ minWidth: 0, width: `${Math.max(5, lbl.length + 1)}ch` }}
               />
             ))}
