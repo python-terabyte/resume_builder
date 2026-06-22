@@ -337,7 +337,7 @@ export interface ReportCoverPage {
   logoPosition?: 'tl' | 'tc' | 'tr' | 'bl' | 'bc' | 'br'
   backgroundImageUrl: string
   reportTitle: string
-  subtitle: string
+  subtitle?: string
   date: string
   primaryColor: string
   textColor: string
@@ -486,11 +486,26 @@ export const DEFAULT_REPORT: ReportData = {
     logoUrl: '',
     backgroundImageUrl: '',
     reportTitle: 'Q4 2025 Financial Report',
-    subtitle: 'October – December 2025',
     date: '31 December 2025',
     primaryColor: '#1E3A5F',
     textColor: '#FFFFFF',
     pattern: 'grid',
+    coverBlocks: [
+      {
+        id: 'cover-block-h1',
+        type: 'heading',
+        content: 'Report Overview',
+        level: 2,
+        align: 'left',
+        color: '',
+      },
+      {
+        id: 'cover-block-t1',
+        type: 'text',
+        content: 'This report presents a comprehensive overview of performance, key metrics, and strategic insights for the period under review.',
+        align: 'left',
+      },
+    ],
   },
   pages: [
     {

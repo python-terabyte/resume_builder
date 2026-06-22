@@ -1708,28 +1708,6 @@ function CoverPageView({
             />
           )
         })()}
-        {(coverPage.subtitle || isSelected) && (() => {
-          const s = coverPage.fieldStyles?.subtitle ?? {}
-          return (
-            <InlineField
-              value={coverPage.subtitle || ''}
-              onChange={(v) => onUpdateCoverPage({ subtitle: v })}
-              placeholder="Subtitle (optional)"
-              isSelected={isSelected}
-              onFocus={() => onCoverFieldFocus?.('subtitle')}
-              editBg={bg}
-              className="mb-2 text-xl"
-              style={{
-                color: s.color || fg, opacity: s.color ? 1 : 0.8,
-                fontWeight: s.bold ? 700 : undefined,
-                fontStyle: s.italic ? 'italic' : undefined,
-                fontSize: s.fontSize ? `${s.fontSize}px` : undefined,
-                textAlign: s.align,
-                backgroundColor: s.bgColor,
-              }}
-            />
-          )
-        })()}
         {(coverPage.date || isSelected) && (() => {
           const s = coverPage.fieldStyles?.date ?? {}
           return (
@@ -5074,7 +5052,6 @@ function DesignStudio({ report, onUpdateReport }: { report: ReportData; onUpdate
         {report.coverPage.enabled && (
           <>
             <input value={report.coverPage.reportTitle} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, reportTitle: e.target.value } }))} className={inputCls} placeholder="Report Title" />
-            <input value={report.coverPage.subtitle} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, subtitle: e.target.value } }))} className={inputCls} placeholder="Subtitle" />
             <input value={report.coverPage.date} onChange={(e) => onUpdateReport((p) => ({ ...p, coverPage: { ...p.coverPage, date: e.target.value } }))} className={inputCls} placeholder="Date" />
             {advanced && (
               <>
@@ -5273,7 +5250,6 @@ function DocumentPanel({ report, onUpdateReport }: { report: ReportData; onUpdat
             <>
               <input value={report.coverPage.companyName} onChange={(e) => upCover('companyName', e.target.value)} className={inputCls} placeholder="Company Name" />
               <input value={report.coverPage.reportTitle} onChange={(e) => upCover('reportTitle', e.target.value)} className={inputCls} placeholder="Report Title" />
-              <input value={report.coverPage.subtitle} onChange={(e) => upCover('subtitle', e.target.value)} className={inputCls} placeholder="Subtitle" />
               <input value={report.coverPage.date} onChange={(e) => upCover('date', e.target.value)} className={inputCls} placeholder="Date" />
               <label className="text-[10px] text-slate-500">Background Color</label>
               <input type="color" value={report.coverPage.primaryColor} onChange={(e) => upCover('primaryColor', e.target.value)} className="h-8 w-full cursor-pointer rounded" />
@@ -5484,10 +5460,6 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
               {(() => {
                 const s = report.coverPage.fieldStyles?.reportTitle ?? {}
                 return <h1 style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '28pt', fontWeight: s.bold !== undefined ? (s.bold ? 700 : 400) : 700, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, marginBottom: '8pt', lineHeight: 1.2 }}>{report.coverPage.reportTitle}</h1>
-              })()}
-              {report.coverPage.subtitle && (() => {
-                const s = report.coverPage.fieldStyles?.subtitle ?? {}
-                return <p style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '14pt', fontWeight: s.bold ? 700 : 400, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, opacity: s.color ? 1 : 0.8, marginBottom: '4pt' }}>{report.coverPage.subtitle}</p>
               })()}
               {report.coverPage.date && (() => {
                 const s = report.coverPage.fieldStyles?.date ?? {}
