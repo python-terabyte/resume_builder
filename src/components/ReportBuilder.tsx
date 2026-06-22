@@ -5541,16 +5541,41 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
 function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportData): React.ReactNode {
   switch (block.type) {
     case 'heading': {
-      const sizes: Record<number, string> = { 1: '20pt', 2: '15pt', 3: '12pt' }
+      const defaultSizes: Record<number, string> = { 1: '20pt', 2: '15pt', 3: '12pt' }
+      const defaultWeights: Record<number, number> = { 1: 700, 2: 600, 3: 600 }
       const margins: Record<number, string> = { 1: '12pt', 2: '8pt', 3: '6pt' }
       return (
-        <div style={{ fontSize: sizes[block.level], fontWeight: 700, color: block.color || dp.headingColor, marginBottom: margins[block.level], textAlign: block.align, fontFamily: dp.fontFamily }}>
+        <div style={{
+          fontSize: block.fontSize ? `${block.fontSize}pt` : defaultSizes[block.level],
+          fontWeight: block.bold !== undefined ? (block.bold ? 700 : 400) : defaultWeights[block.level],
+          fontStyle: block.italic ? 'italic' : 'normal',
+          color: block.color || dp.headingColor,
+          backgroundColor: block.bgColor,
+          marginBottom: margins[block.level],
+          textAlign: block.align,
+          fontFamily: dp.fontFamily,
+          lineHeight: 1.2,
+        }}>
           {block.content}
         </div>
       )
     }
     case 'text':
-      return <div style={{ fontSize: '10pt', lineHeight: 1.6, color: dp.textColor, textAlign: block.align, whiteSpace: 'pre-wrap', fontFamily: dp.fontFamily }}>{block.content}</div>
+      return (
+        <div style={{
+          fontSize: (block as { fontSize?: number }).fontSize ? `${(block as { fontSize?: number }).fontSize}pt` : '10pt',
+          fontWeight: (block as { bold?: boolean }).bold ? 700 : 400,
+          fontStyle: (block as { italic?: boolean }).italic ? 'italic' : 'normal',
+          color: (block as { color?: string }).color || dp.textColor,
+          backgroundColor: (block as { bgColor?: string }).bgColor,
+          lineHeight: 1.6,
+          textAlign: block.align,
+          whiteSpace: 'pre-wrap',
+          fontFamily: dp.fontFamily,
+        }}>
+          {block.content}
+        </div>
+      )
     case 'table': {
       const hBg = block.headerBg || dp.tableHeaderBg
       const hTxt = block.headerText || dp.tableHeaderText
@@ -5626,14 +5651,16 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
         </div>
       )
     }
-    case 'image':
+    case 'image': {
+      const imgWidths: Record<string, string> = { full: '100%', large: '75%', medium: '50%', small: '25%' }
       return block.url ? (
-        <div style={{ textAlign: block.align }}>
+        <div style={{ textAlign: block.align, backgroundColor: block.bgColor }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={block.url} alt={block.alt} style={{ maxWidth: '100%', height: 'auto' }} />
+          <img src={block.url} alt={block.alt} style={{ width: imgWidths[block.width] ?? '100%', height: 'auto', borderRadius: '3pt' }} />
           {block.caption && <p style={{ fontSize: '8pt', color: '#666', textAlign: 'center', fontStyle: 'italic', marginTop: '4pt' }}>{block.caption}</p>}
         </div>
       ) : null
+    }
     case 'chart':
       return <ChartBlockView block={block} dp={dp} forPrint />
     case 'divider': {
@@ -5665,28 +5692,48 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
       )
     }
     case 'callout': {
+      const cb = block as CalloutBlock
       const variantPrint: Record<string, { border: string; bg: string; text: string }> = {
         info:    { border: '#3B82F6', bg: '#EFF6FF', text: '#1E40AF' },
         warning: { border: '#F59E0B', bg: '#FFFBEB', text: '#92400E' },
         success: { border: '#10B981', bg: '#ECFDF5', text: '#065F46' },
         danger:  { border: '#EF4444', bg: '#FEF2F2', text: '#991B1B' },
       }
-      const vs = variantPrint[(block as CalloutBlock).variant] ?? variantPrint.info
+      const vs = variantPrint[cb.variant] ?? variantPrint.info
       return (
-        <div style={{ borderLeft: `4px solid ${vs.border}`, background: vs.bg, color: vs.text, padding: '8pt 12pt', borderRadius: '4pt', fontSize: '10pt', fontFamily: dp.fontFamily, lineHeight: 1.5 }}>
-          {(block as CalloutBlock).content}
+        <div style={{
+          borderLeft: `4px solid ${vs.border}`,
+          background: cb.bgColor || vs.bg,
+          color: vs.text,
+          padding: '8pt 12pt',
+          borderRadius: '4pt',
+          fontSize: cb.fontSize ? `${cb.fontSize}pt` : '10pt',
+          fontWeight: cb.bold ? 700 : undefined,
+          fontStyle: cb.italic ? 'italic' : undefined,
+          fontFamily: dp.fontFamily,
+          lineHeight: 1.5,
+        }}>
+          {cb.content}
         </div>
       )
     }
-    case 'quote':
+    case 'quote': {
+      const qb = block as QuoteBlock
       return (
-        <div style={{ borderLeft: `4px solid ${dp.accentColor}`, paddingLeft: '12pt', fontFamily: dp.fontFamily, margin: '6pt 0' }}>
-          <p style={{ fontStyle: 'italic', fontSize: '12pt', color: dp.headingColor, lineHeight: 1.6 }}>&ldquo;{(block as QuoteBlock).content}&rdquo;</p>
-          {(block as QuoteBlock).attribution && (
-            <p style={{ fontSize: '9pt', color: dp.textColor, marginTop: '4pt' }}>{(block as QuoteBlock).attribution}</p>
+        <div style={{ borderLeft: `4px solid ${dp.accentColor}`, paddingLeft: '12pt', fontFamily: dp.fontFamily, margin: '6pt 0', background: qb.bgColor, borderRadius: qb.bgColor ? '4pt' : undefined, padding: qb.bgColor ? '8pt 12pt' : undefined }}>
+          <p style={{
+            fontStyle: qb.italic !== undefined ? (qb.italic ? 'italic' : 'normal') : 'italic',
+            fontSize: qb.fontSize ? `${qb.fontSize}pt` : '12pt',
+            fontWeight: qb.bold ? 700 : undefined,
+            color: qb.color || dp.textColor,
+            lineHeight: 1.6,
+          }}>&ldquo;{qb.content}&rdquo;</p>
+          {qb.attribution && (
+            <p style={{ fontSize: '9pt', color: dp.primaryColor, marginTop: '4pt', fontStyle: 'normal', fontWeight: 600 }}>{qb.attribution}</p>
           )}
         </div>
       )
+    }
     case 'status': {
       const statusColors: Record<string, string> = { done: '#10B981', 'in-progress': '#3B82F6', pending: '#94A3B8', blocked: '#EF4444' }
       const statusLabels: Record<string, string> = { done: '✓ Done', 'in-progress': '⟳ In Progress', pending: '○ Pending', blocked: '✕ Blocked' }
