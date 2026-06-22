@@ -1612,7 +1612,15 @@ function CoverPageView({
 }) {
   const [showInsert, setShowInsert] = useState(false)
   const bg = coverPage.primaryColor || dp.primaryColor
-  const fg = coverPage.textColor || '#FFFFFF'
+  const isLightBg = (() => {
+    const hex = bg.replace('#', '')
+    if (hex.length < 6) return false
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    return (r * 299 + g * 587 + b * 114) / 1000 > 140
+  })()
+  const fg = coverPage.textColor || (isLightBg ? '#1E293B' : '#FFFFFF')
   const patternStyle: React.CSSProperties = {}
   if (coverPage.pattern === 'grid') {
     patternStyle.backgroundImage = `linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)`
@@ -1742,6 +1750,7 @@ function CoverPageView({
                 isSelected={selectedBlockId === block.id}
                 isFirst={idx === 0}
                 isLast={idx === coverBlocks.length - 1}
+                controlsInside
                 onSelect={() => onSelectBlock(block.id)}
                 onDelete={() => onDeleteCoverBlock(block.id)}
                 onMoveUp={() => onMoveCoverBlock(block.id, 'up')}
@@ -1757,18 +1766,20 @@ function CoverPageView({
         {isSelected && (
           <div className="mt-4" onClick={(e) => e.stopPropagation()}>
             {showInsert ? (
-              <div className="flex flex-wrap gap-1.5 rounded-lg border border-white/20 bg-black/30 p-2 backdrop-blur-sm">
+              <div className="flex flex-wrap gap-1.5 rounded-lg p-2 backdrop-blur-sm" style={{ border: `1px solid ${fg}30`, background: isLightBg ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.35)' }}>
                 {BLOCK_TYPES.map(({ type, label }) => (
                   <button key={type} onClick={() => { onAddCoverBlock(type); setShowInsert(false) }}
-                    className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs text-white transition hover:bg-white/20">
+                    className="rounded-md px-2 py-1 text-xs transition"
+                    style={{ border: `1px solid ${fg}30`, background: `${fg}18`, color: fg }}>
                     {label}
                   </button>
                 ))}
-                <button onClick={() => setShowInsert(false)} className="ml-auto px-2 py-1 text-xs text-white/50 hover:text-white">✕</button>
+                <button onClick={() => setShowInsert(false)} className="ml-auto px-2 py-1 text-xs transition" style={{ color: `${fg}80` }}>✕</button>
               </div>
             ) : (
               <button onClick={() => setShowInsert(true)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/30 py-2 text-xs text-white/60 transition hover:border-white/50 hover:text-white/80">
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs transition"
+                style={{ borderColor: `${fg}40`, color: `${fg}80` }}>
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 Add block to cover
               </button>
@@ -2077,7 +2088,7 @@ function InlineArea({ value, onChange, placeholder, className, style, isSelected
 // ── Block Wrapper ───────────────────────────────────────────────────────────
 
 function BlockWrapper({
-  block, dp, report, isSelected, isFirst, isLast,
+  block, dp, report, isSelected, isFirst, isLast, controlsInside,
   onSelect, onDelete, onMoveUp, onMoveDown, onQuickUpdate, onFormatAPIChange,
 }: {
   block: ReportBlock
@@ -2086,6 +2097,7 @@ function BlockWrapper({
   isSelected: boolean
   isFirst: boolean
   isLast: boolean
+  controlsInside?: boolean
   onSelect: () => void
   onDelete: () => void
   onMoveUp: () => void
@@ -2105,27 +2117,50 @@ function BlockWrapper({
       style={blockBg ? { backgroundColor: blockBg, borderRadius: 6, padding: '2px' } : undefined}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
     >
-      {/* Minimal block controls — appear on hover/select at left edge */}
-      <div
-        className={`absolute -left-8 top-1 flex flex-col items-center gap-0.5 z-10 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button onClick={onMoveUp} disabled={isFirst}
-          className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition"
-          title="Move up">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-        </button>
-        <button onClick={onMoveDown} disabled={isLast}
-          className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition"
-          title="Move down">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-        </button>
-        <button onClick={onDelete}
-          className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-red-500 transition"
-          title="Delete block">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
+      {/* Block controls — left-outside for page blocks, top-right inside for cover blocks */}
+      {controlsInside ? (
+        <div
+          className={`absolute right-1 top-1 flex flex-row items-center gap-0.5 z-10 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={onMoveUp} disabled={isFirst}
+            className="flex h-5 w-5 items-center justify-center rounded bg-black/50 text-white/80 hover:bg-black/70 disabled:opacity-20 transition"
+            title="Move up">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+          </button>
+          <button onClick={onMoveDown} disabled={isLast}
+            className="flex h-5 w-5 items-center justify-center rounded bg-black/50 text-white/80 hover:bg-black/70 disabled:opacity-20 transition"
+            title="Move down">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          <button onClick={onDelete}
+            className="flex h-5 w-5 items-center justify-center rounded bg-black/50 text-white/80 hover:bg-red-600 transition"
+            title="Delete block">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      ) : (
+        <div
+          className={`absolute -left-8 top-1 flex flex-col items-center gap-0.5 z-10 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={onMoveUp} disabled={isFirst}
+            className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition"
+            title="Move up">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+          </button>
+          <button onClick={onMoveDown} disabled={isLast}
+            className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition"
+            title="Move down">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          <button onClick={onDelete}
+            className="flex h-6 w-6 items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-400 hover:text-red-500 transition"
+            title="Delete block">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
 
       {/* Block content — tables use inline interactive view; all others use BlockContent for inline editing */}
       {block.type === 'table' && onQuickUpdate ? (
@@ -5427,7 +5462,12 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
       {/* Cover page */}
       {report.coverPage.enabled && (() => {
         const cpBg = report.coverPage.primaryColor || dp.primaryColor
-        const cpFg = report.coverPage.textColor || '#FFFFFF'
+        const cpBgHex = cpBg.replace('#', '')
+        const cpIsLight = cpBgHex.length >= 6 && (() => {
+          const r = parseInt(cpBgHex.slice(0, 2), 16), g = parseInt(cpBgHex.slice(2, 4), 16), b = parseInt(cpBgHex.slice(4, 6), 16)
+          return (r * 299 + g * 587 + b * 114) / 1000 > 140
+        })()
+        const cpFg = report.coverPage.textColor || (cpIsLight ? '#1E293B' : '#FFFFFF')
         const logoPos = report.coverPage.logoPosition || 'tl'
         const logoStyle: React.CSSProperties = {
           position: 'absolute',
