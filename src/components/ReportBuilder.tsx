@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '@/lib/AuthContext'
 import { signOut } from '@/lib/auth'
-import { createReport, getReport, getReportDoc, listReports, saveReport, type ReportDoc } from '@/lib/reports'
+import { createReport, deleteReport, getReport, getReportDoc, listReports, saveReport, type ReportDoc } from '@/lib/reports'
 import CollabShareModal from './ShareModal'
 import VersionHistoryModal from './VersionHistoryModal'
 import { REPORT_TEMPLATES, TEMPLATE_CATEGORIES, type ReportTemplate } from '@/lib/report-templates'
@@ -328,6 +328,21 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
     setPickerState('hide')
     setShowDocs(false)
     setShowTemplatePicker(true)
+  }
+
+  async function handleDelete(targetDocId: string) {
+    await deleteReport(targetDocId)
+    const refreshed = await listReports().catch(() => [] as ReportDoc[])
+    setPickerDocs(refreshed)
+    if (targetDocId === docId) {
+      setDocId(null)
+      setDocName('Untitled Report')
+      setReport(DEFAULT_REPORT)
+      setSelectedPageId(DEFAULT_REPORT.pages[0]?.id ?? null)
+      setIsDirty(false)
+      setSaveState('idle')
+      if (refreshed.length === 0) setPickerState('show')
+    }
   }
 
   function applyTemplate(template: ReportTemplate) {
@@ -706,6 +721,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
         userName={user?.name}
         onOpen={handleOpenDoc}
         onNew={handleNew}
+        onDelete={handleDelete}
       />
     )
   }
@@ -1087,6 +1103,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           currentId={docId}
           onOpen={handleOpenDoc}
           onNew={handleNew}
+          onDelete={handleDelete}
           onClose={() => setShowDocs(false)}
           onRefresh={() => listReports().then(setPickerDocs).catch(() => {})}
           onOpenShared={(sharedDocId) => {
@@ -5420,20 +5437,8 @@ function PrintView({ report, dp }: { report: ReportData; dp: DesignPack }) {
               <img src={report.coverPage.logoUrl} alt="Logo" style={logoStyle} />
             )}
             <div style={{ position: 'relative', zIndex: 1, color: cpFg, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
-              {report.coverPage.companyName && (() => {
-                const s = report.coverPage.fieldStyles?.companyName ?? {}
-                return <p style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '10pt', fontWeight: s.bold ? 700 : 400, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, marginBottom: '24pt', letterSpacing: '2px', opacity: s.color ? 1 : 0.7, textTransform: 'uppercase' }}>{report.coverPage.companyName}</p>
-              })()}
-              {(() => {
-                const s = report.coverPage.fieldStyles?.reportTitle ?? {}
-                return <h1 style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '28pt', fontWeight: s.bold !== undefined ? (s.bold ? 700 : 400) : 700, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, marginBottom: '8pt', lineHeight: 1.2 }}>{report.coverPage.reportTitle}</h1>
-              })()}
-              {report.coverPage.date && (() => {
-                const s = report.coverPage.fieldStyles?.date ?? {}
-                return <p style={{ fontSize: s.fontSize ? `${s.fontSize}pt` : '10pt', fontWeight: s.bold ? 700 : 400, fontStyle: s.italic ? 'italic' : 'normal', textAlign: s.align, color: s.color || cpFg, backgroundColor: s.bgColor, opacity: s.color ? 1 : 0.6, marginTop: '16pt' }}>{report.coverPage.date}</p>
-              })()}
               {(report.coverPage.coverBlocks ?? []).map((b) => (
-                <div key={b.id} style={{ marginTop: '8pt' }}>{renderPrintBlock(b, dp)}</div>
+                <div key={b.id} style={{ marginTop: '8pt' }}>{renderPrintBlock(b, { ...dp, textColor: cpFg, headingColor: cpFg })}</div>
               ))}
             </div>
             {report.watermark.enabled && !report.watermark.excludeCover && (
@@ -5753,7 +5758,19 @@ function renderPrintBlock(block: ReportBlock, dp: DesignPack, report?: ReportDat
 
 // ── Report Picker ───────────────────────────────────────────────────────────
 
-function ReportPicker({ docs, userName, onOpen, onNew }: { docs: ReportDoc[]; userName?: string | null; onOpen: (d: ReportDoc) => void; onNew: () => void }) {
+function ReportPicker({ docs, userName, onOpen, onNew, onDelete }: {
+  docs: ReportDoc[]; userName?: string | null
+  onOpen: (d: ReportDoc) => void; onNew: () => void
+  onDelete: (docId: string) => Promise<void>
+}) {
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function handleDelete(docId: string) {
+    setDeletingId(docId)
+    try { await onDelete(docId) } finally { setDeletingId(null); setConfirmId(null) }
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
@@ -5770,13 +5787,34 @@ function ReportPicker({ docs, userName, onOpen, onNew }: { docs: ReportDoc[]; us
         </div>
         <div className="flex flex-col gap-2">
           {docs.map((doc) => (
-            <button key={doc.id} onClick={() => onOpen(doc)} className="flex items-center justify-between rounded-xl border border-white/10 bg-[#2D1B11] px-5 py-4 text-left transition hover:border-[#C9A84C]/50 hover:bg-[#C9A84C]/5">
-              <div className="min-w-0">
+            <div key={doc.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#2D1B11] px-5 py-4 transition hover:border-[#C9A84C]/30">
+              <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(doc)}>
                 <p className="truncate text-sm font-semibold text-white">{doc.name || 'Untitled'}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{formatDate(doc.updatedAt)}</p>
-              </div>
-              <span className="ml-4 shrink-0 text-xs font-medium text-[#C9A84C]">Open →</span>
-            </button>
+              </button>
+              <span className="shrink-0 text-xs font-medium text-[#C9A84C]">Open →</span>
+              {confirmId === doc.id ? (
+                <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-950/40 px-2 py-1">
+                  <span className="text-xs text-red-400">Delete?</span>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    disabled={!!deletingId}
+                    className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {deletingId === doc.id ? '…' : 'Yes'}
+                  </button>
+                  <button onClick={() => setConfirmId(null)} className="rounded px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:text-white">No</button>
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmId(doc.id) }}
+                  title="Delete report"
+                  className="shrink-0 rounded p-1.5 text-slate-600 transition hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              )}
+            </div>
           ))}
         </div>
         <button onClick={onNew} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-4 text-sm font-medium text-slate-400 transition hover:border-[#C9A84C] hover:text-[#C9A84C]">
@@ -5793,9 +5831,10 @@ function ReportPicker({ docs, userName, onOpen, onNew }: { docs: ReportDoc[]; us
 
 // ── Report Docs Modal ───────────────────────────────────────────────────────
 
-function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh, onOpenShared }: {
+function ReportDocsModal({ docs, currentId, onOpen, onNew, onDelete, onClose, onRefresh, onOpenShared }: {
   docs: ReportDoc[]; currentId: string | null;
   onOpen: (d: ReportDoc) => void; onNew: () => void;
+  onDelete: (docId: string) => Promise<void>;
   onClose: () => void; onRefresh: () => void;
   onOpenShared?: (docId: string) => void;
 }) {
@@ -5804,6 +5843,8 @@ function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh, o
   const [loadingShared, setLoadingShared] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [dupError, setDupError] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   useEffect(() => { onRefresh() }, [])
 
   useEffect(() => {
@@ -5828,6 +5869,16 @@ function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh, o
     } catch (err) {
       setDupError((err as Error).message || 'Failed to duplicate')
       setDuplicatingId(null)
+    }
+  }
+
+  async function handleDeleteDoc(docId: string) {
+    setDeletingId(docId)
+    try {
+      await onDelete(docId)
+      setConfirmDeleteId(null)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -5871,6 +5922,7 @@ function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh, o
                       <p className="text-xs text-slate-500">{formatDate(doc.updatedAt)}</p>
                     </button>
                     {currentId === doc.id && <span className="shrink-0 text-[10px] text-[#C9A84C]">Current</span>}
+                    {/* Duplicate */}
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDuplicate(doc.id) }}
                       disabled={!!duplicatingId}
@@ -5885,6 +5937,28 @@ function ReportDocsModal({ docs, currentId, onOpen, onNew, onClose, onRefresh, o
                         </svg>
                       )}
                     </button>
+                    {/* Delete with inline confirm */}
+                    {confirmDeleteId === doc.id ? (
+                      <div className="flex shrink-0 items-center gap-1 rounded-lg border border-red-500/30 bg-red-950/40 px-2 py-1">
+                        <span className="text-[10px] text-red-400">Delete?</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id) }}
+                          disabled={!!deletingId}
+                          className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                          {deletingId === doc.id ? '…' : 'Yes'}
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null) }} className="rounded px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:text-white">No</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(doc.id) }}
+                        title="Delete report"
+                        className="shrink-0 rounded p-1.5 text-slate-600 transition hover:bg-red-500/10 hover:text-red-400"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
