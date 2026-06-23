@@ -7135,8 +7135,10 @@ interface ParsedSheet {
   name: string
   rows: unknown[][]
   stylesData: XlsxStylesData | null
-  cellXfIndices: Record<string, number>    // cell addr → XF index in cellXfs
-  formulaValues: Record<string, string>    // cell addr → raw <v> text for formula cells
+  cellXfIndices: Record<string, number>   // cell addr → XF index in cellXfs
+  rawCellValues: Record<string, unknown>  // cell addr → resolved value (all cells)
+  formulas: Record<string, string>        // cell addr → formula string (formula cells)
+  rangeStart: { r: number; c: number }    // top-left of sheet data range (0-based)
 }
 
 // Convert ARGB (8-char) or RGB (6-char) to #RRGGBB, skipping white.
@@ -7233,42 +7235,212 @@ function parseXlsxStylesXml(xml: string): XlsxStylesData {
 }
 
 // Parse xl/worksheets/sheet{n}.xml → map of cell addr → XF index.
-function parseSheetXfIndices(xml: string): Record<string, number> {
-  const result: Record<string, number> = {}
-  const re = /<[a-zA-Z0-9:]*c\s([^>]*\/?>)/g
-  let m
-  while ((m = re.exec(xml)) !== null) {
-    const attrs = m[1]
-    const rM = /\br="([A-Z]+\d+)"/.exec(attrs)
-    const sM = /\bs="(\d+)"/.exec(attrs)
-    if (rM && sM) result[rM[1]] = parseInt(sM[1], 10)
+// Parse xl/sharedStrings.xml → ordered array of string values.
+function parseSharedStrings(xml: string): string[] {
+  const strings: string[] = []
+  let pos = 0
+  while (pos < xml.length) {
+    const siStart = xml.indexOf('<si', pos)
+    if (siStart === -1) break
+    const siEnd = xml.indexOf('</si>', siStart)
+    if (siEnd === -1) break
+    const siContent = xml.slice(siStart, siEnd)
+    const texts: string[] = []
+    let tPos = 0
+    while (tPos < siContent.length) {
+      const tStart = siContent.indexOf('<t', tPos)
+      if (tStart === -1) break
+      const tGt = siContent.indexOf('>', tStart)
+      if (tGt === -1) break
+      if (siContent[tGt - 1] === '/') { tPos = tGt + 1; continue }
+      const tEnd = siContent.indexOf('</t>', tGt)
+      if (tEnd === -1) break
+      texts.push(siContent.slice(tGt + 1, tEnd))
+      tPos = tEnd + 4
+    }
+    strings.push(texts.join(''))
+    pos = siEnd + 5
   }
-  return result
+  return strings
 }
 
-// Extract cached formula results directly from sheet XML.
-// Many tools (Google Sheets exports, LibreOffice) don't always store v= in a
-// way that SheetJS picks up correctly for formula cells. Reading <v> straight
-// from the XML guarantees we get the value Excel actually computed.
-function parseSheetFormulaValues(xml: string): Record<string, string> {
-  const result: Record<string, string> = {}
-  // Match complete <c ...>...</c> elements (handles namespace prefixes)
-  const cellRe = /<[a-zA-Z0-9:]*c\b([^>]*)>([\s\S]*?)<\/[a-zA-Z0-9:]*c>/g
-  let m
-  while ((m = cellRe.exec(xml)) !== null) {
-    const attrs = m[1]
-    const inner = m[2]
-    // Only cells that contain a formula element <f ...>
-    if (!/<[a-zA-Z0-9:]*f[\s/>]/.test(inner)) continue
-    const rM = /\br="([A-Z$]+\d+)"/.exec(attrs)
-    if (!rM) continue
-    // Skip error cells — keep them as empty
-    if (/\bt="e"/.test(attrs)) continue
+// Parse xl/worksheets/sheet{n}.xml → cell addresses mapped to their values,
+// formula strings, and XF (style) indices. Uses fast indexOf scanning instead
+// of backtracking regexes so it remains quick on large sheets.
+function parseSheetAllData(
+  xml: string,
+  sharedStrings: string[],
+): { xfIndices: Record<string, number>; rawValues: Record<string, unknown>; formulas: Record<string, string> } {
+  const xfIndices: Record<string, number> = {}
+  const rawValues: Record<string, unknown> = {}
+  const formulas:  Record<string, string>  = {}
+
+  let i = 0
+  while (i < xml.length) {
+    // Find next '<c ' (standard xlsx cell element, no namespace prefix needed)
+    const lt = xml.indexOf('<c ', i)
+    if (lt === -1) break
+
+    // Find end of opening tag
+    let tagEnd = lt + 3
+    while (tagEnd < xml.length && xml[tagEnd] !== '>') tagEnd++
+    if (tagEnd >= xml.length) break
+
+    const attrs = xml.slice(lt + 2, tagEnd)
+    const selfClose = xml[tagEnd - 1] === '/'
+
+    // Extract cell address (r=), style index (s=), cell type (t=)
+    const rM = /\br="([A-Z]+\d+)"/.exec(attrs)
+    const sM = /\bs="(\d+)"/.exec(attrs)
+    const tM = /\bt="(\w+)"/.exec(attrs)
+    const addr = rM ? rM[1] : null
+    const cellType = tM ? tM[1] : 'n'
+
+    if (addr && sM) xfIndices[addr] = parseInt(sM[1], 10)
+
+    if (selfClose || !addr) { i = tagEnd + 1; continue }
+
+    // Find closing </c>
+    const closeTag = xml.indexOf('</c>', tagEnd + 1)
+    if (closeTag === -1) break
+    const inner = xml.slice(tagEnd + 1, closeTag)
+    i = closeTag + 4
+
+    if (cellType === 'e') continue // error cells → skip
+
+    // Extract formula string (present on formula cells)
+    const fIdx = inner.indexOf('<f')
+    if (fIdx !== -1) {
+      const fGt = inner.indexOf('>', fIdx)
+      if (fGt !== -1) {
+        if (inner[fGt - 1] !== '/') {
+          const fEnd = inner.indexOf('</f>', fGt)
+          if (fEnd !== -1) formulas[addr] = inner.slice(fGt + 1, fEnd).trim()
+        }
+        // Mark as formula cell even if self-closing (shared formula dependent)
+        if (formulas[addr] === undefined) formulas[addr] = ''
+      }
+    }
+
     // Extract cached value from <v>...</v>
-    const vM = /<[a-zA-Z0-9:]*v[^>]*>([\s\S]*?)<\/[a-zA-Z0-9:]*v>/.exec(inner)
-    if (vM) result[rM[1]] = vM[1].trim()
+    const vIdx = inner.indexOf('<v')
+    if (vIdx === -1) continue
+    const vGt = inner.indexOf('>', vIdx)
+    if (vGt === -1 || inner[vGt - 1] === '/') continue
+    const vEnd = inner.indexOf('</v>', vGt)
+    if (vEnd === -1) continue
+    const rawV = inner.slice(vGt + 1, vEnd).trim()
+    if (!rawV) continue
+
+    let value: unknown
+    if (cellType === 's') {
+      const idx = parseInt(rawV, 10)
+      value = isNaN(idx) ? rawV : (sharedStrings[idx] ?? '')
+    } else if (cellType === 'str') {
+      value = rawV
+    } else if (cellType === 'b') {
+      value = rawV === '1'
+    } else {
+      const n = parseFloat(rawV)
+      value = isNaN(n) ? rawV : n
+    }
+
+    rawValues[addr] = value
   }
-  return result
+
+  return { xfIndices, rawValues, formulas }
+}
+
+// Evaluate simple formulas (SUM, basic arithmetic) using a pre-built cell value
+// map. Returns null when the formula is too complex to evaluate here.
+function evaluateSimpleFormula(
+  formula: string,
+  cellValues: Record<string, unknown>,
+): number | null {
+  function numAt(addr: string): number {
+    const v = cellValues[addr.toUpperCase().replace(/\$/g, '')]
+    if (typeof v === 'number') return v
+    if (typeof v === 'string') { const n = parseFloat(v.replace(/,/g, '')); return isNaN(n) ? 0 : n }
+    return 0
+  }
+  function colToNum(s: string): number {
+    let n = 0
+    for (const c of s.toUpperCase()) n = n * 26 + c.charCodeAt(0) - 64
+    return n
+  }
+  function numToCol(n: number): string {
+    let s = ''
+    while (n > 0) { s = String.fromCharCode(64 + ((n - 1) % 26 + 1)) + s; n = Math.floor((n - 1) / 26) }
+    return s
+  }
+  function expandRange(r: string): string[] {
+    const p = r.split(':')
+    if (p.length !== 2) return [r.replace(/\$/g, '')]
+    const sm = /([A-Za-z]+)\$?(\d+)/.exec(p[0])
+    const em = /([A-Za-z]+)\$?(\d+)/.exec(p[1])
+    if (!sm || !em) return []
+    const sc = colToNum(sm[1]), sr = +sm[2], ec = colToNum(em[1]), er = +em[2]
+    const out: string[] = []
+    for (let row = Math.min(sr, er); row <= Math.max(sr, er); row++)
+      for (let col = Math.min(sc, ec); col <= Math.max(sc, ec); col++)
+        out.push(`${numToCol(col)}${row}`)
+    return out
+  }
+
+  let f = formula.trim()
+  if (f.startsWith('=')) f = f.slice(1)
+
+  // SUM(range, ...) — most common financial formula
+  const sumM = /^SUM\s*\(([^)]+)\)$/i.exec(f)
+  if (sumM) {
+    let total = 0
+    for (const arg of sumM[1].split(',')) {
+      const a = arg.trim()
+      if (a.includes(':')) expandRange(a).forEach(addr => { total += numAt(addr) })
+      else { const n = parseFloat(a); total += isNaN(n) ? numAt(a) : n }
+    }
+    return total
+  }
+
+  // Direct cell reference
+  if (/^[A-Z$]+\$?\d+$/i.test(f)) return numAt(f)
+
+  // Replace cell references with numeric values, then parse the arithmetic
+  const expr = f.replace(/\$?([A-Z]+)\$?(\d+)/gi, (_, col, row) =>
+    String(numAt(`${col}${row}`))
+  )
+  if (/[^0-9+\-*/().\s]/.test(expr)) return null  // unsupported tokens
+
+  // Simple recursive descent parser for + - * / ( )
+  let p = 0
+  const sp = expr
+  function ws() { while (p < sp.length && sp[p] === ' ') p++ }
+  function primary(): number {
+    ws()
+    if (sp[p] === '(') { p++; const v = addS(); ws(); if (sp[p] === ')') p++; return v }
+    const neg = sp[p] === '-' ? (p++, -1) : (sp[p] === '+' ? (p++, 1) : 1)
+    ws(); const s2 = p
+    while (p < sp.length && (sp[p] === '.' || (sp[p] >= '0' && sp[p] <= '9'))) p++
+    return neg * (parseFloat(sp.slice(s2, p)) || 0)
+  }
+  function mulD(): number {
+    let v = primary(); ws()
+    while (p < sp.length && (sp[p] === '*' || sp[p] === '/')) {
+      const op = sp[p++]; const r = primary(); ws()
+      v = op === '*' ? v * r : r !== 0 ? v / r : 0
+    }
+    return v
+  }
+  function addS(): number {
+    let v = mulD(); ws()
+    while (p < sp.length && (sp[p] === '+' || sp[p] === '-')) {
+      const op = sp[p++]; const r = mulD(); ws()
+      v = op === '+' ? v + r : v - r
+    }
+    return v
+  }
+  try { const result = addS(); return isFinite(result) ? result : null }
+  catch { return null }
 }
 
 // Convert a parsed border side to a CSS border string.
@@ -7327,8 +7499,8 @@ function FileImportModal({
       // SheetJS 0.18.x only exposes fill data via cell.s; font/border data is lost
       // during its internal parsing, so we must read styles.xml + sheet XMLs ourselves.
       let stylesData: XlsxStylesData | null = null
-      const sheetXfMaps: Record<number, Record<string, number>> = {}
-      const sheetFormulaMaps: Record<number, Record<string, string>> = {}
+      type SheetAllData = { xfIndices: Record<string, number>; rawValues: Record<string, unknown>; formulas: Record<string, string> }
+      const sheetAllDataMaps: Record<number, SheetAllData> = {}
 
       if (/\.xlsx[m]?$/i.test(file.name)) {
         try {
@@ -7338,15 +7510,14 @@ function FileImportModal({
           const stylesBytes = zipFiles['xl/styles.xml']
           if (stylesBytes) stylesData = parseXlsxStylesXml(strFromU8(stylesBytes))
 
-          // Map each sheet index to its XF index table and formula-cached values.
-          // Standard Excel always names sheets sheet1.xml, sheet2.xml, … in order.
+          // Parse shared strings table (needed to resolve string cell values)
+          const ssBytes = zipFiles['xl/sharedStrings.xml']
+          const sharedStrings = ssBytes ? parseSharedStrings(strFromU8(ssBytes)) : []
+
+          // Parse all cell data (values, formula strings, style indices) per sheet
           wb.SheetNames.forEach((_, idx) => {
             const bytes = zipFiles[`xl/worksheets/sheet${idx + 1}.xml`]
-            if (bytes) {
-              const sheetXml = strFromU8(bytes)
-              sheetXfMaps[idx] = parseSheetXfIndices(sheetXml)
-              sheetFormulaMaps[idx] = parseSheetFormulaValues(sheetXml)
-            }
+            if (bytes) sheetAllDataMaps[idx] = parseSheetAllData(strFromU8(bytes), sharedStrings)
           })
         } catch { /* ZIP parse failure — continue without style/formula data */ }
       }
@@ -7354,7 +7525,16 @@ function FileImportModal({
       const parsed: ParsedSheet[] = wb.SheetNames.map((name, idx) => {
         const ws = wb.Sheets[name]
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
-        return { name, rows, stylesData, cellXfIndices: sheetXfMaps[idx] ?? {}, formulaValues: sheetFormulaMaps[idx] ?? {} }
+        const ref = ws['!ref'] || 'A1:A1'
+        const rng = XLSX.utils.decode_range(ref)
+        const allData = sheetAllDataMaps[idx] ?? { xfIndices: {}, rawValues: {}, formulas: {} }
+        return {
+          name, rows, stylesData,
+          cellXfIndices: allData.xfIndices,
+          rawCellValues: allData.rawValues,
+          formulas: allData.formulas,
+          rangeStart: { r: rng.s.r, c: rng.s.c },
+        }
       })
 
       setSheets(parsed)
@@ -7379,27 +7559,40 @@ function FileImportModal({
     if (!sheet || sheet.rows.length === 0) return
 
     if (importAs === 'table') {
-      // Proper multi-letter column encoder (A–Z, AA–AZ, ...)
-      function encodeCellAddr(r: number, c: number): string {
+      // Encode row/col indices (0-based, relative to sheet range) → Excel address.
+      // Accounts for sheets whose data doesn't start at A1.
+      function encodeCellAddr(rIdx: number, cIdx: number): string {
+        const absRow = sheet.rangeStart.r + rIdx
+        const absCol = sheet.rangeStart.c + cIdx
         let col = ''
-        let n = c
+        let n = absCol
         do { col = String.fromCharCode(65 + (n % 26)) + col; n = Math.floor(n / 26) - 1 } while (n >= 0)
-        return `${col}${r + 1}`
+        return `${col}${absRow + 1}`
       }
 
       const sd = sheet.stylesData
 
-      // Resolve the cell's display value: prefer SheetJS result, but fall back to
-      // the raw XML <v> for formula cells when SheetJS returns 0 or empty string.
-      function resolveCellValue(absRow: number, col: number, sheetJsVal: unknown): unknown {
-        const addr = encodeCellAddr(absRow, col)
-        const rawXmlVal = sheet.formulaValues[addr]
-        if (rawXmlVal === undefined) return sheetJsVal   // not a formula cell
-        // SheetJS returned a non-zero truthy value → trust it
-        if (sheetJsVal !== 0 && sheetJsVal !== '' && sheetJsVal !== null && sheetJsVal !== undefined) return sheetJsVal
-        // SheetJS returned 0 or '' for a formula cell → use the XML cached value
-        const n = parseFloat(rawXmlVal)
-        return isNaN(n) ? rawXmlVal : n
+      // Resolve cell value using multiple sources in priority order:
+      //   1. Raw XML value (if non-zero) — avoids SheetJS formula quirks
+      //   2. SheetJS value (if non-zero) — reliable for non-formula cells
+      //   3. Formula evaluation — handles stale/zero cached values in generated files
+      //   4. Fallback to whatever is available
+      function resolveCellValue(rIdx: number, cIdx: number, sheetJsVal: unknown): unknown {
+        const addr = encodeCellAddr(rIdx, cIdx)
+        const isFormulaCell = addr in sheet.formulas
+        if (!isFormulaCell) return sheetJsVal  // not a formula cell: trust SheetJS
+
+        const rawVal = sheet.rawCellValues[addr]
+        if (rawVal !== undefined && rawVal !== 0 && rawVal !== '' && rawVal !== null) return rawVal
+        if (sheetJsVal !== undefined && sheetJsVal !== null && sheetJsVal !== 0 && sheetJsVal !== '') return sheetJsVal
+
+        // Both zero/empty — try evaluating formula against non-formula cell values
+        const formulaStr = sheet.formulas[addr]
+        if (formulaStr) {
+          const evaluated = evaluateSimpleFormula(formulaStr, sheet.rawCellValues)
+          if (evaluated !== null) return evaluated
+        }
+        return rawVal ?? sheetJsVal ?? ''
       }
 
       // Look up a cell's resolved style from the pre-parsed style tables.
