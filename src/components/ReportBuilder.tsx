@@ -7352,15 +7352,36 @@ function parseSheetAllData(
 }
 
 // Evaluate simple formulas (SUM, basic arithmetic) using a pre-built cell value
-// map. Returns null when the formula is too complex to evaluate here.
+// map. Passing `formulas` enables recursive resolution of formula cells whose
+// cached value is stale (0), which is required for chained P&L calculations
+// like NP = GP - Expenses where GP itself is a formula. `visited` prevents
+// infinite loops on circular references.
 function evaluateSimpleFormula(
   formula: string,
   cellValues: Record<string, unknown>,
+  formulas?: Record<string, string>,
+  visited?: Set<string>,
 ): number | null {
+  const vis = visited ?? new Set<string>()
+
   function numAt(addr: string): number {
-    const v = cellValues[addr.toUpperCase().replace(/\$/g, '')]
-    if (typeof v === 'number') return v
-    if (typeof v === 'string') { const n = parseFloat(v.replace(/,/g, '')); return isNaN(n) ? 0 : n }
+    const clean = addr.toUpperCase().replace(/\$/g, '')
+    const rawV = cellValues[clean]
+
+    // If cell is a formula with a stale/zero cached value, evaluate it recursively
+    if (formulas && clean in formulas && !vis.has(clean)) {
+      const fStr = formulas[clean]
+      const cachedIsZero = rawV === 0 || rawV === undefined || rawV === null || rawV === ''
+      if (fStr && cachedIsZero) {
+        const newVis = new Set(vis)
+        newVis.add(clean)
+        const r = evaluateSimpleFormula(fStr, cellValues, formulas, newVis)
+        if (r !== null) return r
+      }
+    }
+
+    if (typeof rawV === 'number') return rawV
+    if (typeof rawV === 'string') { const n = parseFloat(rawV.replace(/,/g, '')); return isNaN(n) ? 0 : n }
     return 0
   }
   function colToNum(s: string): number {
@@ -7586,10 +7607,10 @@ function FileImportModal({
         if (rawVal !== undefined && rawVal !== 0 && rawVal !== '' && rawVal !== null) return rawVal
         if (sheetJsVal !== undefined && sheetJsVal !== null && sheetJsVal !== 0 && sheetJsVal !== '') return sheetJsVal
 
-        // Both zero/empty — try evaluating formula against non-formula cell values
+        // Both zero/empty — evaluate formula, resolving referenced formula cells recursively
         const formulaStr = sheet.formulas[addr]
         if (formulaStr) {
-          const evaluated = evaluateSimpleFormula(formulaStr, sheet.rawCellValues)
+          const evaluated = evaluateSimpleFormula(formulaStr, sheet.rawCellValues, sheet.formulas)
           if (evaluated !== null) return evaluated
         }
         return rawVal ?? sheetJsVal ?? ''
