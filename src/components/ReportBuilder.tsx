@@ -3428,7 +3428,7 @@ function TableBlockView({
           {/* Column widths */}
           {block.colWidths && (
             <colgroup>
-              {isSelected && onUpdate && block.rows.length > 1 && <col style={{ width: 20 }} />}
+              {isSelected && onUpdate && block.rows.length > 1 && <col style={{ width: 14 }} />}
               {isSelected && <col style={{ width: 28 }} />}
               {block.colWidths.map((w, ci) => <col key={ci} style={{ width: w }} />)}
             </colgroup>
@@ -3498,7 +3498,7 @@ function TableBlockView({
                   <td
                     onClick={() => addColAt(block.headers.length)}
                     title="Add column"
-                    style={{ width: 22, background: '#F8FAFC', border: '1px dashed #CBD5E1', cursor: 'pointer', textAlign: 'center', fontSize: 13, color: '#94A3B8', padding: '2px 0', userSelect: 'none' }}
+                    style={{ width: 16, background: '#F8FAFC', border: '1px dashed #CBD5E1', cursor: 'pointer', textAlign: 'center', fontSize: 11, color: '#94A3B8', padding: '2px 0', userSelect: 'none' }}
                     className="hover:bg-blue-50 hover:text-blue-500 transition-colors"
                   >+</td>
                 )}
@@ -3508,7 +3508,7 @@ function TableBlockView({
             <tr>
               {/* Placeholder for row-delete column */}
               {isSelected && onUpdate && block.rows.length > 1 && (
-                <td style={{ width: 20, minWidth: 20, background: '#F1F5F9', border: block.bordered ? `1px solid ${headerBg}30` : '1px solid #E2E8F0' }} />
+                <td style={{ width: 14, minWidth: 14, background: '#F1F5F9', border: block.bordered ? `1px solid ${headerBg}30` : '1px solid #E2E8F0' }} />
               )}
               {/* Row number placeholder in header row */}
               {isSelected && (
@@ -3591,7 +3591,7 @@ function TableBlockView({
                 {/* Row delete button — separate column outside the row number */}
                 {isSelected && onUpdate && block.rows.length > 1 && (
                   <td
-                    style={{ width: 20, minWidth: 20, padding: '0 2px', background: 'transparent', border: 'none', textAlign: 'center', verticalAlign: 'middle' }}
+                    style={{ width: 14, minWidth: 14, padding: '0 1px', background: 'transparent', border: 'none', textAlign: 'center', verticalAlign: 'middle' }}
                     onMouseEnter={() => setHoveredDelRow(rIdx)}
                     onMouseLeave={() => setHoveredDelRow(null)}
                   >
@@ -3600,10 +3600,10 @@ function TableBlockView({
                       onClick={(e) => { e.stopPropagation(); deleteRowAt(rIdx) }}
                       style={{
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: 16, height: 16,
+                        width: 12, height: 12,
                         background: hoveredDelRow === rIdx ? '#FEE2E2' : '#FEF2F2',
                         color: hoveredDelRow === rIdx ? '#EF4444' : '#FCA5A5',
-                        fontSize: 9, border: 'none', cursor: 'pointer', borderRadius: 2,
+                        fontSize: 8, border: 'none', cursor: 'pointer', borderRadius: 2,
                         transition: 'all 0.15s', flexShrink: 0,
                       }}
                     >✕</button>
@@ -3699,7 +3699,7 @@ function TableBlockView({
             {/* Add row at bottom */}
             {isSelected && onUpdate && (
               <tr>
-                {block.rows.length > 1 && <td style={{ width: 20, background: '#F8FAFC', border: '1px dashed #CBD5E1' }} />}
+                {block.rows.length > 1 && <td style={{ width: 14, background: '#F8FAFC', border: '1px dashed #CBD5E1' }} />}
                 <td style={{ width: 28, background: '#F8FAFC', border: '1px dashed #CBD5E1' }} />
                 <td
                   colSpan={block.headers.length}
