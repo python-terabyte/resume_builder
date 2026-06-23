@@ -1999,15 +1999,32 @@ function ReportPageView({
         </div>
 
         {page.blocks.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <p className="text-sm text-gray-400">This page is empty.</p>
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowInsert(true) }}
-              className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-400 transition hover:border-gray-400 hover:text-gray-600"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              Add a block
-            </button>
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center" onClick={(e) => e.stopPropagation()}>
+            {showInsert ? (
+              <div className="flex flex-wrap justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                {BLOCK_TYPES.map(({ type, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => { onAddBlock(type); setShowInsert(false) }}
+                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 transition hover:border-gray-400 hover:text-gray-900"
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button onClick={() => setShowInsert(false)} className="ml-auto rounded-md px-2 py-1 text-xs text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-400">This page is empty.</p>
+                <button
+                  onClick={() => setShowInsert(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-400 transition hover:border-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Add a block
+                </button>
+              </>
+            )}
           </div>
         )}
 
