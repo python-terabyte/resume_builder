@@ -3591,7 +3591,7 @@ function TableBlockView({
                 {/* Row delete button — separate column outside the row number */}
                 {isSelected && onUpdate && block.rows.length > 1 && (
                   <td
-                    style={{ width: 20, minWidth: 20, padding: '0 2px', background: 'transparent', border: 'none', textAlign: 'center' }}
+                    style={{ width: 20, minWidth: 20, padding: '0 2px', background: 'transparent', border: 'none', textAlign: 'center', verticalAlign: 'middle' }}
                     onMouseEnter={() => setHoveredDelRow(rIdx)}
                     onMouseLeave={() => setHoveredDelRow(null)}
                   >
@@ -3599,12 +3599,12 @@ function TableBlockView({
                       title={`Delete row ${rIdx + 1}`}
                       onClick={(e) => { e.stopPropagation(); deleteRowAt(rIdx) }}
                       style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: '100%', height: '100%', minHeight: 20,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 16, height: 16,
                         background: hoveredDelRow === rIdx ? '#FEE2E2' : '#FEF2F2',
                         color: hoveredDelRow === rIdx ? '#EF4444' : '#FCA5A5',
                         fontSize: 9, border: 'none', cursor: 'pointer', borderRadius: 2,
-                        transition: 'all 0.15s',
+                        transition: 'all 0.15s', flexShrink: 0,
                       }}
                     >✕</button>
                   </td>
@@ -7135,7 +7135,8 @@ interface ParsedSheet {
   name: string
   rows: unknown[][]
   stylesData: XlsxStylesData | null
-  cellXfIndices: Record<string, number>   // cell addr → XF index in cellXfs
+  cellXfIndices: Record<string, number>    // cell addr → XF index in cellXfs
+  formulaValues: Record<string, string>    // cell addr → raw <v> text for formula cells
 }
 
 // Convert ARGB (8-char) or RGB (6-char) to #RRGGBB, skipping white.
@@ -7234,7 +7235,6 @@ function parseXlsxStylesXml(xml: string): XlsxStylesData {
 // Parse xl/worksheets/sheet{n}.xml → map of cell addr → XF index.
 function parseSheetXfIndices(xml: string): Record<string, number> {
   const result: Record<string, number> = {}
-  // Match <c ...> tags and capture r= and s= attributes regardless of order/namespace.
   const re = /<[a-zA-Z0-9:]*c\s([^>]*\/?>)/g
   let m
   while ((m = re.exec(xml)) !== null) {
@@ -7242,6 +7242,31 @@ function parseSheetXfIndices(xml: string): Record<string, number> {
     const rM = /\br="([A-Z]+\d+)"/.exec(attrs)
     const sM = /\bs="(\d+)"/.exec(attrs)
     if (rM && sM) result[rM[1]] = parseInt(sM[1], 10)
+  }
+  return result
+}
+
+// Extract cached formula results directly from sheet XML.
+// Many tools (Google Sheets exports, LibreOffice) don't always store v= in a
+// way that SheetJS picks up correctly for formula cells. Reading <v> straight
+// from the XML guarantees we get the value Excel actually computed.
+function parseSheetFormulaValues(xml: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  // Match complete <c ...>...</c> elements (handles namespace prefixes)
+  const cellRe = /<[a-zA-Z0-9:]*c\b([^>]*)>([\s\S]*?)<\/[a-zA-Z0-9:]*c>/g
+  let m
+  while ((m = cellRe.exec(xml)) !== null) {
+    const attrs = m[1]
+    const inner = m[2]
+    // Only cells that contain a formula element <f ...>
+    if (!/<[a-zA-Z0-9:]*f[\s/>]/.test(inner)) continue
+    const rM = /\br="([A-Z$]+\d+)"/.exec(attrs)
+    if (!rM) continue
+    // Skip error cells — keep them as empty
+    if (/\bt="e"/.test(attrs)) continue
+    // Extract cached value from <v>...</v>
+    const vM = /<[a-zA-Z0-9:]*v[^>]*>([\s\S]*?)<\/[a-zA-Z0-9:]*v>/.exec(inner)
+    if (vM) result[rM[1]] = vM[1].trim()
   }
   return result
 }
@@ -7303,6 +7328,7 @@ function FileImportModal({
       // during its internal parsing, so we must read styles.xml + sheet XMLs ourselves.
       let stylesData: XlsxStylesData | null = null
       const sheetXfMaps: Record<number, Record<string, number>> = {}
+      const sheetFormulaMaps: Record<number, Record<string, string>> = {}
 
       if (/\.xlsx[m]?$/i.test(file.name)) {
         try {
@@ -7312,19 +7338,23 @@ function FileImportModal({
           const stylesBytes = zipFiles['xl/styles.xml']
           if (stylesBytes) stylesData = parseXlsxStylesXml(strFromU8(stylesBytes))
 
-          // Map each sheet index to its XF index table.
+          // Map each sheet index to its XF index table and formula-cached values.
           // Standard Excel always names sheets sheet1.xml, sheet2.xml, … in order.
           wb.SheetNames.forEach((_, idx) => {
             const bytes = zipFiles[`xl/worksheets/sheet${idx + 1}.xml`]
-            if (bytes) sheetXfMaps[idx] = parseSheetXfIndices(strFromU8(bytes))
+            if (bytes) {
+              const sheetXml = strFromU8(bytes)
+              sheetXfMaps[idx] = parseSheetXfIndices(sheetXml)
+              sheetFormulaMaps[idx] = parseSheetFormulaValues(sheetXml)
+            }
           })
-        } catch { /* ZIP parse failure — continue without style data */ }
+        } catch { /* ZIP parse failure — continue without style/formula data */ }
       }
 
       const parsed: ParsedSheet[] = wb.SheetNames.map((name, idx) => {
         const ws = wb.Sheets[name]
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
-        return { name, rows, stylesData, cellXfIndices: sheetXfMaps[idx] ?? {} }
+        return { name, rows, stylesData, cellXfIndices: sheetXfMaps[idx] ?? {}, formulaValues: sheetFormulaMaps[idx] ?? {} }
       })
 
       setSheets(parsed)
@@ -7359,6 +7389,19 @@ function FileImportModal({
 
       const sd = sheet.stylesData
 
+      // Resolve the cell's display value: prefer SheetJS result, but fall back to
+      // the raw XML <v> for formula cells when SheetJS returns 0 or empty string.
+      function resolveCellValue(absRow: number, col: number, sheetJsVal: unknown): unknown {
+        const addr = encodeCellAddr(absRow, col)
+        const rawXmlVal = sheet.formulaValues[addr]
+        if (rawXmlVal === undefined) return sheetJsVal   // not a formula cell
+        // SheetJS returned a non-zero truthy value → trust it
+        if (sheetJsVal !== 0 && sheetJsVal !== '' && sheetJsVal !== null && sheetJsVal !== undefined) return sheetJsVal
+        // SheetJS returned 0 or '' for a formula cell → use the XML cached value
+        const n = parseFloat(rawXmlVal)
+        return isNaN(n) ? rawXmlVal : n
+      }
+
       // Look up a cell's resolved style from the pre-parsed style tables.
       function cellStyle(absRow: number, col: number) {
         const addr = encodeCellAddr(absRow, col)
@@ -7384,7 +7427,8 @@ function FileImportModal({
       const headerTextDetected = undefined
 
       const rows: TableCell[][] = dataRows.map((row, rIdx) =>
-        (row as unknown[]).map((cellVal, cIdx) => {
+        (row as unknown[]).map((rawCellVal, cIdx) => {
+          const cellVal = resolveCellValue(rIdx, cIdx, rawCellVal)
           const st = cellStyle(rIdx, cIdx)
           const font      = st?.font
           const fill      = st?.fill
