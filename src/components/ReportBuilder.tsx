@@ -3414,6 +3414,16 @@ function TableBlockView({
   const DEFAULT_COL_WIDTH = 120
   const DEFAULT_ROW_HEIGHT = 32
 
+  // When selected (edit mode), compute exact pixel width from colWidths + utility column sizes
+  // so the fixed-size utility columns (delete-row: 14px, row-number: 28px, add-col: 16px)
+  // don't stretch proportionally with the table when data columns are resized.
+  const editModeTableWidth = isSelected && block.colWidths
+    ? block.colWidths.reduce((s: number, w: number) => s + (typeof w === 'number' ? w : DEFAULT_COL_WIDTH), 0)
+      + (onUpdate && block.rows.length > 1 ? 14 : 0)
+      + 28
+      + (onUpdate ? 16 : 0)
+    : undefined
+
   return (
     <div onClick={(e) => e.stopPropagation()} style={{ cursor: resizingCol !== null ? 'col-resize' : resizingRow !== null ? 'row-resize' : undefined, userSelect: resizingCol !== null || resizingRow !== null ? 'none' : undefined }}>
       {/* Caption */}
@@ -3423,7 +3433,7 @@ function TableBlockView({
       <div className="overflow-x-auto">
         <table
           className="w-full"
-          style={{ fontFamily: dp.fontFamily, borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed', wordBreak: 'break-word' }}
+          style={{ fontFamily: dp.fontFamily, borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed', wordBreak: 'break-word', ...(editModeTableWidth ? { width: editModeTableWidth } : {}) }}
         >
           {/* Column widths */}
           {block.colWidths && (
@@ -3431,6 +3441,7 @@ function TableBlockView({
               {isSelected && onUpdate && block.rows.length > 1 && <col style={{ width: 14 }} />}
               {isSelected && <col style={{ width: 28 }} />}
               {block.colWidths.map((w, ci) => <col key={ci} style={{ width: w }} />)}
+              {isSelected && onUpdate && <col style={{ width: 16 }} />}
             </colgroup>
           )}
           <thead>
