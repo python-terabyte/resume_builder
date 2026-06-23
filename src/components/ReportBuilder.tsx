@@ -924,7 +924,8 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
           {saveState === 'error'  && <span className="hidden text-xs text-red-400 sm:inline" title={saveError ?? ''}>Save failed</span>}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-[calc(100%-180px)] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           {/* Workspace switcher */}
           <Link
             href="/workspace"
@@ -1043,6 +1044,7 @@ export default function ReportBuilder({ initialDocId }: { initialDocId?: string 
             )}
           </button>
 
+          </div>
           {/* Theme toggle */}
           <button
             onClick={toggleRbTheme}
@@ -2947,6 +2949,8 @@ function TableBlockView({
   const [resizingRow, setResizingRow] = useState<number | null>(null)
   const resizingColRef = useRef<{ col: number; startX: number; startWidth: number; allWidths: number[] } | null>(null)
   const resizingRowRef = useRef<{ row: number; startY: number; startHeight: number; allHeights: number[] } | null>(null)
+  const [hoveredDelCol, setHoveredDelCol] = useState<number | null>(null)
+  const [hoveredDelRow, setHoveredDelRow] = useState<number | null>(null)
 
   const cellKey = (r: number, c: number) => `${r},${c}`
 
@@ -3424,14 +3428,46 @@ function TableBlockView({
           {/* Column widths */}
           {block.colWidths && (
             <colgroup>
+              {isSelected && onUpdate && block.rows.length > 1 && <col style={{ width: 20 }} />}
               {isSelected && <col style={{ width: 28 }} />}
               {block.colWidths.map((w, ci) => <col key={ci} style={{ width: w }} />)}
             </colgroup>
           )}
           <thead>
+            {/* Column delete strip — only in edit mode, outside the selection row */}
+            {isSelected && onUpdate && block.headers.length > 1 && (
+              <tr>
+                {/* Corner blank above row-delete col */}
+                {block.rows.length > 1 && <td style={{ background: 'transparent', border: 'none', padding: 0 }} />}
+                {/* Blank above corner (select-all) */}
+                <td style={{ background: 'transparent', border: 'none', padding: 0 }} />
+                {block.headers.map((_, ci) => (
+                  <td key={ci}
+                    style={{ background: 'transparent', border: 'none', padding: '0 0 1px 0', textAlign: 'center' }}
+                    onMouseEnter={() => setHoveredDelCol(ci)}
+                    onMouseLeave={() => setHoveredDelCol(null)}
+                  >
+                    <button
+                      title={`Delete column ${ci + 1}`}
+                      onClick={(e) => { e.stopPropagation(); deleteColAt(ci) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '100%', height: 14,
+                        background: hoveredDelCol === ci ? '#FEE2E2' : '#FEF2F2',
+                        color: hoveredDelCol === ci ? '#EF4444' : '#FCA5A5',
+                        fontSize: 9, border: 'none', cursor: 'pointer', borderRadius: 2,
+                        transition: 'all 0.15s',
+                      }}
+                    >✕</button>
+                  </td>
+                ))}
+              </tr>
+            )}
             {/* Column number row — only in edit mode */}
             {isSelected && (
               <tr>
+                {/* Blank above row-delete column */}
+                {onUpdate && block.rows.length > 1 && <td style={{ background: 'transparent', border: 'none', padding: 0 }} />}
                 {/* Corner: select all */}
                 <td
                   onClick={handleSelectAll}
@@ -3443,25 +3479,17 @@ function TableBlockView({
                   return (
                     <td key={ci}
                       onClick={(e) => handleColHeaderClick(ci, e)}
-                      title={`Select col · ✕ to delete`}
-                      className="group/colnum"
+                      title="Click to select column"
                       style={{
                         background: colFullySel ? '#BFDBFE' : '#F1F5F9',
                         border: '1px solid #CBD5E1',
                         cursor: 'pointer', textAlign: 'center',
                         fontSize: 10, color: colFullySel ? '#1D4ED8' : '#64748B',
                         fontWeight: colFullySel ? 700 : 400,
-                        padding: '2px 4px', userSelect: 'none', position: 'relative',
+                        padding: '2px 4px', userSelect: 'none',
                       }}
                     >
-                      <span>{ci + 1}</span>
-                      {onUpdate && block.headers.length > 1 && (
-                        <button
-                          title={`Delete column ${ci + 1}`}
-                          onClick={(e) => { e.stopPropagation(); deleteColAt(ci) }}
-                          className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-400 text-[9px] opacity-0 group-hover/colnum:opacity-100 hover:bg-red-100 transition-opacity"
-                        >✕</button>
-                      )}
+                      {ci + 1}
                     </td>
                   )
                 })}
@@ -3478,6 +3506,10 @@ function TableBlockView({
             )}
             {/* Column header row */}
             <tr>
+              {/* Placeholder for row-delete column */}
+              {isSelected && onUpdate && block.rows.length > 1 && (
+                <td style={{ width: 20, minWidth: 20, background: '#F1F5F9', border: block.bordered ? `1px solid ${headerBg}30` : '1px solid #E2E8F0' }} />
+              )}
               {/* Row number placeholder in header row */}
               {isSelected && (
                 <td style={{ width: 28, minWidth: 28, background: '#F1F5F9', border: block.bordered ? `1px solid ${headerBg}30` : '1px solid #E2E8F0' }} />
@@ -3556,12 +3588,32 @@ function TableBlockView({
               const rowH = block.rowHeights?.[rIdx]
               return (
               <tr key={rIdx} style={{ background: block.striped && rIdx % 2 === 1 ? '#F8FAFC' : 'white', height: rowH }}>
+                {/* Row delete button — separate column outside the row number */}
+                {isSelected && onUpdate && block.rows.length > 1 && (
+                  <td
+                    style={{ width: 20, minWidth: 20, padding: '0 2px', background: 'transparent', border: 'none', textAlign: 'center' }}
+                    onMouseEnter={() => setHoveredDelRow(rIdx)}
+                    onMouseLeave={() => setHoveredDelRow(null)}
+                  >
+                    <button
+                      title={`Delete row ${rIdx + 1}`}
+                      onClick={(e) => { e.stopPropagation(); deleteRowAt(rIdx) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '100%', height: '100%', minHeight: 20,
+                        background: hoveredDelRow === rIdx ? '#FEE2E2' : '#FEF2F2',
+                        color: hoveredDelRow === rIdx ? '#EF4444' : '#FCA5A5',
+                        fontSize: 9, border: 'none', cursor: 'pointer', borderRadius: 2,
+                        transition: 'all 0.15s',
+                      }}
+                    >✕</button>
+                  </td>
+                )}
                 {/* Row number + row resize handle */}
                 {isSelected && (
                   <td
                     onClick={(e) => handleRowHeaderClick(rIdx, e)}
-                    title={`Select row · ✕ to delete`}
-                    className="group/rownum"
+                    title="Click to select row"
                     style={{
                       width: 28, minWidth: 28,
                       background: rowFullySel ? '#BFDBFE' : (resizingRow === rIdx ? '#BFDBFE' : '#F1F5F9'),
@@ -3573,14 +3625,7 @@ function TableBlockView({
                       position: 'relative',
                     }}
                   >
-                    <span className="group-hover/rownum:opacity-0 transition-opacity">{rIdx + 1}</span>
-                    {onUpdate && block.rows.length > 1 && (
-                      <button
-                        title={`Delete row ${rIdx + 1}`}
-                        onClick={(e) => { e.stopPropagation(); deleteRowAt(rIdx) }}
-                        className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-400 text-[10px] opacity-0 group-hover/rownum:opacity-100 hover:bg-red-100 transition-opacity"
-                      >✕</button>
-                    )}
+                    {rIdx + 1}
                     {/* Row resize handle */}
                     {onUpdate && (
                       <div
@@ -3654,6 +3699,7 @@ function TableBlockView({
             {/* Add row at bottom */}
             {isSelected && onUpdate && (
               <tr>
+                {block.rows.length > 1 && <td style={{ width: 20, background: '#F8FAFC', border: '1px dashed #CBD5E1' }} />}
                 <td style={{ width: 28, background: '#F8FAFC', border: '1px dashed #CBD5E1' }} />
                 <td
                   colSpan={block.headers.length}
@@ -3671,7 +3717,7 @@ function TableBlockView({
       {/* Keyboard hint */}
       {isSelected && !editingCell && (
         <p className="mt-1 text-center text-[9px] text-gray-400">
-          Click cell to edit · Row/col numbers to select row/col · ▣ to select all · Shift/Ctrl+click to extend · Tab/Enter to navigate · Drag header edge to resize
+          Click cell to edit · Row/col numbers to select row/col · ✕ strip to delete · ▣ to select all · Shift/Ctrl+click to extend · Tab/Enter to navigate · Drag header edge to resize
         </p>
       )}
       {!isSelected && (

@@ -369,7 +369,8 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2 overflow-x-auto max-w-[calc(100%-180px)] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           <button
             onClick={goWorkspace}
             className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] sm:px-3"
@@ -472,6 +473,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
             )}
           </button>
 
+          </div>
           <button
             onClick={toggleAppTheme}
             className="rounded-md p-1.5 text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
