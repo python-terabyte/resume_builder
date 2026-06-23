@@ -16,6 +16,7 @@ import ShareModal from './ShareModal'
 import VersionHistoryModal from './VersionHistoryModal'
 
 const STORAGE_KEY = 'cvb-accent-color'
+const THEME_KEY = 'cvb-app-theme'
 
 function hexToRgbTriplet(hex: string): string {
   const cleaned = hex.replace('#', '')
@@ -52,6 +53,15 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
   const [isPdfLoading, setIsPdfLoading] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showVersionHistory, setShowVersionHistory] = useState(false)
+  const [appTheme, setAppTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem(THEME_KEY) as 'dark' | 'light') ?? 'dark'
+    return 'dark'
+  })
+  const toggleAppTheme = () => setAppTheme((t) => {
+    const next = t === 'dark' ? 'light' : 'dark'
+    if (typeof window !== 'undefined') localStorage.setItem(THEME_KEY, next)
+    return next
+  })
   const previewRef = useRef<HTMLDivElement>(null)
 
   // Hydrate accent color from localStorage on first mount.
@@ -294,7 +304,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
   // Loading state while checking for saved docs.
   if (pickerState === 'loading') {
     return (
-      <div className="relative flex h-screen w-full items-center justify-center bg-[#120B07]" style={accentStyle}>
+      <div className="relative flex h-screen w-full items-center justify-center bg-[var(--app-bg)]" data-app-theme={appTheme} style={accentStyle}>
         <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
           <div className="anim-orb absolute rounded-full" style={{ width: 560, height: 560, top: -140, right: -140, background: 'radial-gradient(circle, rgba(201,168,76,.13) 0%, transparent 70%)', filter: 'blur(40px)' }} />
           <div className="anim-orb-slow absolute rounded-full" style={{ width: 460, height: 460, bottom: -120, left: -120, background: 'radial-gradient(circle, rgba(13,144,128,.11) 0%, transparent 70%)', filter: 'blur(40px)' }} />
@@ -310,7 +320,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
   // Resume picker for returning users.
   if (pickerState === 'show') {
     return (
-      <div style={accentStyle}>
+      <div data-app-theme={appTheme} style={accentStyle}>
         <ResumePicker
           docs={pickerDocs}
           userName={user?.name}
@@ -324,15 +334,16 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
 
   return (
     <div
-      className="flex h-screen flex-col bg-[#120B07] font-sans"
+      className="flex h-screen flex-col bg-[var(--app-bg)] font-sans"
+      data-app-theme={appTheme}
       style={accentStyle}
     >
       {/* Top Nav */}
-      <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#2D1B11] px-3 sm:px-4">
+      <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--app-border)] bg-[var(--app-panel)] px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
             title="Toggle sidebar"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -344,14 +355,14 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
             <input
               value={currentDocName}
               onChange={(e) => { setCurrentDocName(e.target.value); setIsDirty(true); setSaveState('idle') }}
-              className="min-w-0 max-w-[160px] rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none transition focus:bg-white/5 sm:max-w-[240px]"
+              className="min-w-0 max-w-[160px] rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-[var(--app-text)] outline-none transition focus:bg-[var(--app-hover)] sm:max-w-[240px]"
               placeholder="Untitled Resume"
             />
             {isDirty && (
               <span title="Unsaved changes" className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />
             )}
           </div>
-          {saveState === 'saving' && <span className="hidden text-xs text-slate-500 sm:inline">Saving...</span>}
+          {saveState === 'saving' && <span className="hidden text-xs text-[var(--app-text-3)] sm:inline">Saving...</span>}
           {saveState === 'saved' && <span className="hidden text-xs text-emerald-400 sm:inline">Saved</span>}
           {saveState === 'error' && (
             <span className="hidden text-xs text-red-400 sm:inline" title={saveError ?? ''}>Save failed</span>
@@ -361,7 +372,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
         <div className="flex shrink-0 items-center gap-1 sm:gap-2 overflow-x-auto max-w-[calc(100%-180px)] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           <button
             onClick={goWorkspace}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] sm:px-3"
             title="Back to Workspace"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -375,16 +386,16 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
               updateResume((prev) => ({ ...prev, pageSize: e.target.value as PageSize }))
             }
             title="Page size"
-            className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus:border-accent"
+            className="rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2 py-1.5 text-xs font-medium text-[var(--app-text)] outline-none transition hover:bg-[var(--app-hover-md)] focus:border-accent"
           >
             {PAGE_SIZES.map((s) => (
-              <option key={s.id} value={s.id} className="bg-[#2D1B11]">{s.label}</option>
+              <option key={s.id} value={s.id} className="bg-[var(--app-panel)]">{s.label}</option>
             ))}
           </select>
           <button
             onClick={handleSave}
             disabled={!user || saveState === 'saving'}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-50 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text)] transition hover:bg-[var(--app-hover-md)] disabled:opacity-50 sm:px-3"
             title="Save to cloud"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -395,7 +406,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           {currentDocId && (
             <button
               onClick={() => setShowShare(true)}
-              className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text)] transition hover:bg-[var(--app-hover-md)] sm:px-3"
               title="Share"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -407,7 +418,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           {currentDocId && (
             <button
               onClick={() => setShowVersionHistory(true)}
-              className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text)] transition hover:bg-[var(--app-hover-md)] sm:px-3"
               title="Version History"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -418,7 +429,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           )}
           <button
             onClick={() => setShowDocs(true)}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text)] transition hover:bg-[var(--app-hover-md)] sm:px-3"
             title="My Resumes"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -428,7 +439,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           </button>
           <Link
             href="/report"
-            className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 sm:px-3"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--app-border-md)] bg-[var(--app-hover)] px-2.5 py-1.5 text-xs font-medium text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] sm:px-3"
             title="Report Builder"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -458,6 +469,18 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
                 <span className="hidden sm:inline">Export PDF</span>
                 <span className="sm:hidden">PDF</span>
               </>
+            )}
+          </button>
+
+          <button
+            onClick={toggleAppTheme}
+            className="rounded-md p-1.5 text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
+            title={appTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {appTheme === 'dark' ? (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
             )}
           </button>
 
@@ -531,7 +554,7 @@ export default function ResumeBuilder({ onGoWorkspace, initialDocId }: { onGoWor
           />
         )}
 
-        <div className="relative flex min-w-0 flex-1 overflow-hidden bg-[#120B07]">
+        <div className="relative flex min-w-0 flex-1 overflow-hidden bg-[var(--app-bg)]">
           {/* Ambient orbs */}
           <div className="no-print pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
             <div className="anim-orb absolute rounded-full" style={{ width: 520, height: 520, top: -120, right: -120, background: 'radial-gradient(circle, rgba(201,168,76,.11) 0%, transparent 70%)', filter: 'blur(40px)' }} />
@@ -618,7 +641,7 @@ function ResumePicker({
   onGoWorkspace?: () => void
 }) {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#120B07] p-6 font-sans">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[var(--app-bg)] p-6 font-sans">
       {/* Ambient orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
         <div className="anim-orb absolute rounded-full" style={{ width: 600, height: 600, top: -180, right: -160, background: 'radial-gradient(circle, rgba(201,168,76,.14) 0%, transparent 70%)', filter: 'blur(40px)' }} />
@@ -630,10 +653,10 @@ function ResumePicker({
         <div className="mb-8 flex items-center gap-4">
           <Image src="/logoface.png" alt="BrandFox" width={44} height={44} className="h-11 w-11 shrink-0 object-contain" />
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-[var(--app-text)]">
               Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}!
             </h1>
-            <p className="mt-0.5 text-sm text-slate-400">
+            <p className="mt-0.5 text-sm text-[var(--app-text-2)]">
               Pick a resume to continue editing, or start a new one.
             </p>
           </div>
@@ -645,11 +668,11 @@ function ResumePicker({
             <button
               key={doc.id}
               onClick={() => onOpen(doc)}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-[#2D1B11] px-5 py-4 text-left transition hover:border-accent/50 hover:bg-accent/5"
+              className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-5 py-4 text-left transition hover:border-accent/50 hover:bg-accent/5"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{doc.name || 'Untitled'}</p>
-                <p className="mt-0.5 text-xs text-slate-500">{formatPickerDate(doc.updatedAt)}</p>
+                <p className="truncate text-sm font-semibold text-[var(--app-text)]">{doc.name || 'Untitled'}</p>
+                <p className="mt-0.5 text-xs text-[var(--app-text-3)]">{formatPickerDate(doc.updatedAt)}</p>
               </div>
               <span className="ml-4 shrink-0 text-xs font-medium text-accent">Open →</span>
             </button>
@@ -659,7 +682,7 @@ function ResumePicker({
         {/* New resume */}
         <button
           onClick={onNew}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-4 text-sm font-medium text-slate-400 transition hover:border-accent hover:text-accent"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--app-border-md)] py-4 text-sm font-medium text-[var(--app-text-2)] transition hover:border-accent hover:text-accent"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -671,7 +694,7 @@ function ResumePicker({
         <div className="mt-6 text-center">
           <button
             onClick={onGoWorkspace}
-            className="text-xs text-slate-500 transition hover:text-slate-300"
+            className="text-xs text-[var(--app-text-3)] transition hover:text-[var(--app-text-2)]"
           >
             ← Back to Workspace
           </button>
@@ -715,7 +738,7 @@ function UserMenu({
     <div className="relative">
       <button
         onClick={onToggle}
-        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white transition hover:bg-white/10"
+        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[var(--app-border-md)] bg-[var(--app-hover)] text-xs font-semibold text-[var(--app-text)] transition hover:bg-[var(--app-hover-md)]"
         title={user.email ?? 'Account'}
       >
         {user.image ? (
@@ -727,7 +750,7 @@ function UserMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
-          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#2D1B11] py-1 shadow-2xl">
+          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-white/10 bg-[#2D1B11] py-1 shadow-2xl" data-app-theme="dark">
             <div className="px-3 py-2 border-b border-white/10">
               <div className="truncate text-sm font-semibold text-white">
                 {user.name || user.email?.split('@')[0]}
@@ -797,7 +820,7 @@ function WelcomeModal({
 }) {
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" data-app-theme="dark">
         <div className="px-6 pt-6 pb-3">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -10,6 +10,34 @@
   --bg-tertiary: #4025255e;
 --accent-rgb: 212 175 55;}
 
+/* ── Resume Builder / main app theme tokens ──────────────────────────────── */
+[data-app-theme="dark"] {
+  --app-bg:        #120B07;
+  --app-surface:   #1C0D04;
+  --app-panel:     #2D1B11;
+  --app-border:    rgba(255,255,255,0.10);
+  --app-border-md: rgba(255,255,255,0.15);
+  --app-text:      #ffffff;
+  --app-text-2:    rgb(148 163 184);
+  --app-text-3:    rgb(100 116 139);
+  --app-input:     #120B07;
+  --app-hover:     rgba(255,255,255,0.05);
+  --app-hover-md:  rgba(255,255,255,0.10);
+}
+[data-app-theme="light"] {
+  --app-bg:        #EDE8E2;
+  --app-surface:   #F5F2EE;
+  --app-panel:     #FDFCFB;
+  --app-border:    rgba(0,0,0,0.12);
+  --app-border-md: rgba(0,0,0,0.20);
+  --app-text:      #120B07;
+  --app-text-2:    #3D2B1F;
+  --app-text-3:    #6B5040;
+  --app-input:     #FDFCFB;
+  --app-hover:     rgba(0,0,0,0.05);
+  --app-hover-md:  rgba(0,0,0,0.10);
+}
+
 /* ── Report Builder theme tokens ─────────────────────────────────────────── */
 [data-rb-theme="dark"] {
   --rb-bg:        #120B07;

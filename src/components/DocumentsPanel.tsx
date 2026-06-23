@@ -87,12 +87,12 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
 
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-2xl border border-white/10 bg-[#2D1B11] shadow-2xl" style={{ maxHeight: '80vh' }}>
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <h2 className="text-lg font-bold text-white">Resumes</h2>
+      <div className="flex w-full max-w-2xl flex-col rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-2xl" style={{ maxHeight: '80vh' }}>
+        <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-3">
+          <h2 className="text-lg font-bold text-[var(--app-text)]">Resumes</h2>
           <button
             onClick={onClose}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-[var(--app-text-2)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -101,11 +101,11 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-white/10 px-5 pt-2">
+        <div className="flex gap-1 border-b border-[var(--app-border)] px-5 pt-2">
           <button
             onClick={() => setTab('mine')}
             className={`px-3 py-2 text-xs font-medium transition ${
-              tab === 'mine' ? 'border-b-2 border-accent text-accent' : 'text-slate-400 hover:text-white'
+              tab === 'mine' ? 'border-b-2 border-accent text-accent' : 'text-[var(--app-text-2)] hover:text-[var(--app-text)]'
             }`}
           >
             My Resumes
@@ -113,7 +113,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
           <button
             onClick={() => setTab('shared')}
             className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition ${
-              tab === 'shared' ? 'border-b-2 border-accent text-accent' : 'text-slate-400 hover:text-white'
+              tab === 'shared' ? 'border-b-2 border-accent text-accent' : 'text-[var(--app-text-2)] hover:text-[var(--app-text)]'
             }`}
           >
             Shared With Me
@@ -132,7 +132,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
             <>
               <button
                 onClick={onCreateNew}
-                className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-white/20 py-3 text-sm font-medium text-slate-300 transition hover:border-accent hover:text-accent"
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-[var(--app-border-md)] py-3 text-sm font-medium text-[var(--app-text-2)] transition hover:border-accent hover:text-accent"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -146,10 +146,10 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                 </div>
               )}
 
-              {!docs && !docsError && <p className="text-sm text-slate-500">Loading...</p>}
+              {!docs && !docsError && <p className="text-sm text-[var(--app-text-3)]">Loading...</p>}
 
               {docs && docs.length === 0 && (
-                <p className="text-sm text-slate-500">No saved resumes yet. Click <span className="text-white">New Resume</span> above to start.</p>
+                <p className="text-sm text-[var(--app-text-3)]">No saved resumes yet. Click <span className="text-[var(--app-text)]">New Resume</span> above to start.</p>
               )}
 
               {docs && docs.length > 0 && (
@@ -163,7 +163,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                         className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition ${
                           isCurrent
                             ? 'border-accent bg-accent/10'
-                            : 'border-white/10 bg-[#120B07] hover:border-white/20'
+                            : 'border-[var(--app-border)] bg-[var(--app-input)] hover:border-[var(--app-border-md)]'
                         }`}
                       >
                         <div className="min-w-0 flex-1">
@@ -177,19 +177,19 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                                 if (e.key === 'Enter') commitRename(d.id)
                                 if (e.key === 'Escape') setRenamingId(null)
                               }}
-                              className="w-full rounded-md border border-white/10 bg-[#120B07] px-2 py-1 text-sm text-white outline-none focus:border-accent"
+                              className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2 py-1 text-sm text-[var(--app-text)] outline-none focus:border-accent"
                             />
                           ) : (
                             <button
                               onClick={() => onOpen(d)}
-                              className="block w-full truncate text-left text-sm font-semibold text-white hover:text-accent"
+                              className="block w-full truncate text-left text-sm font-semibold text-[var(--app-text)] hover:text-accent"
                               title="Open"
                             >
                               {d.name || 'Untitled'}
                               {isCurrent && <span className="ml-2 text-[10px] text-accent">· current</span>}
                             </button>
                           )}
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-[11px] text-[var(--app-text-3)]">
                             {formatTimestamp(d.updatedAt)}
                           </div>
                         </div>
@@ -198,7 +198,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                         <button
                           onClick={() => { setShareDocId(d.id); setShareDocName(d.name || 'Untitled') }}
                           title="Share"
-                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                          className="rounded-md p-1.5 text-[var(--app-text-3)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -210,7 +210,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                           onClick={() => handleDuplicate(d.id)}
                           disabled={!!duplicating}
                           title="Duplicate"
-                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+                          className="rounded-md p-1.5 text-[var(--app-text-3)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)] disabled:opacity-40"
                         >
                           {duplicating === d.id ? (
                             <div className="h-4 w-4 animate-spin rounded-full border border-slate-400 border-t-transparent" />
@@ -224,7 +224,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                         <button
                           onClick={() => { setRenamingId(d.id); setRenameText(d.name) }}
                           title="Rename"
-                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                          className="rounded-md p-1.5 text-[var(--app-text-3)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -233,7 +233,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                         <button
                           onClick={() => setDeleteConfirmId(d.id)}
                           title="Delete"
-                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
+                          className="rounded-md p-1.5 text-[var(--app-text-3)] transition hover:bg-red-500/10 hover:text-red-400"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
@@ -256,15 +256,15 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                 </div>
               )}
 
-              {!sharedDocs && !sharedError && <p className="text-sm text-slate-500">Loading...</p>}
+              {!sharedDocs && !sharedError && <p className="text-sm text-[var(--app-text-3)]">Loading...</p>}
 
               {sharedDocs && sharedDocs.length === 0 && (
                 <div className="py-8 text-center">
-                  <svg className="mx-auto mb-3 h-10 w-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="mx-auto mb-3 h-10 w-10 text-[var(--app-text-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
-                  <p className="text-sm text-slate-400">No shared resumes yet.</p>
-                  <p className="mt-1 text-xs text-slate-600">When someone shares a resume with you, it will appear here.</p>
+                  <p className="text-sm text-[var(--app-text-2)]">No shared resumes yet.</p>
+                  <p className="mt-1 text-xs text-[var(--app-text-3)]">When someone shares a resume with you, it will appear here.</p>
                 </div>
               )}
 
@@ -276,22 +276,22 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                       className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition ${
                         d.docId === currentDocId
                           ? 'border-accent bg-accent/10'
-                          : 'border-white/10 bg-[#120B07] hover:border-white/20'
+                          : 'border-[var(--app-border)] bg-[var(--app-input)] hover:border-[var(--app-border-md)]'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <button
                           onClick={() => onOpenShared?.(d.docId)}
-                          className="block w-full truncate text-left text-sm font-semibold text-white hover:text-accent"
+                          className="block w-full truncate text-left text-sm font-semibold text-[var(--app-text)] hover:text-accent"
                         >
                           {d.name || 'Untitled'}
                           {d.docId === currentDocId && <span className="ml-2 text-[10px] text-accent">· current</span>}
                         </button>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-[11px] text-[var(--app-text-3)]">
                           By {d.ownerEmail} · {formatTimestamp(d.updatedAt)}
                         </div>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                      <span className="shrink-0 rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--app-text-2)]">
                         {ROLE_LABELS[d.role]}
                       </span>
                       {/* Duplicate to my resumes */}
@@ -299,7 +299,7 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
                         onClick={() => handleDuplicate(d.docId)}
                         disabled={!!duplicating}
                         title="Duplicate to my resumes"
-                        className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+                        className="shrink-0 rounded-md p-1.5 text-[var(--app-text-3)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)] disabled:opacity-40"
                       >
                         {duplicating === d.docId ? (
                           <div className="h-4 w-4 animate-spin rounded-full border border-slate-400 border-t-transparent" />
@@ -321,18 +321,18 @@ export default function DocumentsPanel({ currentDocId, onOpen, onClose, onCreate
       {/* Delete confirmation dialog */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#2D1B11] p-6 shadow-2xl">
+          <div data-app-theme="dark" className="w-full max-w-sm rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] p-6 shadow-2xl">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10">
               <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h3 className="mb-1 text-base font-bold text-white">Delete this document?</h3>
-            <p className="mb-6 text-sm text-slate-400">This action cannot be undone.</p>
+            <h3 className="mb-1 text-base font-bold text-[var(--app-text)]">Delete this document?</h3>
+            <p className="mb-6 text-sm text-[var(--app-text-2)]">This action cannot be undone.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+                className="flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-hover)] py-2.5 text-sm font-medium text-[var(--app-text)] transition hover:bg-[var(--app-hover-md)]"
               >
                 Cancel
               </button>

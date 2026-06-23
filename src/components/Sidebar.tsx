@@ -65,13 +65,13 @@ function Input({
 }) {
   return (
     <div className={`flex flex-col gap-1 ${className ?? ''}`}>
-      {label && <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</label>}
+      {label && <label className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">{label}</label>}
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+        className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2.5 py-1.5 text-sm text-[var(--app-text)] placeholder-slate-500 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
       />
     </div>
   )
@@ -155,12 +155,12 @@ function Textarea({
     <div className="flex flex-col gap-1">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</label>
+          <label className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">{label}</label>
           <button
             type="button"
             onClick={insertBullet}
             title="Insert bullet (•), Enter on a bullet line continues; double Enter ends the list"
-            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 transition hover:bg-white/5 hover:text-accent"
+            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--app-text-2)] transition hover:bg-[var(--app-hover)] hover:text-accent"
           >
             • Bullet
           </button>
@@ -173,7 +173,7 @@ function Textarea({
         onKeyDown={handleKeyDown}
         rows={rows}
         placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+        className="w-full resize-none rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2.5 py-1.5 text-sm text-[var(--app-text)] placeholder-slate-500 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
         style={{ whiteSpace: 'pre-wrap' }}
       />
     </div>
@@ -192,11 +192,11 @@ function SectionHeader({
   return (
     <button
       onClick={onToggle}
-      className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-white/5"
+      className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[var(--app-hover)]"
     >
-      <span className="text-sm font-semibold text-white">{title}</span>
+      <span className="text-sm font-semibold text-[var(--app-text)]">{title}</span>
       <svg
-        className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        className={`h-4 w-4 text-[var(--app-text-2)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -218,7 +218,7 @@ function Accordion({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border-b border-white/10">
+    <div className="border-b border-[var(--app-border)]">
       <SectionHeader title={title} open={open} onToggle={() => setOpen(!open)} />
       <div className={`accordion-content ${open ? 'open' : 'closed'}`}>
         <div className="px-4 pb-4 pt-1">{children}</div>
@@ -268,7 +268,7 @@ function ArrangeAddBar({
     <div className="flex gap-2">
       <button
         onClick={onAdd}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-white/20 py-2 text-sm text-slate-400 transition hover:border-accent hover:text-accent"
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--app-border-md)] py-2 text-sm text-[var(--app-text-2)] transition hover:border-accent hover:text-accent"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -282,7 +282,7 @@ function ArrangeAddBar({
           className={`flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition ${
             arranging
               ? 'border-accent bg-accent/10 text-accent'
-              : 'border-white/20 text-slate-400 hover:border-accent hover:text-accent'
+              : 'border-[var(--app-border-md)] text-[var(--app-text-2)] hover:border-accent hover:text-accent'
           }`}
         >
           {arranging ? (
@@ -309,16 +309,16 @@ function ArrangeRow({
   label: string
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#2D1B11] px-3 py-2.5">
+    <div className="flex items-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2.5">
       <span
         {...dragProps}
-        className="drag-handle cursor-grab text-slate-500 hover:text-slate-300"
+        className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
         </svg>
       </span>
-      <span className="flex-1 truncate text-sm text-slate-300">{label || 'Untitled'}</span>
+      <span className="flex-1 truncate text-sm text-[var(--app-text-2)]">{label || 'Untitled'}</span>
     </div>
   )
 }
@@ -394,8 +394,8 @@ function PhotoEditor({
         className="w-full max-w-xs rounded-xl border border-[rgba(201,168,76,.2)] bg-[#150F23] p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-0.5 text-sm font-semibold text-white">Adjust Photo</h3>
-        <p className="mb-4 text-[11px] text-slate-500">Drag to reposition · Slider to zoom</p>
+        <h3 className="mb-0.5 text-sm font-semibold text-[var(--app-text)]">Adjust Photo</h3>
+        <p className="mb-4 text-[11px] text-[var(--app-text-3)]">Drag to reposition · Slider to zoom</p>
 
         {/* Circular preview / drag area */}
         <div
@@ -434,14 +434,14 @@ function PhotoEditor({
 
         {/* Zoom controls */}
         <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="mb-1.5 flex items-center justify-between text-[11px] text-[var(--app-text-2)]">
             <span>Zoom</span>
             <span>{Math.round(scale * 100)}%</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setScale((s) => Math.max(0.5, Math.round((s - 0.1) * 100) / 100))}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-white/10 text-sm text-slate-300 transition hover:border-accent hover:text-white"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-[var(--app-border)] text-sm text-[var(--app-text-2)] transition hover:border-accent hover:text-accent"
             >−</button>
             <input
               type="range" min={0.5} max={3} step={0.05}
@@ -451,14 +451,14 @@ function PhotoEditor({
             />
             <button
               onClick={() => setScale((s) => Math.min(3, Math.round((s + 0.1) * 100) / 100))}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-white/10 text-sm text-slate-300 transition hover:border-accent hover:text-white"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-[var(--app-border)] text-sm text-[var(--app-text-2)] transition hover:border-accent hover:text-accent"
             >+</button>
           </div>
         </div>
 
         <button
           onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }) }}
-          className="mt-2 text-[11px] text-slate-600 transition hover:text-slate-400"
+          className="mt-2 text-[11px] text-[var(--app-text-3)] transition hover:text-[var(--app-text-2)]"
         >
           Reset position
         </button>
@@ -466,7 +466,7 @@ function PhotoEditor({
         <div className="mt-4 flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-md border border-white/10 py-2 text-sm text-slate-300 transition hover:bg-white/5"
+            className="flex-1 rounded-md border border-[var(--app-border)] py-2 text-sm text-[var(--app-text-2)] transition hover:bg-[var(--app-hover)]"
           >Cancel</button>
           <button
             onClick={apply}
@@ -521,11 +521,11 @@ function PersonalSection({ resume, updateResume }: Pick<SidebarProps, 'resume' |
       <div className="flex flex-col gap-3">
         {/* Photo */}
         <div className="flex items-center gap-3">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-[#252540]">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--app-border-md)] bg-[#252540]">
             {p.photo ? (
               <img src={p.photo} alt="Photo" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-slate-500">
+              <div className="flex h-full w-full items-center justify-center text-[var(--app-text-3)]">
                 <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
@@ -533,7 +533,7 @@ function PersonalSection({ resume, updateResume }: Pick<SidebarProps, 'resume' |
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="cursor-pointer rounded-md border border-white/20 px-2.5 py-1 text-xs text-slate-300 transition hover:border-accent hover:text-white">
+            <label className="cursor-pointer rounded-md border border-[var(--app-border-md)] px-2.5 py-1 text-xs text-[var(--app-text-2)] transition hover:border-accent hover:text-accent">
               {p.photo ? 'Replace Photo' : 'Upload Photo'}
               <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
             </label>
@@ -632,21 +632,21 @@ function ExperienceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={exp.position || exp.company || 'New Experience'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
-                  <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]">
+                  <div className="flex items-center justify-between border-b border-[var(--app-border)] px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
+                      <span {...dragProps} className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                         </svg>
                       </span>
-                      <span className="text-xs font-medium text-slate-300">
+                      <span className="text-xs font-medium text-[var(--app-text-2)]">
                         {exp.position || exp.company || 'New Experience'}
                       </span>
                     </div>
                     <button
                       onClick={() => removeItem(exp.id)}
-                      className="text-slate-500 transition hover:text-red-400"
+                      className="text-[var(--app-text-3)] transition hover:text-red-400"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -665,7 +665,7 @@ function ExperienceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
                         <Input label="End Date" value={exp.endDate} onChange={(v) => setField(exp.id, 'endDate', v)} type="month" />
                       )}
                     </div>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--app-text-2)]">
                       <input
                         type="checkbox"
                         checked={exp.current}
@@ -752,15 +752,15 @@ function EducationSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={edu.institution || 'New Education'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
-                  <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]">
+                  <div className="flex items-center justify-between border-b border-[var(--app-border)] px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
+                      <span {...dragProps} className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
                       </span>
-                      <span className="text-xs font-medium text-slate-300">{edu.institution || 'New Education'}</span>
+                      <span className="text-xs font-medium text-[var(--app-text-2)]">{edu.institution || 'New Education'}</span>
                     </div>
-                    <button onClick={() => removeItem(edu.id)} className="text-slate-500 hover:text-red-400">
+                    <button onClick={() => removeItem(edu.id)} className="text-[var(--app-text-3)] hover:text-red-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -774,7 +774,7 @@ function EducationSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                       <Input label="Start Date" value={edu.startDate} onChange={(v) => setField(edu.id, 'startDate', v)} type="month" />
                       {!edu.current && <Input label="End Date" value={edu.endDate} onChange={(v) => setField(edu.id, 'endDate', v)} type="month" />}
                     </div>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--app-text-2)]">
                       <input type="checkbox" checked={edu.current} onChange={(e) => setField(edu.id, 'current', e.target.checked)} className="accent-accent" />
                       Currently attending
                     </label>
@@ -875,18 +875,18 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={group.category || 'Untitled Group'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
-                  <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-                    <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
+                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]">
+                  <div className="flex items-center justify-between border-b border-[var(--app-border)] px-3 py-2">
+                    <span {...dragProps} className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
                     </span>
                     <input
                       value={group.category}
                       onChange={(e) => setGroupCategory(group.id, e.target.value)}
                       placeholder="Category (e.g. Languages)"
-                      className="ml-2 flex-1 bg-transparent text-xs font-medium text-white placeholder-slate-500 outline-none"
+                      className="ml-2 flex-1 bg-transparent text-xs font-medium text-[var(--app-text)] placeholder-slate-500 outline-none"
                     />
-                    <button onClick={() => removeGroup(group.id)} className="ml-2 text-slate-500 hover:text-red-400">
+                    <button onClick={() => removeGroup(group.id)} className="ml-2 text-[var(--app-text-3)] hover:text-red-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -897,7 +897,7 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
                           value={skill.name}
                           onChange={(e) => setSkill(group.id, skill.id, 'name', e.target.value)}
                           placeholder="Skill name"
-                          className="w-28 rounded-md border border-white/10 bg-[#120B07] px-2 py-1 text-xs text-white placeholder-slate-600 outline-none focus:border-accent"
+                          className="w-28 rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2 py-1 text-xs text-[var(--app-text)] placeholder-slate-500 outline-none focus:border-accent"
                         />
                         <input
                           type="range"
@@ -907,8 +907,8 @@ function SkillsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' | '
                           onChange={(e) => setSkill(group.id, skill.id, 'level', parseInt(e.target.value))}
                           className="flex-1"
                         />
-                        <span className="w-8 text-right text-xs text-slate-400">{skill.level}%</span>
-                        <button onClick={() => removeSkill(group.id, skill.id)} className="text-slate-500 hover:text-red-400">
+                        <span className="w-8 text-right text-xs text-[var(--app-text-2)]">{skill.level}%</span>
+                        <button onClick={() => removeSkill(group.id, skill.id)} className="text-[var(--app-text-3)] hover:text-red-400">
                           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
@@ -979,15 +979,15 @@ function ProjectsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' |
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={proj.name || 'New Project'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#2D1B11]">
-                  <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]">
+                  <div className="flex items-center justify-between border-b border-[var(--app-border)] px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
+                      <span {...dragProps} className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
                       </span>
-                      <span className="text-xs font-medium text-slate-300">{proj.name || 'New Project'}</span>
+                      <span className="text-xs font-medium text-[var(--app-text-2)]">{proj.name || 'New Project'}</span>
                     </div>
-                    <button onClick={() => removeItem(proj.id)} className="text-slate-500 hover:text-red-400">
+                    <button onClick={() => removeItem(proj.id)} className="text-[var(--app-text-3)] hover:text-red-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -1053,15 +1053,15 @@ function CertificationsSection({ resume, updateResume }: Pick<SidebarProps, 'res
               {(dragProps) => arranging ? (
                 <ArrangeRow dragProps={dragProps} label={cert.name || 'New Certification'} />
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#2D1B11] p-3">
+                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
+                      <span {...dragProps} className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
                       </span>
-                      <span className="text-xs font-medium text-slate-300">{cert.name || 'New Certification'}</span>
+                      <span className="text-xs font-medium text-[var(--app-text-2)]">{cert.name || 'New Certification'}</span>
                     </div>
-                    <button onClick={() => removeItem(cert.id)} className="text-slate-500 hover:text-red-400">
+                    <button onClick={() => removeItem(cert.id)} className="text-[var(--app-text-3)] hover:text-red-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -1130,16 +1130,16 @@ function LanguagesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                     value={lang.language}
                     onChange={(e) => setField(lang.id, 'language', e.target.value)}
                     placeholder="Language"
-                    className="flex-1 rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white placeholder-slate-600 outline-none focus:border-accent"
+                    className="flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2.5 py-1.5 text-sm text-[var(--app-text)] placeholder-slate-500 outline-none focus:border-accent"
                   />
                   <select
                     value={lang.proficiency}
                     onChange={(e) => setField(lang.id, 'proficiency', e.target.value)}
-                    className="rounded-md border border-white/10 bg-[#120B07] px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
+                    className="rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2 py-1.5 text-sm text-[var(--app-text)] outline-none focus:border-accent"
                   >
                     {proficiencies.map((p) => <option key={p}>{p}</option>)}
                   </select>
-                  <button onClick={() => removeItem(lang.id)} className="text-slate-500 hover:text-red-400">
+                  <button onClick={() => removeItem(lang.id)} className="text-[var(--app-text-3)] hover:text-red-400">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
@@ -1201,14 +1201,14 @@ function InterestsSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
       ) : (
         <div className="flex flex-wrap gap-2">
           {resume.interests.map((int) => (
-            <div key={int.id} className="flex items-center gap-1 rounded-full border border-white/10 bg-[#2D1B11] pl-2.5 pr-1 py-1">
+            <div key={int.id} className="flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] pl-2.5 pr-1 py-1">
               <input
                 value={int.name}
                 onChange={(e) => setName(int.id, e.target.value)}
                 placeholder="Interest"
-                className="bg-transparent text-xs text-white outline-none w-20"
+                className="bg-transparent text-xs text-[var(--app-text)] outline-none w-20"
               />
-              <button onClick={() => removeItem(int.id)} className="text-slate-500 hover:text-red-400">
+              <button onClick={() => removeItem(int.id)} className="text-[var(--app-text-3)] hover:text-red-400">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -1228,7 +1228,7 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
     <div className="flex flex-col gap-4">
       {/* Color themes */}
       <div>
-        <label className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-slate-400">Accent Color</label>
+        <label className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">Accent Color</label>
         <div className="flex flex-wrap gap-2">
           {COLOR_THEMES.map((theme) => (
             <button
@@ -1242,14 +1242,14 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
             />
           ))}
           {/* Custom color */}
-          <label className="relative h-7 w-7 cursor-pointer overflow-hidden rounded-full border border-white/20 transition hover:scale-110">
+          <label className="relative h-7 w-7 cursor-pointer overflow-hidden rounded-full border border-[var(--app-border-md)] transition hover:scale-110">
             <input
               type="color"
               value={resume.accentColor}
               onChange={(e) => updateResume((prev) => ({ ...prev, accentColor: e.target.value }))}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
-            <div className="flex h-full w-full items-center justify-center text-slate-400">
+            <div className="flex h-full w-full items-center justify-center text-[var(--app-text-2)]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
             </div>
           </label>
@@ -1258,11 +1258,11 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
 
       {/* Font family */}
       <div>
-        <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">Font Family</label>
+        <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">Font Family</label>
         <select
           value={t.fontFamily}
           onChange={(e) => updateResume((prev) => ({ ...prev, typography: { ...prev.typography, fontFamily: e.target.value } }))}
-          className="w-full rounded-md border border-white/10 bg-[#120B07] px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent"
+          className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-input)] px-2.5 py-1.5 text-sm text-[var(--app-text)] outline-none focus:border-accent"
         >
           {FONT_FAMILIES.map((f) => <option key={f}>{f}</option>)}
         </select>
@@ -1271,8 +1271,8 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
       {/* Font size */}
       <div>
         <div className="mb-1.5 flex justify-between">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Font Size</label>
-          <span className="text-xs text-slate-400">{t.fontSize}px</span>
+          <label className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">Font Size</label>
+          <span className="text-xs text-[var(--app-text-2)]">{t.fontSize}px</span>
         </div>
         <input
           type="range" min={8} max={13} step={0.5} value={t.fontSize}
@@ -1284,8 +1284,8 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
       {/* Line height */}
       <div>
         <div className="mb-1.5 flex justify-between">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Line Height</label>
-          <span className="text-xs text-slate-400">{t.lineHeight.toFixed(1)}</span>
+          <label className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">Line Height</label>
+          <span className="text-xs text-[var(--app-text-2)]">{t.lineHeight.toFixed(1)}</span>
         </div>
         <input
           type="range" min={1.0} max={2.0} step={0.1} value={t.lineHeight}
@@ -1297,8 +1297,8 @@ function AppearanceSection({ resume, updateResume }: Pick<SidebarProps, 'resume'
       {/* Letter spacing */}
       <div>
         <div className="mb-1.5 flex justify-between">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Letter Spacing</label>
-          <span className="text-xs text-slate-400">{t.letterSpacing.toFixed(2)}em</span>
+          <label className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">Letter Spacing</label>
+          <span className="text-xs text-[var(--app-text-2)]">{t.letterSpacing.toFixed(2)}em</span>
         </div>
         <input
           type="range" min={-0.05} max={0.15} step={0.01} value={t.letterSpacing}
@@ -1334,17 +1334,17 @@ function SectionsManager({ resume, updateResume }: Pick<SidebarProps, 'resume' |
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-slate-500">Drag to reorder · Toggle visibility</p>
+      <p className="text-xs text-[var(--app-text-3)]">Drag to reorder · Toggle visibility</p>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={resume.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           {resume.sections.map((sec) => (
             <SortableItem key={sec.id} id={sec.id}>
               {(dragProps) => (
-                <div className="flex items-center gap-2 rounded-md border border-white/10 bg-[#2D1B11] px-3 py-2">
-                  <span {...dragProps} className="drag-handle cursor-grab text-slate-500 hover:text-slate-300">
+                <div className="flex items-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2">
+                  <span {...dragProps} className="drag-handle cursor-grab text-[var(--app-text-3)] hover:text-[var(--app-text-2)]">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
                   </span>
-                  <span className="flex-1 text-sm text-slate-300">{sec.title}</span>
+                  <span className="flex-1 text-sm text-[var(--app-text-2)]">{sec.title}</span>
                   <button
                     onClick={() => toggleVisible(sec.id)}
                     className={`transition ${sec.visible ? 'text-accent' : 'text-slate-600'}`}
@@ -1396,16 +1396,16 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-md border border-accent/30 bg-accent/5 p-3 text-xs text-slate-300">
+      <div className="rounded-md border border-accent/30 bg-accent/5 p-3 text-xs text-[var(--app-text-2)]">
         <p className="font-semibold text-accent mb-1">Step 1: Pick your industry</p>
-        <p className="text-slate-400">
+        <p className="text-[var(--app-text-2)]">
           We&apos;ll show templates tuned for that field. Switching templates never overwrites your data.
         </p>
       </div>
 
       {/* Industry chips */}
       <div>
-        <label className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-slate-400">
+        <label className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">
           Industry
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -1419,7 +1419,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                   active
                     ? 'bg-accent text-white'
-                    : 'border border-white/10 bg-[#120B07] text-slate-300 hover:border-accent hover:text-white'
+                    : 'border border-[var(--app-border)] bg-[var(--app-input)] text-[var(--app-text-2)] hover:border-accent hover:text-accent'
                 }`}
               >
                 {ind.label}
@@ -1432,13 +1432,13 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
       {/* Template gallery */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-text-2)]">
             Templates ({filtered.length})
           </label>
-          <span className="text-[10px] text-slate-500">Step 2, Pick a layout</span>
+          <span className="text-[10px] text-[var(--app-text-3)]">Step 2, Pick a layout</span>
         </div>
         {filtered.length === 0 ? (
-          <p className="text-xs text-slate-500">No templates match this industry yet.</p>
+          <p className="text-xs text-[var(--app-text-3)]">No templates match this industry yet.</p>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
             {filtered.map((tpl) => {
@@ -1450,13 +1450,13 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                   className={`group relative flex flex-col gap-2 rounded-lg border p-2 text-left transition ${
                     active
                       ? 'border-accent bg-accent/10 ring-1 ring-accent'
-                      : 'border-white/10 bg-[#120B07] hover:border-accent/60'
+                      : 'border-[var(--app-border)] bg-[var(--app-input)] hover:border-accent/60'
                   }`}
                 >
                   <TemplateThumb id={tpl.id} accentColor={resume.accentColor} />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-white">{tpl.name}</span>
+                      <span className="text-xs font-semibold text-[var(--app-text)]">{tpl.name}</span>
                       {tpl.ats && (
                         <span
                           className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300"
@@ -1466,7 +1466,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-[10px] leading-snug text-slate-400">
+                    <p className="mt-0.5 text-[10px] leading-snug text-[var(--app-text-2)]">
                       {tpl.description}
                     </p>
                   </div>
@@ -1484,7 +1484,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
         )}
       </div>
 
-      <p className="rounded-md border border-white/5 bg-white/5 p-2 text-[10px] leading-snug text-slate-400">
+      <p className="rounded-md border border-[var(--app-border)] bg-[var(--app-hover)] p-2 text-[10px] leading-snug text-[var(--app-text-2)]">
         💡 Your content (experience, skills, etc.) stays the same when you switch templates, only the
         layout changes.
       </p>
@@ -1493,7 +1493,7 @@ function TemplatesSection({ resume, updateResume }: Pick<SidebarProps, 'resume' 
 }
 
 function TemplateThumb({ id, accentColor }: { id: TemplateId; accentColor: string }) {
-  const cls = 'h-20 w-full rounded border border-white/10 overflow-hidden bg-white'
+  const cls = 'h-20 w-full rounded border border-[var(--app-border)] overflow-hidden bg-white'
   switch (id) {
     case 'modern-gradient':
       return (
@@ -1679,11 +1679,11 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
   const compact = hasPanel
 
   return (
-    <div className="flex h-full border-r border-white/10 bg-[#2D1B11]">
+    <div className="flex h-full border-r border-[var(--app-border)] bg-[var(--app-panel)]">
       {/* Vertical rail */}
       <nav
         aria-label="Sections"
-        className={`flex shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-white/10 bg-[#120B07] panel-scroll transition-all duration-300 ${
+        className={`flex shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-[var(--app-border)] bg-[var(--app-bg)] panel-scroll transition-all duration-300 ${
           compact
             ? 'w-[60px] sm:w-[100px] px-1 sm:px-2 py-3'
             : 'w-[60px] sm:w-[200px] px-1 sm:px-3 py-4'
@@ -1704,7 +1704,7 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
               } ${
                 active
                   ? 'bg-accent/15 text-accent'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  : 'text-[var(--app-text-2)] hover:bg-[var(--app-hover)] hover:text-[var(--app-text)]'
               }`}
             >
               {active && (
@@ -1731,15 +1731,15 @@ export default function Sidebar({ resume, updateResume, activeSection, setActive
       {/* Content panel, only when a section is selected */}
       {hasPanel && (
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-3">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--app-border)] px-5 py-3">
             <div className="flex items-center gap-2.5">
               <span className="text-accent">{activeMeta!.icon}</span>
-              <span className="text-base font-semibold text-white">{activeMeta!.label}</span>
+              <span className="text-base font-semibold text-[var(--app-text)]">{activeMeta!.label}</span>
             </div>
             <button
               onClick={() => setActiveSection('')}
               title="Close panel"
-              className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+              className="rounded-md p-1.5 text-[var(--app-text-3)] transition hover:bg-[var(--app-hover-md)] hover:text-[var(--app-text)]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
